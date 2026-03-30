@@ -13,8 +13,8 @@ class ApiService extends GetxService {
   Future<ApiService> init() async {
     _dio = Dio(BaseOptions(
       baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -44,6 +44,12 @@ class ApiService extends GetxService {
         debugPrint('[API ERROR] Status: ${error.response?.statusCode}');
         
         if (error.response?.statusCode == 401) {
+          // If we're on the login page, don't try to refresh — just forward the error
+          final currentRoute = Get.currentRoute;
+          if (currentRoute == AppRoutes.login) {
+            return handler.next(error);
+          }
+
           final refreshed = await _tryRefreshToken();
           if (refreshed) {
             final opts = error.requestOptions;
@@ -56,7 +62,7 @@ class ApiService extends GetxService {
               return handler.next(error);
             }
           } else {
-            // Refresh failed or no refresh token - clear and redirect IF NOT in signup (to keep draft accessible)
+            // Refresh failed or no refresh token
             final route = Get.currentRoute;
             final inTransition = route.contains('signup');
             
@@ -74,10 +80,10 @@ class ApiService extends GetxService {
               }
             } else {
               debugPrint('[API 401] Token expired during signup and refresh failed.');
-              return handler.next(error);
             }
+            // Always forward the error so callers can handle it
+            return handler.next(error);
           }
-          return;
         }
 
         // 2. Handle Network Retries (Connection issues)

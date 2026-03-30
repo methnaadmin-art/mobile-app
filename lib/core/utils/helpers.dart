@@ -47,6 +47,11 @@ class Helpers {
           return 'no_internet'.tr;
       }
     }
+    // For non-Dio exceptions, show the actual message in debug builds
+    if (e is Exception) {
+      final msg = e.toString();
+      debugPrint('[extractErrorMessage] Non-Dio error: $msg');
+    }
     return 'something_went_wrong'.tr;
   }
 

@@ -1,3 +1,19 @@
+// Safe parsers — backend may return String or num for numeric fields
+int _safeInt(dynamic v, [int fallback = 0]) {
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
+double? _safeDouble(dynamic v) {
+  if (v == null) return null;
+  if (v is double) return v;
+  if (v is int) return v.toDouble();
+  if (v is String) return double.tryParse(v);
+  return null;
+}
+
 class UserModel {
   final String id;
   final String? username;
@@ -73,9 +89,9 @@ class UserModel {
       selfieUrl: json['selfieUrl'],
       documentUrl: json['documentUrl'],
       isShadowBanned: json['isShadowBanned'] ?? false,
-      trustScore: json['trustScore'] ?? 100,
-      flagCount: json['flagCount'] ?? 0,
-      deviceCount: json['deviceCount'] ?? 0,
+      trustScore: _safeInt(json['trustScore'], 100),
+      flagCount: _safeInt(json['flagCount']),
+      deviceCount: _safeInt(json['deviceCount']),
       notificationsEnabled: json['notificationsEnabled'] ?? true,
       lastKnownIp: json['lastKnownIp'],
       lastLoginAt: json['lastLoginAt'] != null ? DateTime.parse(json['lastLoginAt']) : null,
@@ -88,8 +104,8 @@ class UserModel {
       subscription: json['subscription'] != null
           ? SubscriptionModel.fromJson(json['subscription'])
           : null,
-      sentComplimentsCount: json['sentComplimentsCount'] ?? 0,
-      profileBoostsCount: json['profileBoostsCount'] ?? 0,
+      sentComplimentsCount: _safeInt(json['sentComplimentsCount']),
+      profileBoostsCount: _safeInt(json['profileBoostsCount']),
     );
   }
 
@@ -296,8 +312,8 @@ class ProfileModel {
       nationalities: json['nationalities'] != null ? List<String>.from(json['nationalities']) : null,
       city: json['city'],
       country: json['country'],
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
+      latitude: _safeDouble(json['latitude']),
+      longitude: _safeDouble(json['longitude']),
       religiousLevel: json['religiousLevel'],
       sect: json['sect'],
       prayerFrequency: json['prayerFrequency'],
@@ -309,8 +325,8 @@ class ProfileModel {
       educationDetails: json['educationDetails'],
       jobTitle: json['jobTitle'],
       company: json['company'],
-      height: json['height'],
-      weight: json['weight'],
+      height: json['height'] != null ? _safeInt(json['height']) : null,
+      weight: json['weight'] != null ? _safeInt(json['weight']) : null,
       livingSituation: json['livingSituation'],
       communicationStyle: json['communicationStyle'],
       alcohol: json['alcohol'],
@@ -327,7 +343,7 @@ class ProfileModel {
       familyPlans: json['familyPlans'],
       familyValues: json['familyValues'] != null ? List<String>.from(json['familyValues']) : null,
       hasChildren: json['hasChildren'],
-      numberOfChildren: json['numberOfChildren'],
+      numberOfChildren: json['numberOfChildren'] != null ? _safeInt(json['numberOfChildren']) : null,
       wantsChildren: json['wantsChildren'],
       willingToRelocate: json['willingToRelocate'],
       interests: json['interests'] != null ? List<String>.from(json['interests']) : null,
@@ -341,8 +357,8 @@ class ProfileModel {
       showDistance: json['showDistance'] ?? true,
       showOnlineStatus: json['showOnlineStatus'] ?? true,
       showLastSeen: json['showLastSeen'] ?? true,
-      profileCompletionPercentage: (json['profileCompletionPercentage'] as num?)?.toInt() ?? 0,
-      activityScore: (json['activityScore'] as num?)?.toInt() ?? 0,
+      profileCompletionPercentage: _safeInt(json['profileCompletionPercentage']),
+      activityScore: _safeInt(json['activityScore']),
       isComplete: json['isComplete'] ?? false,
     );
   }
@@ -444,7 +460,7 @@ class PhotoModel {
       publicId: json['publicId'],
       isMain: json['isMain'] ?? false,
       isSelfieVerification: json['isSelfieVerification'] ?? false,
-      order: json['order'] ?? 0,
+      order: _safeInt(json['order']),
       moderationStatus: json['moderationStatus'] ?? 'approved',
       moderationNote: json['moderationNote'],
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,

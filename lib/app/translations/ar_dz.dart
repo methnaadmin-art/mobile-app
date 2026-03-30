@@ -623,4 +623,19 @@ const Map<String, String> arDZ = {
 
   'blocked': 'محظور',
 
+  // ─── Username Validation (additional) ─────────────────────
+  'username_taken': 'اسم المستخدم هذا مستخدم بالفعل',
+  'username_check_fail': 'تعذر التحقق من توفر اسم المستخدم',
+  'username_not_available': 'اسم المستخدم هذا غير متاح',
+  'checking_username': 'يرجى الانتظار بينما نتحقق من توفر اسم المستخدم',
+
+  // ─── Login Messages ─────────────────────────────────────
+  'login_success': 'تم تسجيل الدخول بنجاح!',
+  'login_redirect_home': 'يرجى الانتظار.\nسيتم توجيهك إلى الصفحة الرئيسية.',
+  'login_redirect_complete_profile': 'يرجى الانتظار.\nيجب عليك إكمال إعداد ملفك الشخصي.',
+
+  // ─── Google Sign-In ─────────────────────────────────────
+  'continue_with_google': 'المتابعة مع جوجل',
+  'google_signin_failed': 'فشل تسجيل الدخول بجوجل',
+  
 };

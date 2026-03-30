@@ -35,6 +35,7 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
   @override
   void initState() {
     super.initState();
+    controller.syncStep(AppRoutes.signupSelfie);
     _initializeCamera();
     _initializeFaceDetector();
   }

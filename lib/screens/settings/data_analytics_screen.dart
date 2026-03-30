@@ -52,7 +52,7 @@ class DataAnalyticsScreen extends GetView<AnalyticsController> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
-                childAspectRatio: 1.5,
+                childAspectRatio: 1.3,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [

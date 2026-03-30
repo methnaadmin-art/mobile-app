@@ -91,7 +91,7 @@ class SubscriptionScreen extends StatelessWidget {
                   children: [
                     _StatItem(label: 'Likes Left', value: monetization.isUnlimitedLikes.value ? '∞' : '${monetization.remainingLikes.value}', color: AppColors.like),
                     Container(width: 1, height: 30, color: Colors.white24),
-                    _StatItem(label: 'Plan', value: subscription.currentPlan.value.capitalize ?? 'Free', color: AppColors.superLike),
+                    _StatItem(label: 'Plan', value: subscription.currentPlan.value.capitalize ?? 'Free', color: AppColors.gold),
                     Container(width: 1, height: 30, color: Colors.white24),
                     _StatItem(label: 'Boosted', value: monetization.isBoosted.value ? 'Yes' : 'No', color: AppColors.boost),
                   ],
@@ -177,21 +177,6 @@ class SubscriptionScreen extends StatelessWidget {
               Expanded(child: _BoostOption(count: 5, price: '\$9.99', isDark: isDark, isBestValue: true)),
               const SizedBox(width: 10),
               Expanded(child: _BoostOption(count: 10, price: '\$14.99', isDark: isDark)),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // Super Likes section
-          const Text('Super Likes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: _SuperLikeOption(count: 5, price: '\$3.99', isDark: isDark)),
-              const SizedBox(width: 10),
-              Expanded(child: _SuperLikeOption(count: 15, price: '\$8.99', isDark: isDark, isBestValue: true)),
-              const SizedBox(width: 10),
-              Expanded(child: _SuperLikeOption(count: 30, price: '\$14.99', isDark: isDark)),
             ],
           ),
 
@@ -386,40 +371,3 @@ class _BoostOption extends StatelessWidget {
   }
 }
 
-class _SuperLikeOption extends StatelessWidget {
-  final int count;
-  final String price;
-  final bool isDark;
-  final bool isBestValue;
-  const _SuperLikeOption({required this.count, required this.price, required this.isDark, this.isBestValue = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.cardDark : AppColors.dividerLight,
-          borderRadius: BorderRadius.circular(14),
-          border: isBestValue ? Border.all(color: AppColors.superLike, width: 2) : null,
-        ),
-        child: Column(
-          children: [
-            if (isBestValue)
-              Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: AppColors.superLike, borderRadius: BorderRadius.circular(6)),
-                child: const Text('BEST', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
-              ),
-            const Icon(LucideIcons.star, color: AppColors.superLike, size: 28),
-            const SizedBox(height: 4),
-            Text('$count', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            Text(price, style: TextStyle(fontSize: 13, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
-          ],
-        ),
-      ),
-    );
-  }
-}

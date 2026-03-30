@@ -20,27 +20,109 @@ class AuthService extends GetxService {
 
   // ─── Login ─────────────────────────────────────────────────
   Future<UserModel> login(String email, String password) async {
+    // Let DioExceptions propagate naturally for proper error display
     final response = await _api.post(ApiConstants.login, data: {
       'email': email,
       'password': password,
     });
 
+    try {
+      final data = response.data;
+      debugPrint('[AuthService] Login response type: ${data.runtimeType}');
+      debugPrint('[AuthService] Login response data: $data');
+      
+      if (data == null) {
+        throw Exception('Login response is null');
+      }
+      
+      final accessToken = data['accessToken'];
+      final refreshToken = data['refreshToken'];
+      final userData = data['user'];
+      
+      debugPrint('[AuthService] accessToken present: ${accessToken != null}');
+      debugPrint('[AuthService] userData present: ${userData != null}');
+      
+      if (accessToken == null) {
+        throw Exception('No access token in response. Keys: ${data is Map ? data.keys.toList() : 'not a map'}');
+      }
+      
+      await _storage.saveToken(accessToken);
+      if (refreshToken != null) {
+        await _storage.saveRefreshToken(refreshToken);
+      }
+
+      if (userData == null) {
+        throw Exception('No user data in response. Keys: ${data is Map ? data.keys.toList() : 'not a map'}');
+      }
+      
+      final user = UserModel.fromJson(userData);
+      currentUser.value = user;
+      await _storage.saveUser(userData);
+      isLoggedIn.value = true;
+
+      // Hydrate user data to ensure all nested fields are synced
+      try {
+        await fetchMe();
+      } catch (e) {
+        debugPrint('[AuthService] Login hydration failed: $e');
+      }
+
+      _onAuthenticated();
+      return currentUser.value!;
+    } catch (e) {
+      debugPrint('[AuthService] Login post-response error: $e');
+      rethrow;
+    }
+  }
+
+  // ─── Google Sign-In ─────────────────────────────────────────
+  Future<UserModel> googleSignIn({
+    required String idToken,
+    required String email,
+    String? displayName,
+    String? photoUrl,
+  }) async {
+    final response = await _api.post(ApiConstants.googleSignIn, data: {
+      'idToken': idToken,
+      'email': email,
+      'displayName': displayName,
+      'photoUrl': photoUrl,
+    });
+
     final data = response.data;
-    await _storage.saveToken(data['accessToken']);
-    if (data['refreshToken'] != null) {
-      await _storage.saveRefreshToken(data['refreshToken']);
+    debugPrint('[AuthService] Google sign-in response data: $data');
+    
+    if (data == null) {
+      throw Exception('Google sign-in response is null');
+    }
+    
+    final accessToken = data['accessToken'];
+    final refreshToken = data['refreshToken'];
+    final userData = data['user'];
+    
+    if (accessToken == null) {
+      throw Exception('No access token in Google sign-in response');
+    }
+    
+    await _storage.saveToken(accessToken);
+    if (refreshToken != null) {
+      await _storage.saveRefreshToken(refreshToken);
     }
 
-    final user = UserModel.fromJson(data['user']);
+    if (userData == null) {
+      throw Exception('No user data in Google sign-in response');
+    }
+    
+    final user = UserModel.fromJson(userData);
     currentUser.value = user;
-    await _storage.saveUser(data['user']);
+    await _storage.saveUser(userData);
     isLoggedIn.value = true;
 
     // Hydrate user data to ensure all nested fields are synced
     try {
       await fetchMe();
     } catch (e) {
-      debugPrint('[AuthService] Login hydration failed: $e');
+      debugPrint('[AuthService] Google sign-in hydration failed: $e');
     }
 
     _onAuthenticated();
@@ -170,6 +252,16 @@ class AuthService extends GetxService {
     final token = await _storage.getToken();
     if (token == null) return false;
     
+    // Instantly hydrate from local cache so UI has data while we fetch
+    final cachedUser = _storage.getUser();
+    if (cachedUser != null) {
+      try {
+        currentUser.value = UserModel.fromJson(cachedUser);
+        isLoggedIn.value = true;
+        debugPrint('[AuthService] Hydrated user from local cache instantly');
+      } catch (_) {}
+    }
+
     try {
       debugPrint('[AuthService] Restoring session via fetchMe...');
       await fetchMe();
@@ -182,7 +274,14 @@ class AuthService extends GetxService {
       // If it's still failing, the session is dead.
       if (e is DioException && e.response?.statusCode == 401) {
         await _storage.clearTokens();
+        currentUser.value = null;
         isLoggedIn.value = false;
+        return false;
+      }
+      // For non-401 errors (e.g. network), keep cached user and allow entry
+      if (currentUser.value != null) {
+        _onAuthenticated();
+        return true;
       }
       return false;
     }

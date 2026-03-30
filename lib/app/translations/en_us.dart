@@ -599,4 +599,21 @@ const Map<String, String> enUS = {
 
   'blocked': 'Blocked',
 
+  // ─── Username Validation ─────────────────────────────────
+  'username_required': 'Please enter a username',
+  'username_min': 'Username must be at least 3 characters',
+  'username_taken': 'This username is already taken',
+  'username_check_fail': 'Could not check username availability',
+  'username_not_available': 'This username is not available',
+  'checking_username': 'Please wait while we check username availability',
+
+  // ─── Login Messages ─────────────────────────────────────
+  'login_success': 'Log in Successful!',
+  'login_redirect_home': 'Please wait.\nYou will be directed to the homepage.',
+  'login_redirect_complete_profile': 'Please wait.\nYou need to complete your profile setup.',
+
+  // ─── Google Sign-In ─────────────────────────────────────
+  'continue_with_google': 'Continue with Google',
+  'google_signin_failed': 'Google Sign-In Failed',
+ 
 };

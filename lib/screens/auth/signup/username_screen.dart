@@ -11,6 +11,7 @@ class UsernameScreen extends GetView<SignupController> {
 
   @override
   Widget build(BuildContext context) {
+    controller.syncStep(AppRoutes.signupUsername);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final secondaryColor =
         isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;

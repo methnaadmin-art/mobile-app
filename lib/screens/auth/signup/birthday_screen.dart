@@ -10,6 +10,7 @@ class BirthdayScreen extends GetView<SignupController> {
 
   @override
   Widget build(BuildContext context) {
+    controller.syncStep(AppRoutes.signupBirthday);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final secondaryColor =
         isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;

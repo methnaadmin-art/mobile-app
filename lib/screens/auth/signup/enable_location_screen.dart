@@ -12,6 +12,7 @@ class EnableLocationScreen extends GetView<SignupController> {
 
   @override
   Widget build(BuildContext context) {
+    controller.syncStep(AppRoutes.signupLocation);
     final locationService = Get.find<LocationService>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor =

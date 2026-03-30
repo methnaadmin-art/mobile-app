@@ -6,8 +6,8 @@ class ApiConstants {
   // static const String baseUrl = 'http://10.0.2.2:3000/api/v1';
   // static const String socketUrl = 'http://10.0.2.2:3000';
   // Production (Railway):
-  static const String baseUrl = 'https://jordan-backend-production.up.railway.app/api/v1';
-  static const String socketUrl = 'https://jordan-backend-production.up.railway.app';
+  static const String baseUrl = 'https://web-production-afbe4.up.railway.app/api/v1';
+  static const String socketUrl = 'https://web-production-afbe4.up.railway.app';
 
   // ─── Auth ───────────────────────────────────────────────
   static const String login = '/auth/login';
@@ -21,6 +21,7 @@ class ApiConstants {
   static const String resetPassword = '/auth/reset-password';
   static const String changePassword = '/auth/change-password';
   static const String checkUsername = '/auth/check-username';
+  static const String googleSignIn = '/auth/google';
 
   // ─── Users ──────────────────────────────────────────────
   static const String usersMe = '/users/me';

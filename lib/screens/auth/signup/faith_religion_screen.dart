@@ -10,6 +10,7 @@ class FaithReligionScreen extends GetView<SignupController> {
 
   @override
   Widget build(BuildContext context) {
+    controller.syncStep(AppRoutes.signupFaithReligion);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? AppColors.backgroundDark : Colors.white;
     final cardColor = isDark ? AppColors.cardDark : Colors.white;

@@ -49,6 +49,9 @@ dependencies:
   # Biometric Auth
   local_auth: ^2.3.0
 
+  # Social Auth
+  google_sign_in: ^6.2.1
+
   # Animations & Effects
   confetti: ^0.7.0
   vibration: ^2.0.0

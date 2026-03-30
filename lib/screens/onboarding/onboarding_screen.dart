@@ -891,11 +891,11 @@ class _SafetyMockup extends StatelessWidget {
                       color: Colors.grey.shade800)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           // Trust score ring
           Container(
-            width: 60,
-            height: 60,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: gradient.first, width: 3),
@@ -905,7 +905,7 @@ class _SafetyMockup extends StatelessWidget {
               children: [
                 Text('100',
                     style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: gradient.first)),
                 Text('Trust',
@@ -914,20 +914,26 @@ class _SafetyMockup extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           // Verification checklist
-          _verifyRow(LucideIcons.mail, 'Email Verified', true, gradient),
-          const SizedBox(height: 6),
-          _verifyRow(LucideIcons.phone, 'Phone Verified', true, gradient),
-          const SizedBox(height: 6),
-          _verifyRow(
-              LucideIcons.camera, 'Photo Verified', true, gradient),
-          const SizedBox(height: 6),
-          _verifyRow(LucideIcons.badge, 'ID Verified', false, gradient),
-          const Spacer(),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _verifyRow(LucideIcons.mail, 'Email Verified', true, gradient),
+                const SizedBox(height: 5),
+                _verifyRow(LucideIcons.phone, 'Phone Verified', true, gradient),
+                const SizedBox(height: 5),
+                _verifyRow(
+                    LucideIcons.camera, 'Photo Verified', true, gradient),
+                const SizedBox(height: 5),
+                _verifyRow(LucideIcons.badge, 'ID Verified', false, gradient),
+              ],
+            ),
+          ),
           // Bottom badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: gradient),
               borderRadius: BorderRadius.circular(12),
@@ -946,7 +952,7 @@ class _SafetyMockup extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
         ],
       ),
     );

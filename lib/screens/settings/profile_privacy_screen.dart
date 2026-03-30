@@ -130,46 +130,58 @@ class ProfilePrivacyScreen extends GetView<SettingsController> {
                   ),
                   _divider(isDark),
 
+                  // Show Age
+                  _buildPrivacyToggle(
+                    title: 'show_age'.tr.isNotEmpty ? 'show_age'.tr : 'Show Age',
+                    subtitle: 'show_age_desc'.tr.isNotEmpty ? 'show_age_desc'.tr : 'Show your age on your profile',
+                    value: controller.showAge,
+                    onChanged: (v) => controller.updatePrivacy(showAgeVal: v),
+                    textColor: textColor,
+                    secondaryColor: secondaryColor,
+                  ),
+                  _divider(isDark),
+
+                  // Show Distance
+                  _buildPrivacyToggle(
+                    title: 'show_distance'.tr.isNotEmpty ? 'show_distance'.tr : 'Show Distance',
+                    subtitle: 'show_distance_desc'.tr.isNotEmpty ? 'show_distance_desc'.tr : 'Show your distance to other users',
+                    value: controller.showDistance,
+                    onChanged: (v) => controller.updatePrivacy(showDist: v),
+                    textColor: textColor,
+                    secondaryColor: secondaryColor,
+                  ),
+                  _divider(isDark),
+
+                  // Show Online Status
+                  _buildPrivacyToggle(
+                    title: 'show_online_status'.tr.isNotEmpty ? 'show_online_status'.tr : 'Show Online Status',
+                    subtitle: 'show_online_status_desc'.tr.isNotEmpty ? 'show_online_status_desc'.tr : 'Show when you are online',
+                    value: controller.showOnlineStatus,
+                    onChanged: (v) => controller.updatePrivacy(showOnline: v),
+                    textColor: textColor,
+                    secondaryColor: secondaryColor,
+                  ),
+                  _divider(isDark),
+
+                  // Show Last Seen
+                  _buildPrivacyToggle(
+                    title: 'show_last_seen'.tr.isNotEmpty ? 'show_last_seen'.tr : 'Show Last Seen',
+                    subtitle: 'show_last_seen_desc'.tr.isNotEmpty ? 'show_last_seen_desc'.tr : 'Show when you were last active',
+                    value: controller.showLastSeen,
+                    onChanged: (v) => controller.updatePrivacy(showLastSeenVal: v),
+                    textColor: textColor,
+                    secondaryColor: secondaryColor,
+                  ),
+                  _divider(isDark),
+
                   // Privacy Mode
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'privacy_mode'.tr,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: textColor,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'privacy_mode_desc'.tr,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: secondaryColor),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Obx(() => Switch(
-                              value: controller.privacyMode.value,
-                              onChanged: (v) =>
-                                  controller.updatePrivacy(privacyModeVal: v),
-                              activeThumbColor:
-                                  AppColors.primary,
-                              activeTrackColor:
-                                  AppColors.primary
-                                      .withValues(alpha: 0.4),
-                            )),
-                      ],
-                    ),
+                  _buildPrivacyToggle(
+                    title: 'privacy_mode'.tr,
+                    subtitle: 'privacy_mode_desc'.tr,
+                    value: controller.privacyMode,
+                    onChanged: (v) => controller.updatePrivacy(privacyModeVal: v),
+                    textColor: textColor,
+                    secondaryColor: secondaryColor,
                   ),
                   _divider(isDark),
 
@@ -228,6 +240,49 @@ class ProfilePrivacyScreen extends GetView<SettingsController> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPrivacyToggle({
+    required String title,
+    required String subtitle,
+    required RxBool value,
+    required Function(bool) onChanged,
+    required Color textColor,
+    required Color? secondaryColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 12, color: secondaryColor),
+                ),
+              ],
+            ),
+          ),
+          Obx(() => Switch(
+                value: value.value,
+                onChanged: onChanged,
+                activeThumbColor: AppColors.primary,
+                activeTrackColor: AppColors.primary.withValues(alpha: 0.4),
+              )),
+        ],
       ),
     );
   }

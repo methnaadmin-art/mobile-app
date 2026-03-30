@@ -48,11 +48,27 @@ class HomeScreen extends GetView<HomeController> {
                   }
                   if (controller.isEmpty.value || controller.discoverUsers.isEmpty) {
                     return Center(
-                      child: AnimatedEmptyState(
-                        lottieAsset: 'assets/animations/no_users.json',
-                        title: 'all_caught_up'.tr,
-                        subtitle: 'expand_filters_desc'.tr,
-                        fallbackIcon: LucideIcons.search,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedEmptyState(
+                            lottieAsset: 'assets/animations/no_users.json',
+                            title: 'all_caught_up'.tr,
+                            subtitle: 'expand_filters_desc'.tr,
+                            fallbackIcon: LucideIcons.search,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: controller.refreshDiscoverUsers,
+                            icon: const Icon(LucideIcons.refreshCw, size: 16),
+                            label: Text('refresh'.tr),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }
@@ -62,7 +78,7 @@ class HomeScreen extends GetView<HomeController> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                         child: CardSwiper(
                           cardsCount: controller.discoverUsers.length,
-                          numberOfCardsDisplayed: 3,
+                          numberOfCardsDisplayed: controller.discoverUsers.length.clamp(1, 3),
                           backCardOffset: const Offset(0, 40),
                           padding: EdgeInsets.zero,
                           isDisabled: controller.isLoading.value,
@@ -73,7 +89,7 @@ class HomeScreen extends GetView<HomeController> {
                             } else if (direction == CardSwiperDirection.left) {
                               controller.passUser(user.id);
                             } else if (direction == CardSwiperDirection.top) {
-                              controller.superLikeUser(user.id);
+                              controller.likeUser(user.id); // Swipe up = like
                             }
                             return true;
                           },
@@ -191,16 +207,6 @@ class HomeScreen extends GetView<HomeController> {
               }
             },
           ),
-          _SwipeBtn(
-            icon: LucideIcons.zap,
-            color: Colors.amber,
-            size: 50,
-            onTap: () {
-              if (controller.discoverUsers.isNotEmpty) {
-                controller.superLikeUser(controller.discoverUsers[0].id);
-              }
-            },
-          ),
         ],
       ),
     );
@@ -273,8 +279,9 @@ class _UserSwipeCardState extends State<_UserSwipeCard> {
   }
   
   Widget _buildPhotoSection(UserModel user, HomeController controller) {
+    final screenHeight = MediaQuery.of(context).size.height;
     return SizedBox(
-      height: 420,
+      height: screenHeight * 0.72,
       child: Stack(
         children: [
           // Photo PageView
@@ -688,7 +695,7 @@ class _BottomSection extends StatelessWidget {
   final UserModel user;
   final double bottomPad;
   final bool isDark;
-  final VoidCallback onLike, onPass, onRewind, onCompliment, onSuperLike, onDetails;
+  final VoidCallback onLike, onPass, onRewind, onCompliment, onDetails;
 
   const _BottomSection({
     required this.user,
@@ -698,7 +705,6 @@ class _BottomSection extends StatelessWidget {
     required this.onPass,
     required this.onRewind,
     required this.onCompliment,
-    required this.onSuperLike,
     required this.onDetails,
   });
 

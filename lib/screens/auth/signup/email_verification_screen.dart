@@ -24,6 +24,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   @override
   void initState() {
     super.initState();
+    controller.syncStep(AppRoutes.signupEmailVerification);
     _startCountdown();
   }
 

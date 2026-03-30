@@ -176,16 +176,31 @@ class SignupController extends GetxController {
     
     checkingUsername.value = true;
     try {
-      final available = await _api.get(ApiConstants.checkUsername, queryParameters: {'username': value.toLowerCase()});
-      usernameAvailable.value = available.data['available'] == true;
-      if (!usernameAvailable.value) {
-        usernameError.value = 'username_taken'.tr;
-      } else {
-        usernameError.value = '';
+      debugPrint('[Signup] Checking username: $value');
+      final response = await _api.get(ApiConstants.checkUsername, queryParameters: {'username': value.toLowerCase()});
+      debugPrint('[Signup] Username check response: ${response.data}');
+      
+      // Handle both unwrapped {available: true} and raw response
+      final data = response.data;
+      bool isAvailable = false;
+      if (data is Map) {
+        isAvailable = data['available'] == true;
+      } else if (data is bool) {
+        isAvailable = data;
+      }
+      
+      // Only update if the username hasn't changed while we were checking
+      if (debouncedUsername.value == value) {
+        usernameAvailable.value = isAvailable;
+        usernameError.value = isAvailable ? '' : 'username_taken'.tr;
       }
     } catch (e) {
-      usernameAvailable.value = false;
-      usernameError.value = 'username_check_fail'.tr;
+      debugPrint('[Signup] Username check ERROR: $e');
+      // Don't block user on network errors — allow them to proceed
+      if (debouncedUsername.value == value) {
+        usernameAvailable.value = false;
+        usernameError.value = 'username_check_fail'.tr;
+      }
     } finally {
       checkingUsername.value = false;
     }
@@ -408,8 +423,8 @@ class SignupController extends GetxController {
     
     // Senior Persistence Layer: Save data to DB immediately at key checkpoints
     try {
-      if (currentIdx == 3 || currentIdx == 4 || currentIdx == 6 || currentIdx == 8) {
-        // Basic Info, Birthday, Faith, Profession
+      if (currentIdx == 6 || currentIdx == 8) {
+        // Faith, Profession (NOT steps 3-4 — user has no auth token until OTP verification at step 5)
         await updateProfile();
       } else if (currentIdx == 9) {
         // Photos - immediate upload
@@ -450,6 +465,14 @@ class SignupController extends GetxController {
           _handleError(null, 'username_required'.tr);
           return false;
         }
+        if (usernameController.text.trim().length < 3) {
+          _handleError(null, 'username_min'.tr);
+          return false;
+        }
+        if (checkingUsername.value) {
+          _handleError(null, 'checking_username'.tr);
+          return false;
+        }
         if (!usernameAvailable.value) {
           _handleError(null, 'username_not_available'.tr);
           return false;
@@ -469,10 +492,6 @@ class SignupController extends GetxController {
         return true;
       case 3: // Profile Details (Form)
         if (profileFormKey.currentState == null || !profileFormKey.currentState!.validate()) {
-          return false;
-        }
-        if (!agreePrivacy.value) {
-          _handleError(null, 'agree_privacy_required'.tr);
           return false;
         }
         return true;
@@ -739,10 +758,24 @@ class SignupController extends GetxController {
     try {
       debugPrint('[Signup] Starting final completion flow...');
       
-      // Final sync of all data
-      await updateProfile();
-      await uploadPhotos();
-      await uploadSelfie();
+      // Each step is wrapped individually so one failure doesn't block navigation
+      try {
+        await updateProfile();
+      } catch (e) {
+        debugPrint('[Signup] updateProfile failed (non-blocking): $e');
+      }
+
+      try {
+        await uploadPhotos();
+      } catch (e) {
+        debugPrint('[Signup] uploadPhotos failed (non-blocking): $e');
+      }
+
+      try {
+        await uploadSelfie();
+      } catch (e) {
+        debugPrint('[Signup] uploadSelfie failed (non-blocking): $e');
+      }
 
       if (locationEnabled.value) {
         try {
@@ -763,8 +796,12 @@ class SignupController extends GetxController {
         }
       }
       
-      debugPrint('[Signup] Refreshing user data...');
-      await _auth.fetchMe();
+      try {
+        debugPrint('[Signup] Refreshing user data...');
+        await _auth.fetchMe();
+      } catch (e) {
+        debugPrint('[Signup] fetchMe failed (non-blocking): $e');
+      }
       
       _clearDraft(); 
       Helpers.showSnackbar(message: 'welcome_to_methna'.tr);
@@ -776,7 +813,10 @@ class SignupController extends GetxController {
         }
       });
     } catch (e) {
-      _handleError(e, 'signup_completion_failed'.tr);
+      debugPrint('[Signup] completeSignup unexpected error: $e');
+      // Even on unexpected error, navigate to home so user is never stuck
+      _clearDraft();
+      Get.offAllNamed(AppRoutes.main);
     } finally {
       isLoading.value = false;
     }
@@ -811,8 +851,9 @@ class SignupController extends GetxController {
       }
     }
     
+    final extracted = (e != null) ? Helpers.extractErrorMessage(e) : null;
     Helpers.showSnackbar(
-      message: Helpers.extractErrorMessage(e) ?? defaultMessage, 
+      message: (extracted != null && extracted != 'something_went_wrong'.tr) ? extracted : defaultMessage, 
       isError: true
     );
   }

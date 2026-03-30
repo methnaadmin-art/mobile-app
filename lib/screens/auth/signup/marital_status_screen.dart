@@ -11,6 +11,7 @@ class MaritalStatusScreen extends GetView<SignupController> {
 
   @override
   Widget build(BuildContext context) {
+    controller.syncStep(AppRoutes.signupMaritalStatus);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
 

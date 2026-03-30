@@ -12,6 +12,7 @@ class ProfileDetailsScreen extends GetView<SignupController> {
 
   @override
   Widget build(BuildContext context) {
+    controller.syncStep(AppRoutes.signupProfileDetails);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
     final hintColor = isDark ? AppColors.textHintDark : AppColors.textHintLight;

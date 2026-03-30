@@ -119,6 +119,54 @@ class SettingsScreen extends GetView<SettingsController> {
 
                   const SizedBox(height: 20),
 
+                  // ── Security Section ──
+                  _SectionLabel(label: 'security'.tr, isDark: isDark),
+                  const SizedBox(height: 8),
+                  _SettingsCard(
+                    isDark: isDark, cardBg: cardBg, borderColor: borderColor,
+                    children: [
+                      // Biometric Authentication Toggle
+                      Obx(() => _SettingsToggleRow(
+                        icon: LucideIcons.fingerprint,
+                        iconColor: const Color(0xFF9C27B0),
+                        title: 'biometric_lock'.tr,
+                        subtitle: 'biometric_lock_desc'.tr,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                        value: controller.biometricId.value,
+                        onChanged: (val) => controller.toggleBiometric(val),
+                      )),
+                      _Divider(isDark: isDark),
+                      // Face ID Toggle
+                      Obx(() => _SettingsToggleRow(
+                        icon: LucideIcons.scanFace,
+                        iconColor: const Color(0xFF2196F3),
+                        title: 'face_id'.tr,
+                        subtitle: 'face_id_desc'.tr,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                        value: controller.faceId.value,
+                        onChanged: (val) => controller.toggleFaceId(val),
+                      )),
+                      _Divider(isDark: isDark),
+                      // Remember Me Toggle
+                      Obx(() => _SettingsToggleRow(
+                        icon: LucideIcons.userCheck,
+                        iconColor: const Color(0xFF4CAF50),
+                        title: 'remember_me'.tr,
+                        subtitle: 'remember_me_desc'.tr,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                        value: controller.rememberMe.value,
+                        onChanged: (val) => controller.toggleRememberMe(val),
+                      )),
+                      _Divider(isDark: isDark),
+                      _SettingsRow(icon: LucideIcons.keyRound, iconColor: const Color(0xFFFF9800), title: 'change_password'.tr, textColor: textColor, onTap: () => _showChangePasswordDialog(context)),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
                   // ── Preferences Section ──
                   _SectionLabel(label: 'Preferences', isDark: isDark),
                   const SizedBox(height: 8),
@@ -135,19 +183,35 @@ class SettingsScreen extends GetView<SettingsController> {
 
                   const SizedBox(height: 20),
 
+                  // ── Data & Storage Section ──
+                  _SectionLabel(label: 'data_storage'.tr, isDark: isDark),
+                  const SizedBox(height: 8),
+                  _SettingsCard(
+                    isDark: isDark, cardBg: cardBg, borderColor: borderColor,
+                    children: [
+                      _SettingsRow(icon: LucideIcons.hardDrive, iconColor: const Color(0xFF607D8B), title: 'clear_cache'.tr, textColor: textColor, onTap: () => _showClearCacheDialog(context)),
+                      _Divider(isDark: isDark),
+                      _SettingsRow(icon: LucideIcons.download, iconColor: const Color(0xFF009688), title: 'download_my_data'.tr, textColor: textColor, onTap: () => _showDownloadDataDialog(context)),
+                      _Divider(isDark: isDark),
+                      _SettingsRow(icon: LucideIcons.refreshCw, iconColor: const Color(0xFFFF5722), title: 'reset_app_data'.tr, textColor: textColor, onTap: () => _showResetDataDialog(context)),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
                   // ── More Section ──
-                  _SectionLabel(label: 'More', isDark: isDark),
+                  _SectionLabel(label: 'more'.tr, isDark: isDark),
                   const SizedBox(height: 8),
                   _SettingsCard(
                     isDark: isDark, cardBg: cardBg, borderColor: borderColor,
                     children: [
                       _SettingsRow(icon: LucideIcons.barChart3, iconColor: const Color(0xFF4CAF50), title: 'data_analytics'.tr, textColor: textColor, onTap: () => Get.toNamed(AppRoutes.dataAnalytics)),
                       _Divider(isDark: isDark),
-                      _SettingsRow(icon: LucideIcons.fileWarning, iconColor: AppColors.error, title: 'Report / Request', textColor: textColor, onTap: () => Get.toNamed(AppRoutes.reportRequest)),
+                      _SettingsRow(icon: LucideIcons.fileWarning, iconColor: AppColors.error, title: 'report_request'.tr, textColor: textColor, onTap: () => Get.toNamed(AppRoutes.reportRequest)),
                       _Divider(isDark: isDark),
                       _SettingsRow(icon: LucideIcons.lifeBuoy, iconColor: const Color(0xFF9C27B0), title: 'help_support'.tr, textColor: textColor, onTap: () => Get.toNamed(AppRoutes.helpSupport)),
                       _Divider(isDark: isDark),
-                      _SettingsRow(icon: LucideIcons.refreshCw, iconColor: const Color(0xFFFF5722), title: 'Reset App Data', textColor: textColor, onTap: () => _showResetDataDialog(context)),
+                      _SettingsRow(icon: LucideIcons.info, iconColor: const Color(0xFF3F51B5), title: 'about_app'.tr, textColor: textColor, onTap: () => _showAboutDialog(context)),
                     ],
                   ),
 
@@ -259,6 +323,308 @@ class SettingsScreen extends GetView<SettingsController> {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final oldPassController = TextEditingController();
+    final newPassController = TextEditingController();
+    final confirmPassController = TextEditingController();
+    
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.cardDark : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64, height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF9800).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.keyRound, size: 28, color: Color(0xFFFF9800)),
+              ),
+              const SizedBox(height: 20),
+              Text('change_password'.tr, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: oldPassController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'current_password'.tr,
+                  filled: true,
+                  fillColor: isDark ? AppColors.backgroundDark : const Color(0xFFF5F5F5),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPassController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'new_password'.tr,
+                  filled: true,
+                  fillColor: isDark ? AppColors.backgroundDark : const Color(0xFFF5F5F5),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPassController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'confirm_password'.tr,
+                  filled: true,
+                  fillColor: isDark ? AppColors.backgroundDark : const Color(0xFFF5F5F5),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                        side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text('cancel'.tr, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (newPassController.text != confirmPassController.text) {
+                          Get.snackbar('Error', 'passwords_dont_match'.tr, snackPosition: SnackPosition.BOTTOM);
+                          return;
+                        }
+                        Get.back();
+                        await controller.changePassword(oldPassController.text, newPassController.text);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF9800),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text('change'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showClearCacheDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.cardDark : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64, height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF607D8B).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.hardDrive, size: 28, color: Color(0xFF607D8B)),
+              ),
+              const SizedBox(height: 20),
+              Text('clear_cache'.tr, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
+              const SizedBox(height: 8),
+              Text(
+                'clear_cache_desc'.tr,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                        side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text('cancel'.tr, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Get.back();
+                        await controller.clearCache();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF607D8B),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text('clear'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDownloadDataDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.cardDark : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64, height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF009688).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.download, size: 28, color: Color(0xFF009688)),
+              ),
+              const SizedBox(height: 20),
+              Text('download_my_data'.tr, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
+              const SizedBox(height: 8),
+              Text(
+                'download_data_desc'.tr,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                        side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text('cancel'.tr, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Get.back();
+                        await controller.requestDataDownload();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF009688),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text('request'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.cardDark : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80, height: 80,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primaryLight]),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(LucideIcons.heart, size: 40, color: Colors.white),
+              ),
+              const SizedBox(height: 20),
+              Text('Methna', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
+              const SizedBox(height: 4),
+              Text('v1.0.0', style: TextStyle(fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+              const SizedBox(height: 16),
+              Text(
+                'about_app_desc'.tr,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Get.back(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text('close'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
               ),
             ],
           ),
@@ -425,6 +791,64 @@ class _SettingsRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Settings Toggle Row ───────────────────────────────────────────────────
+class _SettingsToggleRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final Color textColor;
+  final Color subtitleColor;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingsToggleRow({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.textColor,
+    required this.subtitleColor,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: textColor)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: subtitleColor)),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+            activeColor: AppColors.primary,
+          ),
+        ],
       ),
     );
   }

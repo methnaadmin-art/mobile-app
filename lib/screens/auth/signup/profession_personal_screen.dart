@@ -11,6 +11,7 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
 
   @override
   Widget build(BuildContext context) {
+    controller.syncStep(AppRoutes.signupProfession);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor =
         isDark ? AppColors.backgroundDark : Colors.white;

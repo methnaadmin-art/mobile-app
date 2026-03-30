@@ -86,6 +86,26 @@ class StorageService extends GetxService {
     return draft?['lastRoute'] as String?;
   }
 
+  // ─── Discover Users Cache ─────────────────────────────────
+  static const String _discoverCacheKey = 'cached_discover_users';
+
+  Future<void> cacheDiscoverUsers(List<Map<String, dynamic>> users) async {
+    await _box.write(_discoverCacheKey, jsonEncode(users));
+  }
+
+  List<Map<String, dynamic>>? getCachedDiscoverUsers() {
+    final data = _box.read(_discoverCacheKey);
+    if (data == null) return null;
+    try {
+      final list = jsonDecode(data) as List;
+      return list.cast<Map<String, dynamic>>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> clearDiscoverCache() async => await _box.remove(_discoverCacheKey);
+
   // ─── Clear Auth Data (preserves user preferences) ──────────
   Future<void> clearAuthData() async {
     await clearTokens();

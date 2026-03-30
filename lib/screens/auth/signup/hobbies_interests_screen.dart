@@ -34,6 +34,7 @@ class HobbiesInterestsScreen extends GetView<SignupController> {
 
   @override
   Widget build(BuildContext context) {
+    controller.syncStep(AppRoutes.signupHobbies);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor =
         isDark ? AppColors.backgroundDark : Colors.white;

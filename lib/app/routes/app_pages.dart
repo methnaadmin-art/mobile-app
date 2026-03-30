@@ -10,6 +10,7 @@ import 'package:methna_app/app/bindings/users_binding.dart';
 import 'package:methna_app/app/bindings/categories_binding.dart';
 import 'package:methna_app/app/bindings/notifications_binding.dart';
 import 'package:methna_app/app/bindings/signup_binding.dart';
+import 'package:methna_app/app/controllers/analytics_controller.dart';
 
 // Screens
 import 'package:methna_app/screens/success_stories/success_stories_screen.dart';
@@ -298,6 +299,11 @@ class AppPages {
     GetPage(
       name: AppRoutes.dataAnalytics,
       page: () => const DataAnalyticsScreen(),
+      binding: BindingsBuilder(() {
+        if (!Get.isRegistered<AnalyticsController>()) {
+          Get.put(AnalyticsController());
+        }
+      }),
       transition: Transition.rightToLeft,
     ),
     GetPage(

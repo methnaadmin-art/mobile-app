@@ -116,30 +116,85 @@ class _SplashScreenState extends State<SplashScreen>
 
                     const Spacer(flex: 5),
 
-                    // Modern Loader
-                    Obx(() => AnimatedOpacity(
-                          opacity:
-                              controller.animationProgress.value > 0 ? 0.8 : 0.0,
-                          duration: const Duration(milliseconds: 600),
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2), width: 2),
-                                ),
-                                child: const CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                                  backgroundColor: Colors.transparent,
-                                ),
+                    // Biometric Auth UI or Modern Loader
+                    Obx(() {
+                      if (controller.biometricFailed.value) {
+                        // Biometric failed - show retry button
+                        return Column(
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
                               ),
-                            ],
-                          ),
-                        )),
+                              child: const Icon(Icons.fingerprint, size: 32, color: AppColors.error),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'biometric_failed'.tr,
+                              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () => controller.retryBiometric(),
+                              icon: const Icon(Icons.refresh, size: 18),
+                              label: Text('try_again'.tr),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ],
+                        );
+                      } else if (controller.requiresBiometric.value) {
+                        // Waiting for biometric
+                        return Column(
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.fingerprint, size: 32, color: AppColors.primary),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'authenticate_to_access'.tr,
+                              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                            ),
+                          ],
+                        );
+                      }
+                      // Normal loader
+                      return AnimatedOpacity(
+                        opacity: controller.animationProgress.value > 0 ? 0.8 : 0.0,
+                        duration: const Duration(milliseconds: 600),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2), width: 2),
+                              ),
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                                backgroundColor: Colors.transparent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
 
                     const SizedBox(height: 60),
                   ],

@@ -28,7 +28,7 @@ class NotificationSettingsScreen extends GetView<SettingsController> {
   ];
 
   static const _settingLabels = [
-    'new_matches', 'new_messages', 'likes_super_likes', 'profile_visitors',
+    'new_matches', 'new_messages', 'likes_notifications', 'profile_visitors',
     'events_activities', 'safety_alerts', 'promotions_news',
     'in_app_recommendations', 'weekly_activity_summary', 'connection_requests', 'survey_feedback',
   ];

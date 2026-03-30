@@ -760,10 +760,7 @@ android {
 | App Name | ✅ "Methna" |
 | Version | ✅ 1.0.0+1 |
 | Permissions | ✅ All declared |
-| ProGuard | ⚠️ Configure for release |
-| Signing | ⚠️ Create release keystore |
-| Privacy Policy URL | ⚠️ Add to store listing |
-| Terms of Service | ⚠️ Add to store listing |
+
 
 ## 15.4 Release Build Commands
 

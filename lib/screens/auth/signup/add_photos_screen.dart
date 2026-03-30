@@ -22,6 +22,7 @@ class _AddPhotosScreenState extends State<AddPhotosScreen> {
   @override
   void initState() {
     super.initState();
+    controller.syncStep(AppRoutes.signupPhotos);
     // Senior Performance Fix: Defer heavy photo rendering until after route transition
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {

@@ -2,7 +2,7 @@ class SwipeModel {
   final String id;
   final String likerId;
   final String likedId;
-  final String type; // like, super_like, compliment, pass
+  final String type; // like, compliment, pass
   final bool isLike;
   final String? complimentMessage;
   final DateTime createdAt;

@@ -73,15 +73,34 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     _loadFilters();
+    _loadCachedUsersInstantly();
     fetchAllInitialData();
-    _monetization.fetchStatus();
-    fetchDailyInsight();
+  }
+
+  /// Load cached discover users from local storage for instant display
+  void _loadCachedUsersInstantly() {
+    try {
+      final cached = _storage.getCachedDiscoverUsers();
+      if (cached != null && cached.isNotEmpty) {
+        final users = cached.map((json) => UserModel.fromJson(json)).toList();
+        discoverUsers.value = users;
+        isEmpty.value = false;
+        debugPrint('[Home] Loaded ${users.length} cached users instantly');
+      }
+    } catch (e) {
+      debugPrint('[Home] Failed to load cached users: $e');
+    }
   }
 
   Future<void> fetchAllInitialData() async {
-    fetchCategories();
-    fetchSuccessStories();
-    fetchDiscoverUsers();
+    // Fire all initial fetches in parallel — don't await individually
+    Future.wait([
+      fetchDiscoverUsers(),
+      fetchCategories(),
+      fetchSuccessStories(),
+      _monetization.fetchStatus(),
+      fetchDailyInsight(),
+    ], eagerError: false);
   }
 
   void _loadFilters() {
@@ -139,14 +158,16 @@ class HomeController extends GetxController {
     if (verifiedOnlyFilter.value) 'verifiedOnly': true,
   };
 
-  Future<void> fetchDiscoverUsers() async {
+  Future<void> refreshDiscoverUsers() => fetchDiscoverUsers(forceRefresh: true);
+
+  Future<void> fetchDiscoverUsers({bool forceRefresh = false}) async {
     if (isLoading.value) return; // Prevent duplicate calls
     isLoading.value = true;
     hasError.value = false;
     _page.value = 1;
     _hasMore.value = true;
     _seenUserIds.clear();
-    debugPrint('[Home] fetchDiscoverUsers: starting...');
+    debugPrint('[Home] fetchDiscoverUsers: starting (forceRefresh=$forceRefresh)...');
 
     // Check location but do NOT block discovery — fetch users regardless
     final hasPerm = await _location.checkPermission();
@@ -155,8 +176,8 @@ class HomeController extends GetxController {
 
     try {
       // Add timeout to prevent hanging
-      final users = await _fetchPage(1).timeout(
-        const Duration(seconds: 10),
+      final users = await _fetchPage(1, forceRefresh: forceRefresh).timeout(
+        const Duration(seconds: 8),
         onTimeout: () {
           throw TimeoutException('Request timeout while fetching users');
         },
@@ -169,6 +190,11 @@ class HomeController extends GetxController {
       isEmpty.value = discoverUsers.isEmpty;
       currentCardIndex.value = 0;
       debugPrint('[Home] fetchDiscoverUsers: loaded ${users.length} users');
+
+      // Cache users locally for instant display on next app launch
+      if (users.isNotEmpty) {
+        _storage.cacheDiscoverUsers(users.map((u) => u.toJson()).toList()).catchError((_) {});
+      }
       
       // Fetch Baraka scores for loaded users (with error handling)
       if (users.isNotEmpty) {
@@ -188,23 +214,22 @@ class HomeController extends GetxController {
       }
       
       hasError.value = true;
-      isEmpty.value = true;
-      
-      // Show user-friendly error message
-      Helpers.showSnackbar(
-        message: 'Failed to load users. Please try again.',
-        isError: true,
-      );
+      // Only show empty if we have no cached users displayed
+      if (discoverUsers.isEmpty) {
+        isEmpty.value = true;
+      }
+      // Silently log error — don't show snackbar on initial load
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<List<UserModel>> _fetchPage(int page) async {
+  Future<List<UserModel>> _fetchPage(int page, {bool forceRefresh = false}) async {
     debugPrint('[Home] _fetchPage($page): params=${_filterParams}');
     final response = await _api.get(ApiConstants.search, queryParameters: {
       ..._filterParams,
       'page': page,
+      if (forceRefresh) 'forceRefresh': true,
     });
     final data = response.data;
     debugPrint('[Home] _fetchPage($page): response type=${data.runtimeType}');
@@ -282,31 +307,6 @@ class HomeController extends GetxController {
     }
   }
 
-
-
-
-  Future<void> superLikeUser(String userId) async {
-    debugPrint('[Home] superLikeUser: $userId');
-    try {
-      final response = await _api.post(ApiConstants.swipe, data: {
-        'targetUserId': userId,
-        'action': 'super_like',
-      });
-      final isMatch = response.data?['matched'] ?? false;
-      debugPrint('[Home] superLikeUser response: matched=$isMatch');
-      _removeCurrentCard();
-      if (isMatch) {
-        final matchedUser = discoverUsers.firstWhereOrNull((u) => u.id == userId)
-            ?? lastSwipedUser.value;
-        Get.toNamed(AppRoutes.matchFound, arguments: {
-          'user': matchedUser,
-        });
-      }
-    } catch (e) {
-      debugPrint('[Home] superLikeUser ERROR: $e');
-      Helpers.showSnackbar(message: Helpers.extractErrorMessage(e), isError: true);
-    }
-  }
 
   Future<void> passUser(String userId) async {
     debugPrint('[Home] passUser: $userId');

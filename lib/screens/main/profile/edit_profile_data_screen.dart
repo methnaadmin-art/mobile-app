@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/controllers/profile_controller.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 /// Modern Edit Profile Screen with Enhanced UX
@@ -11,14 +12,15 @@ class ModernEditProfileScreen extends StatefulWidget {
   const ModernEditProfileScreen({super.key});
 
   @override
-  State<ModernEditProfileScreen> createState() => _ModernEditProfileScreenState();
+  State<ModernEditProfileScreen> createState() =>
+      _ModernEditProfileScreenState();
 }
 
 class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
     with TickerProviderStateMixin {
   final ProfileController controller = Get.find<ProfileController>();
   late TabController _tabController;
-  
+
   // Form controllers
   late final TextEditingController _firstNameCtrl;
   late final TextEditingController _lastNameCtrl;
@@ -45,9 +47,22 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
   int _completionPercentage = 0;
 
   final List<String> _interests = [
-    'Reading', 'Travel', 'Cooking', 'Sports', 'Music', 'Art',
-    'Gaming', 'Fitness', 'Nature', 'Photography', 'Writing',
-    'Movies', 'Technology', 'Fashion', 'Volunteering', 'Dancing'
+    'Reading',
+    'Travel',
+    'Cooking',
+    'Sports',
+    'Music',
+    'Art',
+    'Gaming',
+    'Fitness',
+    'Nature',
+    'Photography',
+    'Writing',
+    'Movies',
+    'Technology',
+    'Fashion',
+    'Volunteering',
+    'Dancing',
   ];
 
   @override
@@ -61,17 +76,19 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
   void _initializeFormData() {
     final user = controller.user.value;
     final profile = user?.profile;
-    
+
     _firstNameCtrl = TextEditingController(text: user?.firstName ?? '');
     _lastNameCtrl = TextEditingController(text: user?.lastName ?? '');
     _phoneCtrl = TextEditingController(text: user?.phone ?? '');
     _bioCtrl = TextEditingController(text: profile?.bio ?? '');
-    _heightCtrl = TextEditingController(text: profile?.height?.toString() ?? '');
+    _heightCtrl = TextEditingController(
+      text: profile?.height?.toString() ?? '',
+    );
     _jobTitleCtrl = TextEditingController(text: profile?.jobTitle ?? '');
     _companyCtrl = TextEditingController(text: profile?.company ?? '');
     _cityCtrl = TextEditingController(text: profile?.city ?? '');
     _countryCtrl = TextEditingController(text: profile?.country ?? '');
-    
+
     _gender = profile?.gender;
     _maritalStatus = profile?.maritalStatus;
     _education = profile?.education;
@@ -87,7 +104,7 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
   void _calculateCompletion() {
     int filled = 0;
     int total = 15; // Total number of important fields
-    
+
     if (_firstNameCtrl.text.isNotEmpty) filled++;
     if (_lastNameCtrl.text.isNotEmpty) filled++;
     if (_bioCtrl.text.isNotEmpty) filled++;
@@ -103,7 +120,7 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
     if (_sect != null) filled++;
     if (_dietary != null) filled++;
     if (_selectedInterests.isNotEmpty) filled++;
-    
+
     setState(() {
       _completionPercentage = ((filled / total) * 100).round();
     });
@@ -127,36 +144,42 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.backgroundDark : const Color(0xFFF8F5FA);
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
+    final bgColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
+    final textColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimaryLight;
     final cardBg = isDark ? AppColors.cardDark : Colors.white;
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: _buildAppBar(textColor),
-      body: Column(
-        children: [
-          // Progress indicator
-          _buildProgressIndicator(textColor, cardBg),
-          
-          // Tab bar
-          _buildTabBar(textColor),
-          
-          // Tab content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildBasicInfoTab(textColor, cardBg),
-                _buildLifestyleTab(textColor, cardBg),
-                _buildFaithTab(textColor, cardBg),
-              ],
+      body: DatifyBackground(
+        child: Column(
+          children: [
+            // Progress indicator
+            _buildProgressIndicator(textColor, cardBg),
+
+            // Tab bar
+            _buildTabBar(textColor),
+
+            // Tab content
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildBasicInfoTab(textColor, cardBg),
+                  _buildLifestyleTab(textColor, cardBg),
+                  _buildFaithTab(textColor, cardBg),
+                ],
+              ),
             ),
-          ),
-          
-          // Save button
-          _buildSaveButton(textColor),
-        ],
+
+            // Save button
+            _buildSaveButton(textColor),
+          ],
+        ),
       ),
     );
   }
@@ -272,7 +295,10 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
         labelColor: Colors.white,
         unselectedLabelColor: textColor.withValues(alpha: 0.7),
         labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
+        ),
         tabs: const [
           Tab(text: 'Basic Info'),
           Tab(text: 'Lifestyle'),
@@ -322,9 +348,9 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           _SectionCard(
             title: 'About You',
             icon: LucideIcons.fileText,
@@ -339,9 +365,9 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
               _buildInterestSelector(),
             ],
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           _SectionCard(
             title: 'Professional',
             icon: LucideIcons.briefcase,
@@ -396,9 +422,9 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           _SectionCard(
             title: 'Physical',
             icon: LucideIcons.user,
@@ -422,9 +448,9 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           _SectionCard(
             title: 'Habits',
             icon: LucideIcons.heart,
@@ -433,7 +459,12 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
                 value: _dietary,
                 label: 'Dietary Preferences',
                 hint: 'Select dietary preference',
-                items: ['halal', 'mostly_halal', 'sometimes_halal', 'non_halal'],
+                items: [
+                  'halal',
+                  'mostly_halal',
+                  'sometimes_halal',
+                  'non_halal',
+                ],
                 onChanged: (value) {
                   setState(() => _dietary = value);
                   _calculateCompletion();
@@ -479,7 +510,11 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
                 value: _prayerFrequency,
                 label: 'Prayer Frequency',
                 hint: 'How often do you pray?',
-                items: ['actively_practicing', 'occasionally', 'not_practicing'],
+                items: [
+                  'actively_practicing',
+                  'occasionally',
+                  'not_practicing',
+                ],
                 onChanged: (value) {
                   setState(() => _prayerFrequency = value);
                   _calculateCompletion();
@@ -511,7 +546,9 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         child: _isSaving
             ? Row(
@@ -526,11 +563,11 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Saving...'),
+                  Text('saving'.tr),
                 ],
               )
-            : const Text(
-                'Save Profile',
+            : Text(
+                'save_profile'.tr,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
       ),
@@ -570,12 +607,12 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
 
       // Update profile
       await controller.updateProfile({...userData, ...profileData});
-      
+
       Get.back();
-      Helpers.showSnackbar(message: 'Profile updated successfully!');
+      Helpers.showSnackbar(message: 'profile_updated_success'.tr);
     } catch (e) {
       debugPrint('[EditProfile] Error saving: $e');
-      Helpers.showSnackbar(message: 'Failed to save profile', isError: true);
+      Helpers.showSnackbar(message: 'failed_to_save_profile'.tr, isError: true);
     } finally {
       setState(() => _isSaving = false);
     }
@@ -692,12 +729,14 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: value,
+            initialValue: (value != null && items.contains(value)) ? value : null,
             hint: Text(hint),
             items: items.map((item) {
               return DropdownMenuItem(
                 value: item,
-                child: Text(StringExtension(item.replaceAll('_', ' ')).capitalizeFirst),
+                child: Text(
+                  StringExtension(item.replaceAll('_', ' ')).capitalizeFirst,
+                ),
               );
             }).toList(),
             onChanged: onChanged,
@@ -745,7 +784,10 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
               ),
               child: Row(
                 children: [
-                  Icon(LucideIcons.calendar, color: Theme.of(context).iconTheme.color),
+                  Icon(
+                    LucideIcons.calendar,
+                    color: Theme.of(context).iconTheme.color,
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     _dateOfBirth != null
@@ -758,7 +800,10 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
                     ),
                   ),
                   const Spacer(),
-                  Icon(LucideIcons.chevronDown, color: Theme.of(context).iconTheme.color),
+                  Icon(
+                    LucideIcons.chevronDown,
+                    color: Theme.of(context).iconTheme.color,
+                  ),
                 ],
               ),
             ),
@@ -802,7 +847,9 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
               backgroundColor: Theme.of(context).chipTheme.backgroundColor,
               selectedColor: AppColors.primary.withValues(alpha: 0.2),
               labelStyle: TextStyle(
-                color: isSelected ? AppColors.primary : Theme.of(context).textTheme.bodyMedium?.color,
+                color: isSelected
+                    ? AppColors.primary
+                    : Theme.of(context).textTheme.bodyMedium?.color,
               ),
             );
           }).toList(),
@@ -814,11 +861,13 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
   Future<void> _selectDate() async {
     final date = await showDatePicker(
       context: context,
-      initialDate: _dateOfBirth ?? DateTime.now().subtract(const Duration(days: 365 * 25)),
+      initialDate:
+          _dateOfBirth ??
+          DateTime.now().subtract(const Duration(days: 365 * 25)),
       firstDate: DateTime.now().subtract(const Duration(days: 365 * 80)),
       lastDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
     );
-    
+
     if (date != null) {
       setState(() {
         _dateOfBirth = date;
@@ -843,7 +892,9 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? AppColors.cardDark : Colors.white;
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
+    final textColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimaryLight;
 
     return Container(
       width: double.infinity,
@@ -891,3 +942,4 @@ extension StringExtension on String {
     return '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
   }
 }
+

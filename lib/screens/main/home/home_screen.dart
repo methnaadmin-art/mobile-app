@@ -1,119 +1,1871 @@
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_card_swiper/flutter_card_swiper.dart';
+import 'package:get/get.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/home_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
-import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/core/utils/helpers.dart';
-import 'package:methna_app/core/utils/cloudinary_url.dart';
+import 'package:methna_app/core/constants/api_constants.dart';
+import 'package:methna_app/app/data/services/location_service.dart';
+import 'package:methna_app/app/data/services/notification_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
-import 'package:methna_app/core/widgets/islamic_pattern_painter.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/core/utils/cloudinary_url.dart';
+import 'package:methna_app/core/utils/google_fonts_stub.dart';
+import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/animated_empty_state.dart';
-import 'package:methna_app/core/widgets/baraka_meter.dart';
-import 'package:methna_app/core/widgets/intent_badge.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-import 'package:flutter_card_swiper/flutter_card_swiper.dart';
+import 'package:methna_app/core/widgets/app_modal_sheet.dart';
+import 'package:methna_app/core/widgets/custom_button.dart';
 
 class HomeScreen extends GetView<HomeController> {
   const HomeScreen({super.key});
 
+  Future<void> _openComplimentComposer(
+    BuildContext context,
+    UserModel user,
+  ) async {
+    if (!controller.canSendCompliment) {
+      Get.toNamed(AppRoutes.subscription);
+      return;
+    }
+
+    final message = await showMethnaModalSheet<String>(
+      context: context,
+      child: _ComplimentComposerSheet(user: user),
+    );
+    final trimmed = message?.trim() ?? '';
+    if (trimmed.isEmpty) return;
+
+    final sent = await controller.complimentUser(user.id, trimmed);
+    if (!sent) return;
+
+    final fallback = user.displayName.trim();
+    final displayName = (user.firstName ?? '').trim().isNotEmpty
+        ? user.firstName!.trim()
+        : (fallback.isNotEmpty ? fallback : 'someone'.tr);
+    Helpers.showSnackbar(
+      message: 'compliment_sent_success'.trParams({'name': displayName}),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final topPad = MediaQuery.of(context).padding.top;
-    final bottomPad = MediaQuery.of(context).padding.bottom;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final notificationService = Get.isRegistered<NotificationService>()
+        ? Get.find<NotificationService>()
+        : null;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: ColoredBox(
+        color: isDark ? AppColors.backgroundDark : Colors.white,
+        child: SafeArea(
+          bottom: false,
+          child: Obx(() {
+            final hasCards = controller.discoverUsers.isNotEmpty;
+            final showLocationGate = controller.showLocationGate.value;
+            final showStartupRadar = controller.showStartupRadar.value;
+            final showSwipeTutorial = controller.showSwipeTutorial.value;
+
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: Builder(
+                    builder: (context) {
+                      if (controller.isLoading.value &&
+                          controller.discoverUsers.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 54, bottom: 0),
+                          child: _LoadingCard(),
+                        );
+                      }
+
+                      if (controller.isLoadingMoreUsers &&
+                          controller.discoverUsers.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 54, bottom: 0),
+                          child: _LoadingCard(),
+                        );
+                      }
+
+                      if (controller.discoverUsers.isEmpty &&
+                          !controller.isLoading.value) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 54, bottom: 0),
+                          child: _EmptyState(
+                            onRefresh: controller.refreshDiscoverUsers,
+                          ),
+                        );
+                      }
+
+                      return CardSwiper(
+                        controller: controller.swiperController,
+                        cardsCount: controller.discoverUsers.length,
+                        numberOfCardsDisplayed:
+                            controller.discoverUsers.length > 1 ? 2 : 1,
+                        padding: EdgeInsets.zero,
+                        backCardOffset: controller.discoverUsers.length > 1
+                            ? const Offset(0, 28)
+                            : Offset.zero,
+                        allowedSwipeDirection: const AllowedSwipeDirection.only(
+                          left: true,
+                          right: true,
+                          up: true,
+                        ),
+                        onSwipe: (previousIndex, currentIndex, direction) {
+                          if (previousIndex < 0 ||
+                              previousIndex >=
+                                  controller.discoverUsers.length) {
+                            return false;
+                          }
+
+                          final user = controller.discoverUsers[previousIndex];
+
+                          if (direction == CardSwiperDirection.top) {
+                            HapticFeedback.heavyImpact();
+                            unawaited(_openComplimentComposer(context, user));
+                            return false;
+                          }
+
+                          controller.currentCardIndex.value = currentIndex ?? 0;
+
+                          switch (direction) {
+                            case CardSwiperDirection.right:
+                              HapticFeedback.mediumImpact();
+                              controller.likeUser(user.id);
+                              break;
+                            case CardSwiperDirection.left:
+                              HapticFeedback.selectionClick();
+                              controller.passUser(user.id);
+                              break;
+                            case CardSwiperDirection.top:
+                              break;
+                            case CardSwiperDirection.bottom:
+                              break;
+                          }
+
+                          return true;
+                        },
+                        onUndo: (previousIndex, currentIndex, direction) {
+                          controller.currentCardIndex.value = currentIndex;
+                          controller.rewindLastSwipe();
+                          return true;
+                        },
+                        cardBuilder:
+                            (
+                              context,
+                              index,
+                              horizontalOffsetPercentage,
+                              verticalOffsetPercentage,
+                            ) {
+                              final user = controller.discoverUsers[index];
+                              return _HomeProfileCard(
+                                user: user,
+                                controller: controller,
+                                onComplimentRequested: (targetUser) =>
+                                    _openComplimentComposer(
+                                      context,
+                                      targetUser,
+                                    ),
+                                horizontalOffsetPercentage:
+                                    horizontalOffsetPercentage.toDouble(),
+                                verticalOffsetPercentage:
+                                    verticalOffsetPercentage.toDouble(),
+                              );
+                            },
+                      );
+                    },
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  left: 14,
+                  right: 14,
+                  child: _HomeTopBar(
+                    notificationService: notificationService,
+                    transparent:
+                        hasCards && !showLocationGate && !showStartupRadar,
+                  ),
+                ),
+                if (showLocationGate)
+                  Positioned.fill(
+                    child: _LocationGateOverlay(
+                      onEnable: controller.enableLocationFromGate,
+                      onLater: controller.dismissLocationGate,
+                    ),
+                  ),
+                if (showStartupRadar)
+                  Positioned.fill(
+                    child: _StartupRadarOverlay(controller: controller),
+                  ),
+                if (showSwipeTutorial)
+                  Positioned.fill(
+                    child: _SwipeTutorialOverlay(
+                      onDismiss: controller.dismissSwipeTutorial,
+                    ),
+                  ),
+              ],
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeTopBar extends StatelessWidget {
+  const _HomeTopBar({this.notificationService, this.transparent = false});
+
+  final NotificationService? notificationService;
+  final bool transparent;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final homeController = Get.find<HomeController>();
+
+    return SizedBox(
+      height: 38,
+      child: Row(
+        textDirection: TextDirection.ltr,
+        children: [
+          Obx(() {
+            final current = homeController.currentUser;
+            final avatarUrl = CloudinaryUrl.thumbnail(current?.mainPhotoUrl);
+            final initials = Helpers.getInitials(
+              current?.firstName,
+              current?.lastName,
+            );
+            return _TopAvatarButton(
+              imageUrl: avatarUrl,
+              initials: initials,
+              transparent: transparent,
+              onTap: () => Get.toNamed(AppRoutes.settings),
+            );
+          }),
+          const Spacer(),
+          if (notificationService != null)
+            Obx(() {
+              final hasBadge = notificationService!.unreadCount.value > 0;
+              return _TopIconButton(
+                icon: LucideIcons.bell,
+                onTap: Get.find<HomeController>().openNotifications,
+                hasBadge: hasBadge,
+                color: transparent
+                    ? Colors.white
+                    : (isDark
+                          ? AppColors.textPrimaryDark
+                          : const Color(0xFF232129)),
+                transparent: transparent,
+              );
+            })
+          else
+            _TopIconButton(
+              icon: LucideIcons.bell,
+              onTap: Get.find<HomeController>().openNotifications,
+              color: transparent
+                  ? Colors.white
+                  : (isDark
+                        ? AppColors.textPrimaryDark
+                        : const Color(0xFF232129)),
+              transparent: transparent,
+            ),
+          const SizedBox(width: 6),
+          _TopIconButton(
+            icon: LucideIcons.settings2,
+            onTap: Get.find<HomeController>().openFilter,
+            color: transparent
+                ? Colors.white
+                : (isDark
+                      ? AppColors.textPrimaryDark
+                      : const Color(0xFF232129)),
+            transparent: transparent,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopIconButton extends StatelessWidget {
+  const _TopIconButton({
+    required this.icon,
+    required this.onTap,
+    this.hasBadge = false,
+    this.color = const Color(0xFF232129),
+    this.transparent = false,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool hasBadge;
+  final Color color;
+  final bool transparent;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconCore = Container(
+      width: 32,
+      height: 32,
+      decoration: transparent
+          ? BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            )
+          : null,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(icon, size: 18.5, color: color),
+          if (hasBadge)
+            Positioned(
+              top: 5,
+              right: 5,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.2),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: transparent
+            ? ClipOval(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: iconCore,
+                ),
+              )
+            : iconCore,
+      ),
+    );
+  }
+}
+
+class _TopAvatarButton extends StatelessWidget {
+  const _TopAvatarButton({
+    required this.onTap,
+    required this.imageUrl,
+    required this.initials,
+    this.transparent = false,
+  });
+
+  final VoidCallback onTap;
+  final String imageUrl;
+  final String initials;
+  final bool transparent;
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
-      body: Stack(
-        children: [
-          // Background Pattern
-          Positioned.fill(
-            child: IslamicPatternWidget(
-              opacity: isDark ? 0.03 : 0.05,
-              color: isDark ? Colors.white : AppColors.emerald,
+    final avatar = Container(
+      width: 34,
+      height: 34,
+      decoration: transparent
+          ? BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black.withValues(alpha: 0.18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            )
+          : BoxDecoration(
+              shape: BoxShape.circle,
+              color: isDark ? const Color(0xFF1D2130) : const Color(0xFFF2EEFA),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF353B4B)
+                    : const Color(0xFFE2DAF1),
+              ),
             ),
-          ),
+      child: ClipOval(
+        child: imageUrl.trim().isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                errorWidget: (context, url, error) => _AvatarInitials(
+                  initials: initials,
+                  transparent: transparent,
+                ),
+              )
+            : _AvatarInitials(initials: initials, transparent: transparent),
+      ),
+    );
 
-          Column(
-            children: [
-              // 1. App Bar Header
-              _buildHeader(context, isDark, topPad),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: transparent
+            ? ClipOval(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: avatar,
+                ),
+              )
+            : avatar,
+      ),
+    );
+  }
+}
 
-              // 2. Main Swiper Area
-              Expanded(
-                child: Obx(() {
-                  if (controller.isLoading.value && controller.discoverUsers.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (controller.isEmpty.value || controller.discoverUsers.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AnimatedEmptyState(
-                            lottieAsset: 'assets/animations/no_users.json',
-                            title: 'all_caught_up'.tr,
-                            subtitle: 'expand_filters_desc'.tr,
-                            fallbackIcon: LucideIcons.search,
+class _AvatarInitials extends StatelessWidget {
+  const _AvatarInitials({required this.initials, required this.transparent});
+
+  final String initials;
+  final bool transparent;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = transparent ? Colors.white : AppColors.primary;
+    return Container(
+      alignment: Alignment.center,
+      color: Colors.transparent,
+      child: Text(
+        initials,
+        style: GoogleFonts.poppins(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeProfileCard extends StatelessWidget {
+  const _HomeProfileCard({
+    required this.user,
+    required this.controller,
+    required this.onComplimentRequested,
+    required this.horizontalOffsetPercentage,
+    required this.verticalOffsetPercentage,
+  });
+
+  final UserModel user;
+  final HomeController controller;
+  final Future<void> Function(UserModel user) onComplimentRequested;
+  final double horizontalOffsetPercentage;
+  final double verticalOffsetPercentage;
+
+  @override
+  Widget build(BuildContext context) => _buildImageFirstCard(context);
+
+  Widget _buildImageFirstCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final likeProgress = horizontalOffsetPercentage > 0
+        ? horizontalOffsetPercentage.clamp(0.0, 1.0).toDouble()
+        : 0.0;
+    final passProgress = horizontalOffsetPercentage < 0
+        ? (-horizontalOffsetPercentage).clamp(0.0, 1.0).toDouble()
+        : 0.0;
+    final complimentProgress = verticalOffsetPercentage < 0
+        ? (-verticalOffsetPercentage).clamp(0.0, 1.0).toDouble()
+        : 0.0;
+    final profile = user.profile;
+    final infoItems = _profileSummaryItems(profile);
+    final interests = profile?.interests ?? const <String>[];
+    final languages = profile?.languages ?? const <String>[];
+    final familyValues = profile?.familyValues ?? const <String>[];
+    final basicFacts = _factsFromPairs([
+      MapEntry('gender'.tr, _humanizeNullable(profile?.gender)),
+      MapEntry('ethnicity'.tr, _humanizeNullable(profile?.ethnicity)),
+      MapEntry('nationality'.tr, _humanizeNullable(profile?.nationality)),
+      MapEntry(
+        'nationalities'.tr,
+        profile?.nationalities
+            ?.where((item) => item.trim().isNotEmpty)
+            .join(', '),
+      ),
+      MapEntry(
+        'height'.tr,
+        profile?.height != null ? '${profile!.height} cm' : null,
+      ),
+      MapEntry(
+        'weight'.tr,
+        profile?.weight != null ? '${profile!.weight} kg' : null,
+      ),
+    ]);
+    final faithFacts = _factsFromPairs([
+      MapEntry(
+        'religious_level'.tr,
+        _humanizeNullable(profile?.religiousLevel),
+      ),
+      MapEntry('sect'.tr, _humanizeNullable(profile?.sect)),
+      MapEntry('prayer'.tr, _humanizeNullable(profile?.prayerFrequency)),
+      MapEntry(
+        'marriage_intention'.tr,
+        _humanizeNullable(profile?.marriageIntention),
+      ),
+      MapEntry('marital_status'.tr, _humanizeNullable(profile?.maritalStatus)),
+      MapEntry('intent_mode'.tr, _humanizeNullable(profile?.intentMode)),
+      MapEntry(
+        'second_wife_preference'.tr,
+        _humanizeNullable(profile?.secondWifePreference),
+      ),
+    ]);
+    final careerFacts = _factsFromPairs([
+      MapEntry('education'.tr, _humanizeNullable(profile?.education)),
+      MapEntry(
+        'education_details'.tr,
+        _humanizeNullable(profile?.educationDetails),
+      ),
+      MapEntry('job_title'.tr, _humanizeNullable(profile?.jobTitle)),
+      MapEntry('company'.tr, _humanizeNullable(profile?.company)),
+    ]);
+    final lifestyleFacts = _factsFromPairs([
+      MapEntry(
+        'living_situation'.tr,
+        _humanizeNullable(profile?.livingSituation),
+      ),
+      MapEntry(
+        'communication_style'.tr,
+        _humanizeNullable(profile?.communicationStyle),
+      ),
+      MapEntry('dietary'.tr, _humanizeNullable(profile?.dietary)),
+      MapEntry('workout'.tr, _humanizeNullable(profile?.workoutFrequency)),
+      MapEntry('sleep_schedule'.tr, _humanizeNullable(profile?.sleepSchedule)),
+      MapEntry('social_media'.tr, _humanizeNullable(profile?.socialMediaUsage)),
+      MapEntry('drinking'.tr, _humanizeNullable(profile?.alcohol)),
+      MapEntry('hijab'.tr, _humanizeNullable(profile?.hijabStatus)),
+      MapEntry(
+        'has_pets'.tr,
+        _boolValue(profile?.hasPets, yesLabel: 'yes'.tr, noLabel: 'no'.tr),
+      ),
+      MapEntry('pet_preference'.tr, _humanizeNullable(profile?.petPreference)),
+    ]);
+    final familyFacts = _factsFromPairs([
+      MapEntry('family_plans'.tr, _humanizeNullable(profile?.familyPlans)),
+      MapEntry(
+        'has_children'.tr,
+        _boolValue(profile?.hasChildren, yesLabel: 'yes'.tr, noLabel: 'no'.tr),
+      ),
+      MapEntry(
+        'children'.tr,
+        profile?.numberOfChildren != null
+            ? profile!.numberOfChildren.toString()
+            : null,
+      ),
+      MapEntry(
+        'wants_children'.tr,
+        _boolValue(
+          profile?.wantsChildren,
+          yesLabel: 'yes'.tr,
+          noLabel: 'no'.tr,
+        ),
+      ),
+      MapEntry(
+        'relocate'.tr,
+        _boolValue(
+          profile?.willingToRelocate,
+          yesLabel: 'open_to_relocate'.tr,
+          noLabel: 'prefer_to_stay'.tr,
+        ),
+      ),
+    ]);
+    final healthFacts = _factsFromPairs([
+      MapEntry(
+        'vaccination'.tr,
+        _boolValue(
+          profile?.vaccinationStatus,
+          yesLabel: 'vaccinated'.tr,
+          noLabel: 'not_vaccinated'.tr,
+        ),
+      ),
+      MapEntry('blood_type'.tr, _humanizeNullable(profile?.bloodType)),
+      MapEntry('health_notes'.tr, _humanizeNullable(profile?.healthNotes)),
+    ]);
+    final favoritesMusic = profile?.favoriteMusic ?? const <String>[];
+    final favoriteMovies = profile?.favoriteMovies ?? const <String>[];
+    final favoriteBooks = profile?.favoriteBooks ?? const <String>[];
+    final travelPreferences = profile?.travelPreferences ?? const <String>[];
+    final previewInterests = interests.take(4).toList(growable: false);
+    final countryLabel = (profile?.country ?? '').trim();
+    final photoUrls = <String>[];
+    final seenPhotoUrls = <String>{};
+
+    for (final photo in user.photos ?? const <PhotoModel>[]) {
+      final rawUrl = photo.url.trim();
+      if (rawUrl.isEmpty) continue;
+      if (seenPhotoUrls.add(rawUrl)) {
+        photoUrls.add(rawUrl);
+      }
+    }
+
+    final fallbackMain = (user.mainPhotoUrl ?? '').trim();
+    if (fallbackMain.isNotEmpty && seenPhotoUrls.add(fallbackMain)) {
+      photoUrls.add(fallbackMain);
+    }
+    if (photoUrls.isEmpty) {
+      photoUrls.add('');
+    }
+
+    final surfaceColor = isDark ? const Color(0xFF0F1320) : Colors.white;
+    final detailsSurface = isDark
+        ? const Color(0xFF171D2C)
+        : const Color(0xFFF4F6FB);
+    final detailsPrimary = isDark ? Colors.white : const Color(0xFF191E2A);
+    final detailsSecondary = isDark
+        ? Colors.white.withValues(alpha: 0.78)
+        : const Color(0xFF606B82);
+    final detailsBody = isDark
+        ? Colors.white.withValues(alpha: 0.9)
+        : const Color(0xFF2A3143);
+    final tagSurface = isDark
+        ? Colors.white.withValues(alpha: 0.09)
+        : const Color(0xFFE9EDF6);
+    final chipSurface = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFFE2E8F5);
+    final chipText = isDark ? Colors.white : const Color(0xFF1F2738);
+    final dividerColor = isDark
+        ? Colors.white.withValues(alpha: 0.18)
+        : const Color(0xFFD5DCEA);
+    final topMaskColor = Colors.black.withValues(alpha: isDark ? 0.34 : 0.26);
+    final bottomMaskColor = Colors.black.withValues(
+      alpha: isDark ? 0.86 : 0.82,
+    );
+    final panelBorderColor = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFFD9E0EF);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final imageHeight = constraints.maxHeight;
+        const floatingNavHeight = 66.0;
+        const actionNavGap = 0.0;
+        const actionRowHeight = 74.0;
+        const actionDockPullDown = 30.0;
+        final bottomInset = MediaQuery.of(context).padding.bottom;
+        final floatingNavBottomMargin =
+            bottomInset > 0 ? bottomInset + 8 : 10.0;
+        // Aggressively dock actions closer to nav, while keeping a tiny safe floor.
+        final actionRowBottom =
+          (floatingNavBottomMargin +
+              floatingNavHeight +
+              actionNavGap -
+              actionDockPullDown)
+            .clamp(floatingNavBottomMargin + 4, double.infinity)
+                .clamp(0.0, double.infinity)
+                .toDouble();
+        final scrollBottomPadding = actionRowBottom + actionRowHeight + 20;
+        final infoTextBottom = actionRowBottom + actionRowHeight + 14;
+
+        return Obx(() {
+          final currentPhotoIndex = controller.cardPhotoIndexFor(
+            user.id,
+            photoUrls.length,
+          );
+          final photoUrl = photoUrls[currentPhotoIndex];
+          final cityLabel = (profile?.city ?? '').trim();
+          final locationLabel = [
+            cityLabel,
+            countryLabel,
+          ].where((value) => value.isNotEmpty).join(', ');
+          final summaryLocation = locationLabel.isNotEmpty
+              ? '${_countryFlagEmoji(countryLabel)} $locationLabel'
+              : _subtitle(user, controller.currentUser);
+          final summaryInterests = previewInterests
+              .take(3)
+              .toList(growable: false);
+          final summaryInterestsLine = summaryInterests.join(' • ');
+          final summaryFaith = [
+            _humanizeNullable(profile?.religiousLevel),
+            _humanizeNullable(profile?.sect),
+          ].whereType<String>().where((value) => value.trim().isNotEmpty)
+              .take(2)
+              .join(' • ');
+          final cue = controller.swipeButtonCue.value.trim().toLowerCase();
+          final passEmphasis = math.max(
+            passProgress,
+            cue == 'pass' ? 1.0 : 0.0,
+          );
+          final likeEmphasis = math.max(
+            likeProgress,
+            cue == 'like' ? 1.0 : 0.0,
+          );
+          final complimentEmphasis = math.max(
+            complimentProgress,
+            cue == 'compliment' ? 1.0 : 0.0,
+          );
+          final swipeTextProgress = math.max(likeProgress, passProgress);
+          final swipeTextCue = likeProgress >= passProgress ? 'like' : 'pass';
+          final primaryName = _primaryName(user);
+          final age = profile?.showAge == false ? null : user.age;
+          final score = controller.getCompatibilityScore(user.id);
+          final displayScore = score > 0
+              ? score
+              : controller.estimateCompatibilityScore(user);
+          final focusedSwipeAction = likeProgress > 0.03
+              ? 'like'
+              : passProgress > 0.03
+              ? 'pass'
+              : (cue == 'like' || cue == 'pass' ? cue : '');
+          final focusedSwipeStrength = focusedSwipeAction == 'like'
+              ? likeProgress
+              : focusedSwipeAction == 'pass'
+              ? passProgress
+              : 0.0;
+          final focusedVisualStrength = math.max(
+            focusedSwipeStrength,
+            focusedSwipeAction.isNotEmpty ? 0.34 : 0.0,
+          ).clamp(0.0, 1.0).toDouble();
+
+          void onPassTap() {
+            HapticFeedback.selectionClick();
+            controller.triggerSwipeButtonCue('pass');
+            controller.swiperController.swipe(CardSwiperDirection.left);
+          }
+
+          void onLikeTap() {
+            HapticFeedback.mediumImpact();
+            controller.triggerSwipeButtonCue('like');
+            controller.swiperController.swipe(CardSwiperDirection.right);
+          }
+
+          return Container(
+            decoration: BoxDecoration(
+              color: surfaceColor,
+              border: Border.all(color: panelBorderColor),
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.only(bottom: scrollBottomPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: imageHeight,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: _CardPhoto(user: user, imageUrl: photoUrl),
+                              ),
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: 128,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [topMaskColor, Colors.transparent],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                height: 300,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.transparent,
+                                        Colors.black.withValues(
+                                          alpha: isDark ? 0.44 : 0.4,
+                                        ),
+                                        bottomMaskColor,
+                                      ],
+                                      stops: const [0.05, 0.55, 1],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned.fill(
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.translucent,
+                                        onTap: () => controller.previousCardPhoto(
+                                          user.id,
+                                          photoUrls.length,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.translucent,
+                                        onTap: () => controller.nextCardPhoto(
+                                          user.id,
+                                          photoUrls.length,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                top: 12,
+                                left: 12,
+                                right: 12,
+                                child: _CardTopProgress(
+                                  count: photoUrls.length,
+                                  activeIndex: currentPhotoIndex,
+                                ),
+                              ),
+                              Positioned(
+                                top: 42,
+                                left: 12,
+                                child: _CompatibilityBadge(score: displayScore),
+                              ),
+                              Positioned(
+                                top: 42,
+                                right: 12,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 240),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  transitionBuilder: (child, animation) {
+                                    final offset = _swipeStatusOffsetFromKey(
+                                      child.key,
+                                    );
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: Tween<Offset>(
+                                          begin: offset,
+                                          end: Offset.zero,
+                                        ).animate(animation),
+                                        child: ScaleTransition(
+                                          scale: Tween<double>(
+                                            begin: 0.94,
+                                            end: 1,
+                                          ).animate(animation),
+                                          child: child,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: _swipeStatusTitle(cue) == null
+                                      ? const SizedBox(
+                                          key: ValueKey('swipe_status_hidden'),
+                                        )
+                                      : _SwipeStatusChip(
+                                          key: ValueKey('swipe_status_$cue'),
+                                          icon: _swipeStatusIcon(cue),
+                                          color: _swipeStatusColor(cue),
+                                          title: _swipeStatusTitle(cue)!,
+                                          subtitle: 'swipe_status_subtitle'.tr,
+                                        ),
+                                ),
+                              ),
+                              Positioned(
+                                top: imageHeight * 0.2,
+                                left: 16,
+                                right: 16,
+                                child: IgnorePointer(
+                                  child: AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 80),
+                                    opacity: swipeTextProgress.clamp(0.0, 1.0),
+                                    child: Transform.translate(
+                                      offset: Offset(
+                                        (passProgress - likeProgress) * 22,
+                                        0,
+                                      ),
+                                      child: _SwipeDragLabel(
+                                        title:
+                                            _swipeStatusTitle(swipeTextCue) ??
+                                            swipeTextCue,
+                                        icon: _swipeStatusIcon(swipeTextCue),
+                                        color: _swipeStatusColor(swipeTextCue),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                left: 16,
+                                right: 16,
+                                bottom: infoTextBottom,
+                                child: IgnorePointer(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Expanded(
+                                            child: RichText(
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              text: TextSpan(
+                                                children: [
+                                                  TextSpan(
+                                                    text: primaryName,
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 36,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Colors.white,
+                                                      letterSpacing: -0.62,
+                                                      textStyle:
+                                                          const TextStyle(
+                                                            shadows: [
+                                                              Shadow(
+                                                                color: Color(
+                                                                  0xB0000000,
+                                                                ),
+                                                                blurRadius: 12,
+                                                                offset: Offset(
+                                                                  0,
+                                                                  2,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  if (age != null && age > 0)
+                                                    TextSpan(
+                                                      text: ', $age',
+                                                      style: GoogleFonts.poppins(
+                                                        fontSize: 25,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: Colors.white
+                                                            .withValues(
+                                                              alpha: 0.95,
+                                                            ),
+                                                        textStyle:
+                                                            const TextStyle(
+                                                              shadows: [
+                                                                Shadow(
+                                                                  color: Color(
+                                                                    0x9A000000,
+                                                                  ),
+                                                                  blurRadius:
+                                                                      10,
+                                                                  offset:
+                                                                      Offset(
+                                                                        0,
+                                                                        2,
+                                                                      ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          if (user.selfieVerified)
+                                            Icon(
+                                              LucideIcons.badgeCheck,
+                                              size: 20,
+                                              color: Colors.white,
+                                              shadows: const [
+                                                Shadow(
+                                                  color: Color(0xAA000000),
+                                                  blurRadius: 8,
+                                                  offset: Offset(0, 1),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        summaryLocation,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14.8,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.93,
+                                          ),
+                                          textStyle: const TextStyle(
+                                            shadows: [
+                                              Shadow(
+                                                color: Color(0x8D000000),
+                                                blurRadius: 8,
+                                                offset: Offset(0, 1),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      if (summaryFaith.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          summaryFaith,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.88,
+                                            ),
+                                            textStyle: const TextStyle(
+                                              shadows: [
+                                                Shadow(
+                                                  color: Color(0x85000000),
+                                                  blurRadius: 7,
+                                                  offset: Offset(0, 1),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      if (summaryInterestsLine.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          summaryInterestsLine,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12.4,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.86,
+                                            ),
+                                            textStyle: const TextStyle(
+                                              shadows: [
+                                                Shadow(
+                                                  color: Color(0x80000000),
+                                                  blurRadius: 6,
+                                                  offset: Offset(0, 1),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: controller.refreshDiscoverUsers,
-                            icon: const Icon(LucideIcons.refreshCw, size: 16),
-                            label: Text('refresh'.tr),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(height: actionRowHeight + 22),
+                        ..._buildProfileDetailsSections(
+                          profile: profile,
+                          photoUrls: photoUrls,
+                          currentPhotoIndex: currentPhotoIndex,
+                          infoItems: infoItems,
+                          interests: interests,
+                          languages: languages,
+                          familyValues: familyValues,
+                          basicFacts: basicFacts,
+                          faithFacts: faithFacts,
+                          careerFacts: careerFacts,
+                          lifestyleFacts: lifestyleFacts,
+                          familyFacts: familyFacts,
+                          healthFacts: healthFacts,
+                          favoritesMusic: favoritesMusic,
+                          favoriteMovies: favoriteMovies,
+                          favoriteBooks: favoriteBooks,
+                          travelPreferences: travelPreferences,
+                          detailsSurface: detailsSurface,
+                          detailsPrimary: detailsPrimary,
+                          detailsSecondary: detailsSecondary,
+                          detailsBody: detailsBody,
+                          tagSurface: tagSurface,
+                          chipSurface: chipSurface,
+                          chipText: chipText,
+                          dividerColor: dividerColor,
+                          panelBorderColor: panelBorderColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: actionRowBottom,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 160),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: focusedSwipeAction == 'pass'
+                        ? Center(
+                            key: const ValueKey('focused_pass_action'),
+                            child: _FocusedSwipeActionButton(
+                              icon: LucideIcons.x,
+                              color: const Color(0xFFFF4D4F),
+                              emphasis: focusedVisualStrength,
+                              onTap: onPassTap,
+                            ),
+                          )
+                        : focusedSwipeAction == 'like'
+                        ? Center(
+                            key: const ValueKey('focused_like_action'),
+                            child: _FocusedSwipeActionButton(
+                              icon: LucideIcons.heart,
+                              color: AppColors.primary,
+                              emphasis: focusedVisualStrength,
+                              onTap: onLikeTap,
+                            ),
+                          )
+                        : Row(
+                            key: const ValueKey('full_action_row'),
+                            textDirection: TextDirection.ltr,
+                            children: [
+                              Expanded(
+                                child: _LabeledActionButton(
+                                  label: 'home_action_relay'.tr,
+                                  icon: LucideIcons.rotateCcw,
+                                  color: const Color(0xFF34C759),
+                                  outerSize: 50,
+                                  innerSize: 42,
+                                  iconSize: 17,
+                                  showLabel: false,
+                                  labelColor: detailsPrimary,
+                                  emphasis: controller.canRewind ? 0.2 : 0,
+                                  onTap: () {
+                                    if (!controller.hasRewindAccess) {
+                                      Get.toNamed(AppRoutes.subscription);
+                                      return;
+                                    }
+                                    if (controller.canRewind) {
+                                      HapticFeedback.selectionClick();
+                                      controller.swiperController.undo();
+                                    } else {
+                                      Helpers.showSnackbar(
+                                        message: 'no_swipe_to_undo'.tr,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                              Expanded(
+                                child: _LabeledActionButton(
+                                  label: 'home_action_pass'.tr,
+                                  icon: LucideIcons.x,
+                                  color: const Color(0xFFFF4D4F),
+                                  outerSize: 68,
+                                  innerSize: 58,
+                                  iconSize: 23,
+                                  showLabel: false,
+                                  labelColor: detailsPrimary,
+                                  emphasis: passEmphasis,
+                                  highlightColor: const Color(0xFFFF4D4F),
+                                  onTap: onPassTap,
+                                ),
+                              ),
+                              Expanded(
+                                child: _LabeledActionButton(
+                                  label: 'home_action_compliment'.tr,
+                                  icon: LucideIcons.star,
+                                  color: const Color(0xFFFFA31A),
+                                  outerSize: 68,
+                                  innerSize: 58,
+                                  iconSize: 22,
+                                  showLabel: false,
+                                  labelColor: detailsPrimary,
+                                  emphasis: complimentEmphasis,
+                                  highlightColor: const Color(0xFFFFA31A),
+                                  onTap: () {
+                                    if (!controller.canSendCompliment) {
+                                      Get.toNamed(AppRoutes.subscription);
+                                      return;
+                                    }
+                                    HapticFeedback.heavyImpact();
+                                    controller.triggerSwipeButtonCue(
+                                      'compliment',
+                                    );
+                                    unawaited(onComplimentRequested(user));
+                                  },
+                                ),
+                              ),
+                              Expanded(
+                                child: _LabeledActionButton(
+                                  label: 'home_action_like'.tr,
+                                  icon: LucideIcons.heart,
+                                  color: AppColors.primary,
+                                  outerSize: 68,
+                                  innerSize: 58,
+                                  iconSize: 23,
+                                  showLabel: false,
+                                  labelColor: detailsPrimary,
+                                  emphasis: likeEmphasis,
+                                  highlightColor: AppColors.primary,
+                                  onTap: onLikeTap,
+                                ),
+                              ),
+                              Expanded(
+                                child: _LabeledActionButton(
+                                  label: 'home_action_boost'.tr,
+                                  icon: LucideIcons.zap,
+                                  color: const Color(0xFF1890FF),
+                                  outerSize: 50,
+                                  innerSize: 42,
+                                  iconSize: 17,
+                                  showLabel: false,
+                                  labelColor: detailsPrimary,
+                                  emphasis: controller.hasBoostAccess ? 0.12 : 0,
+                                  onTap: () => _showBoostSheet(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  List<Widget> _buildProfileDetailsSections({
+    required ProfileModel? profile,
+    required List<String> photoUrls,
+    required int currentPhotoIndex,
+    required List<String> infoItems,
+    required List<String> interests,
+    required List<String> languages,
+    required List<String> familyValues,
+    required List<_ProfileFact> basicFacts,
+    required List<_ProfileFact> faithFacts,
+    required List<_ProfileFact> careerFacts,
+    required List<_ProfileFact> lifestyleFacts,
+    required List<_ProfileFact> familyFacts,
+    required List<_ProfileFact> healthFacts,
+    required List<String> favoritesMusic,
+    required List<String> favoriteMovies,
+    required List<String> favoriteBooks,
+    required List<String> travelPreferences,
+    required Color detailsSurface,
+    required Color detailsPrimary,
+    required Color detailsSecondary,
+    required Color detailsBody,
+    required Color tagSurface,
+    required Color chipSurface,
+    required Color chipText,
+    required Color dividerColor,
+    required Color panelBorderColor,
+  }) {
+    final sections = <Widget>[];
+
+    void addTagSection({required String label, required List<String> values}) {
+      if (values.isEmpty) return;
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _CardSectionLabel(label: label, color: detailsPrimary),
+        ),
+      );
+      sections.add(const SizedBox(height: 8));
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: values
+                .map(
+                  (item) => _SoftTag(
+                    label: item,
+                    background: chipSurface,
+                    textColor: chipText,
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ),
+      );
+      sections.add(const SizedBox(height: 18));
+    }
+
+    void addFactsSection({required String title, required List<_ProfileFact> facts}) {
+      if (facts.isEmpty) return;
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _DetailFactsCard(
+            title: title,
+            facts: facts,
+            surface: detailsSurface,
+            primary: detailsPrimary,
+            secondary: detailsSecondary,
+            dividerColor: dividerColor,
+          ),
+        ),
+      );
+      sections.add(const SizedBox(height: 14));
+    }
+
+    if (photoUrls.length > 1) {
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _CardSectionLabel(label: 'photos'.tr, color: detailsPrimary),
+        ),
+      );
+      sections.add(const SizedBox(height: 8));
+      sections.add(
+        SizedBox(
+          height: 102,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: photoUrls.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final thumb = photoUrls[index];
+              final resolvedThumb = CloudinaryUrl.medium(thumb);
+              final selected = index == currentPhotoIndex;
+
+              return GestureDetector(
+                onTap: () {
+                  controller.cardPhotoIndices[user.id] = index;
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 74,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: selected ? AppColors.primary : panelBorderColor,
+                      width: selected ? 1.8 : 1,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: resolvedThumb.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: resolvedThumb,
+                            fit: BoxFit.cover,
+                          )
+                        : Container(
+                            color: tagSurface,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.person_rounded,
+                              color: detailsSecondary,
                             ),
                           ),
-                        ],
-                      ),
-                    );
-                  }
-                  return Stack(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                        child: CardSwiper(
-                          cardsCount: controller.discoverUsers.length,
-                          numberOfCardsDisplayed: controller.discoverUsers.length.clamp(1, 3),
-                          backCardOffset: const Offset(0, 40),
-                          padding: EdgeInsets.zero,
-                          isDisabled: controller.isLoading.value,
-                          onSwipe: (previousIndex, currentIndex, direction) {
-                            final user = controller.discoverUsers[previousIndex];
-                            if (direction == CardSwiperDirection.right) {
-                              controller.likeUser(user.id);
-                            } else if (direction == CardSwiperDirection.left) {
-                              controller.passUser(user.id);
-                            } else if (direction == CardSwiperDirection.top) {
-                              controller.likeUser(user.id); // Swipe up = like
-                            }
-                            return true;
-                          },
-                          onUndo: (previousIndex, currentIndex, direction) {
-                            controller.rewindLastSwipe();
-                            return true;
-                          },
-                          cardBuilder: (context, index, horizontalOffsetPercentage, verticalOffsetPercentage) {
-                            final user = controller.discoverUsers[index];
-                            return _UserSwipeCard(user: user, controller: controller, isDark: isDark);
-                          },
-                        ),
-                      ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      sections.add(const SizedBox(height: 16));
+    }
 
-                      // Swipe Actions Bottom Bar
-                      Positioned(
-                        bottom: 40 + bottomPad,
-                        left: 0,
-                        right: 0,
-                        child: _buildSwipeActions(isDark),
-                      ),
-                    ],
-                  );
-                }),
+    if ((profile?.bio ?? '').trim().isNotEmpty) {
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            profile!.bio!.trim(),
+            style: GoogleFonts.poppins(
+              fontSize: 13.4,
+              fontWeight: FontWeight.w400,
+              height: 1.58,
+              color: detailsBody,
+            ),
+          ),
+        ),
+      );
+      sections.add(const SizedBox(height: 16));
+    }
+
+    if (infoItems.isNotEmpty) {
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: infoItems
+                .map(
+                  (item) => _InfoPill(
+                    label: item,
+                    background: tagSurface,
+                    textColor: detailsPrimary,
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ),
+      );
+      sections.add(const SizedBox(height: 18));
+    }
+
+    addTagSection(label: 'interests'.tr, values: interests.take(10).toList());
+    addTagSection(label: 'languages_speak'.tr, values: languages);
+    addTagSection(label: 'family_values'.tr, values: familyValues);
+
+    if ((profile?.aboutPartner ?? '').trim().isNotEmpty) {
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _CardSectionLabel(
+            label: 'looking_for'.tr,
+            color: detailsPrimary,
+          ),
+        ),
+      );
+      sections.add(const SizedBox(height: 8));
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            profile!.aboutPartner!.trim(),
+            style: GoogleFonts.poppins(
+              fontSize: 13.2,
+              fontWeight: FontWeight.w400,
+              height: 1.55,
+              color: detailsBody,
+            ),
+          ),
+        ),
+      );
+      sections.add(const SizedBox(height: 18));
+    }
+
+    addFactsSection(title: 'basics'.tr, facts: basicFacts);
+    addFactsSection(title: 'faith_intentions'.tr, facts: faithFacts);
+    addFactsSection(title: 'education_work'.tr, facts: careerFacts);
+    addFactsSection(title: 'lifestyle'.tr, facts: lifestyleFacts);
+    addFactsSection(title: 'family'.tr, facts: familyFacts);
+    addFactsSection(title: 'health'.tr, facts: healthFacts);
+
+    addTagSection(label: 'favorite_music'.tr, values: favoritesMusic);
+    addTagSection(label: 'favorite_movies'.tr, values: favoriteMovies);
+    addTagSection(label: 'favorite_books'.tr, values: favoriteBooks);
+    addTagSection(label: 'travel_preferences'.tr, values: travelPreferences);
+
+    return sections;
+  }
+
+  String _subtitle(UserModel user, UserModel? currentUser) {
+    final profile = user.profile;
+    final currentProfile = currentUser?.profile;
+    final locationService = Get.isRegistered<LocationService>()
+        ? Get.find<LocationService>()
+        : null;
+
+    if (profile != null &&
+        profile.showDistance &&
+        locationService != null &&
+        profile.latitude != null &&
+        profile.longitude != null &&
+        currentProfile?.latitude != null &&
+        currentProfile?.longitude != null) {
+      final distance = locationService.distanceBetween(
+        currentProfile!.latitude!,
+        currentProfile.longitude!,
+        profile.latitude!,
+        profile.longitude!,
+      );
+      return _formatDistance(distance);
+    }
+
+    final locationLabel = [
+      profile?.city?.trim(),
+      profile?.country?.trim(),
+    ].whereType<String>().where((value) => value.isNotEmpty).join(', ');
+
+    if (locationLabel.isNotEmpty) {
+      return locationLabel;
+    }
+
+    return 'nearby'.tr;
+  }
+
+  String _primaryName(UserModel user) {
+    final displayName = user.displayName.trim();
+    if (displayName.isNotEmpty) {
+      return displayName.split(' ').first;
+    }
+    return 'profile'.tr;
+  }
+
+  String _countryFlagEmoji(String countryRaw) {
+    final country = countryRaw.trim().toLowerCase();
+    if (country.isEmpty) return '🏳️';
+    if (country.contains('alger')) return '🇩🇿';
+    if (country.contains('morocco')) return '🇲🇦';
+    if (country.contains('tunisia')) return '🇹🇳';
+    if (country.contains('egypt')) return '🇪🇬';
+    if (country.contains('jordan')) return '🇯🇴';
+    if (country.contains('saudi')) return '🇸🇦';
+    if (country.contains('emirates') || country.contains('uae')) return '🇦🇪';
+    if (country.contains('qatar')) return '🇶🇦';
+    if (country.contains('kuwait')) return '🇰🇼';
+    if (country.contains('bahrain')) return '🇧🇭';
+    if (country.contains('oman')) return '🇴🇲';
+    if (country.contains('iraq')) return '🇮🇶';
+    if (country.contains('palestin')) return '🇵🇸';
+    if (country.contains('syria')) return '🇸🇾';
+    if (country.contains('lebanon')) return '🇱🇧';
+    if (country.contains('yemen')) return '🇾🇪';
+    if (country.contains('sudan')) return '🇸🇩';
+    if (country.contains('somalia')) return '🇸🇴';
+    if (country.contains('united kingdom') || country == 'uk') return '🇬🇧';
+    if (country.contains('united states') || country == 'usa') return '🇺🇸';
+    if (country.contains('france')) return '🇫🇷';
+    if (country.contains('germany')) return '🇩🇪';
+    if (country.contains('canada')) return '🇨🇦';
+    if (country.contains('turkey')) return '🇹🇷';
+    return '🏳️';
+  }
+
+  String _formatDistance(double km) {
+    if (km < 1) {
+      return 'meters_away'.trParams({'count': '${(km * 1000).round()}'});
+    }
+
+    final rounded = km >= 10
+        ? km.round().toString()
+        : (km % 1 == 0 ? km.toInt().toString() : km.toStringAsFixed(1));
+    return 'km_away'.trParams({'distance': rounded});
+  }
+
+  List<String> _profileSummaryItems(ProfileModel? profile) {
+    if (profile == null) return const <String>[];
+
+    return [
+      if ((profile.jobTitle ?? '').trim().isNotEmpty) profile.jobTitle!.trim(),
+      if ((profile.education ?? '').trim().isNotEmpty)
+        profile.education!.trim(),
+      if (profile.height != null) '${profile.height} cm',
+      if ((profile.religiousLevel ?? '').trim().isNotEmpty)
+        profile.religiousLevel!.trim(),
+      if ((profile.maritalStatus ?? '').trim().isNotEmpty)
+        profile.maritalStatus!.trim(),
+      if ((profile.familyPlans ?? '').trim().isNotEmpty)
+        profile.familyPlans!.trim(),
+      if ((profile.communicationStyle ?? '').trim().isNotEmpty)
+        profile.communicationStyle!.trim(),
+      if ((profile.livingSituation ?? '').trim().isNotEmpty)
+        profile.livingSituation!.trim(),
+      if ((profile.workoutFrequency ?? '').trim().isNotEmpty)
+        profile.workoutFrequency!.trim(),
+    ];
+  }
+
+  List<_ProfileFact> _factsFromPairs(List<MapEntry<String, String?>> pairs) {
+    return pairs
+        .where((entry) => entry.value != null && entry.value!.trim().isNotEmpty)
+        .map((entry) => _ProfileFact(entry.key, entry.value!.trim()))
+        .toList(growable: false);
+  }
+
+  String? _humanizeNullable(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map(
+          (part) => part.length == 1
+              ? part.toUpperCase()
+              : '${part[0].toUpperCase()}${part.substring(1)}',
+        )
+        .join(' ');
+  }
+
+  String? _boolValue(
+    bool? value, {
+    required String yesLabel,
+    required String noLabel,
+  }) {
+    if (value == null) return null;
+    return value ? yesLabel : noLabel;
+  }
+
+  String? _swipeStatusTitle(String cue) {
+    switch (cue) {
+      case 'like':
+        return 'swipe_status_like'.tr;
+      case 'pass':
+        return 'swipe_status_pass'.tr;
+      case 'compliment':
+        return 'swipe_status_compliment'.tr;
+      default:
+        return null;
+    }
+  }
+
+  IconData _swipeStatusIcon(String cue) {
+    switch (cue) {
+      case 'like':
+        return LucideIcons.heart;
+      case 'pass':
+        return LucideIcons.x;
+      case 'compliment':
+        return LucideIcons.star;
+      default:
+        return LucideIcons.sparkles;
+    }
+  }
+
+  Color _swipeStatusColor(String cue) {
+    switch (cue) {
+      case 'like':
+        return AppColors.primary;
+      case 'pass':
+        return const Color(0xFFFF4D4F);
+      case 'compliment':
+        return const Color(0xFFFFA31A);
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  Offset _swipeStatusOffset(String cue) {
+    switch (cue) {
+      case 'like':
+        return const Offset(0.22, 0);
+      case 'pass':
+        return const Offset(-0.22, 0);
+      case 'compliment':
+        return const Offset(0, -0.22);
+      default:
+        return const Offset(0, -0.16);
+    }
+  }
+
+  Offset _swipeStatusOffsetFromKey(Key? key) {
+    if (key is! ValueKey<String>) {
+      return const Offset(0, -0.16);
+    }
+
+    const prefix = 'swipe_status_';
+    final raw = key.value;
+    if (!raw.startsWith(prefix)) {
+      return const Offset(0, -0.16);
+    }
+
+    final cue = raw.substring(prefix.length);
+    return _swipeStatusOffset(cue);
+  }
+
+  Future<void> _showBoostSheet(BuildContext context) {
+    if (!controller.hasBoostAccess) {
+      Get.toNamed(AppRoutes.subscription);
+      return Future<void>.value();
+    }
+
+    return Get.to<void>(
+          () => _BoostInfoScreen(onActivate: controller.boostProfile),
+          transition: Transition.rightToLeftWithFade,
+          duration: const Duration(milliseconds: 240),
+        ) ??
+        Future<void>.value();
+  }
+}
+
+class _CardTopProgress extends StatelessWidget {
+  const _CardTopProgress({required this.count, required this.activeIndex});
+
+  final int count;
+  final int activeIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 1) {
+      return Align(
+        alignment: Alignment.center,
+        child: Container(
+          width: 30,
+          height: 4,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+      );
+    }
+
+    final currentIndex = activeIndex.clamp(0, count - 1);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(count, (index) {
+        final isActive = index == currentIndex;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          width: isActive ? 18 : 7,
+          height: 7,
+          margin: EdgeInsets.only(right: index == count - 1 ? 0 : 5),
+          decoration: BoxDecoration(
+            color: isActive
+                ? Colors.white.withValues(alpha: 0.94)
+                : Colors.white.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _CompatibilityBadge extends StatelessWidget {
+  const _CompatibilityBadge({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = score >= 80
+        ? const Color(0xFF2ED47A)
+        : (score >= 60 ? const Color(0xFFFFC857) : const Color(0xFF6EC3FF));
+    final progress = (score.clamp(0, 100).toDouble()) / 100;
+
+    return SizedBox(
+      width: 62,
+      height: 62,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withValues(alpha: 0.34),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 50,
+              height: 50,
+              child: CircularProgressIndicator(
+                value: progress,
+                strokeWidth: 3,
+                backgroundColor: Colors.white.withValues(alpha: 0.14),
+                valueColor: AlwaysStoppedAnimation<Color>(tone),
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.sparkles, size: 10.5, color: tone),
+                const SizedBox(height: 2),
+                Text(
+                  '$score%',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.05,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SwipeStatusChip extends StatelessWidget {
+  const _SwipeStatusChip({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      constraints: const BoxConstraints(minWidth: 140),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 1.1),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.22),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.2),
+            ),
+            child: Icon(icon, size: 12.5, color: color),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 11.8,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: GoogleFonts.poppins(
+                  fontSize: 10.4,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
               ),
             ],
           ),
@@ -121,1253 +1873,2002 @@ class HomeScreen extends GetView<HomeController> {
       ),
     );
   }
+}
 
-  Widget _buildHeader(BuildContext context, bool isDark, double topPad) {
-    final user = controller.currentUser;
-    return Container(
-      padding: EdgeInsets.only(top: topPad + 10, left: 20, right: 20, bottom: 10),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: controller.openProfile,
-            child: Container(
-              width: 44, height: 44,
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.primary, width: 2),
+class _SwipeDragLabel extends StatelessWidget {
+  const _SwipeDragLabel({
+    required this.title,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.28),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: color.withValues(alpha: 0.7),
+                width: 1.25,
               ),
-              child: ClipOval(
-                child: user?.mainPhotoUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: CloudinaryUrl.thumbnail(user!.mainPhotoUrl),
-                        fit: BoxFit.cover,
-                      )
-                    : Center(
-                        child: Text(
-                          Helpers.getInitials(user?.firstName, user?.lastName),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                      ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'salaam'.tr + ', ${user?.firstName ?? 'User'} 👋',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppColors.secondary),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.24),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
-                Text('discover_matches'.tr, style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600)),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: color),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.1,
+                  ),
+                ),
               ],
             ),
           ),
-          _ActionCircleButton(icon: LucideIcons.sliders, onTap: controller.openFilter, isDark: isDark),
-          const SizedBox(width: 10),
-          _ActionCircleButton(icon: LucideIcons.bell, onTap: controller.openNotifications, isDark: isDark, hasBadge: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSwipeActions(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _SwipeBtn(
-            icon: LucideIcons.rotateCcw,
-            color: AppColors.gold,
-            size: 50,
-            onTap: controller.rewindLastSwipe,
-            isEnabled: controller.canRewind,
-          ),
-          _SwipeBtn(
-            icon: LucideIcons.x,
-            color: Colors.redAccent,
-            size: 64,
-            onTap: () {
-              // Trigger swiper left manually if needed or just call passUser
-              if (controller.discoverUsers.isNotEmpty) {
-                controller.passUser(controller.discoverUsers[0].id);
-              }
-            },
-          ),
-          _SwipeBtn(
-            icon: LucideIcons.heart,
-            color: AppColors.emerald,
-            size: 64,
-            onTap: () {
-              if (controller.discoverUsers.isNotEmpty) {
-                controller.likeUser(controller.discoverUsers[0].id);
-              }
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _UserSwipeCard extends StatefulWidget {
-  final UserModel user;
-  final HomeController controller;
-  final bool isDark;
+class _ComplimentComposerSheet extends StatefulWidget {
+  const _ComplimentComposerSheet({required this.user});
 
-  const _UserSwipeCard({required this.user, required this.controller, required this.isDark});
+  final UserModel user;
 
   @override
-  State<_UserSwipeCard> createState() => _UserSwipeCardState();
+  State<_ComplimentComposerSheet> createState() =>
+      _ComplimentComposerSheetState();
 }
 
-class _UserSwipeCardState extends State<_UserSwipeCard> {
-  final ScrollController _scrollController = ScrollController();
-  final RxInt _currentPhotoIndex = 0.obs;
-  
-  List<String> get _photos {
-    if (widget.user.photos != null && widget.user.photos!.isNotEmpty) {
-      return widget.user.photos!.map((p) => p.url).toList();
-    }
-    return widget.user.mainPhotoUrl != null ? [widget.user.mainPhotoUrl!] : [];
+class _ComplimentComposerSheetState extends State<_ComplimentComposerSheet> {
+  static const _maxLength = 200;
+  static const _minLength = 6;
+
+  final TextEditingController _textController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _textController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  String get _displayName {
+    final firstName = (widget.user.firstName ?? '').trim();
+    if (firstName.isNotEmpty) return firstName;
+    final displayName = widget.user.displayName.trim();
+    if (displayName.isNotEmpty) return displayName;
+    return 'someone'.tr;
+  }
+
+  List<String> _quickCompliments() {
+    return [
+      'compliment_quick_1'.tr,
+      'compliment_quick_2'.tr,
+      'compliment_quick_3'.tr,
+    ];
+  }
+
+  void _appendQuick(String value) {
+    final current = _textController.text.trim();
+    final next = current.isEmpty ? value : '$current $value';
+    if (next.length > _maxLength) return;
+    _textController
+      ..text = next
+      ..selection = TextSelection.collapsed(offset: next.length);
+    setState(() {});
+  }
+
+  void _submit() {
+    final message = _textController.text.trim();
+    if (message.isEmpty) {
+      Helpers.showSnackbar(
+        message: 'compliment_message_required'.tr,
+        isError: true,
+      );
+      return;
+    }
+    if (message.length < _minLength) {
+      Helpers.showSnackbar(
+        message: 'compliment_message_too_short'.trParams({
+          'count': _minLength.toString(),
+        }),
+        isError: true,
+      );
+      return;
+    }
+    Navigator.of(context).pop(message);
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = widget.user;
-    final controller = widget.controller;
-    
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final imageUrl = CloudinaryUrl.medium(widget.user.mainPhotoUrl);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.4),
+                ),
+              ),
+              child: ClipOval(
+                child: imageUrl.isEmpty
+                    ? Container(
+                        color: AppColors.primary.withValues(alpha: 0.14),
+                        alignment: Alignment.center,
+                        child: Text(
+                          Helpers.getInitials(
+                            widget.user.firstName,
+                            widget.user.lastName,
+                          ),
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      )
+                    : CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'send_compliment'.tr,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF232129),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'compliment_to_user'.trParams({'name': _displayName}),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.72)
+                          : const Color(0xFF6E6979),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'compliment_compose_subtitle'.tr,
+          style: GoogleFonts.poppins(
+            fontSize: 12.6,
+            height: 1.5,
+            fontWeight: FontWeight.w500,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.8)
+                : const Color(0xFF625C70),
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _textController,
+          focusNode: _focusNode,
+          maxLength: _maxLength,
+          maxLines: 4,
+          minLines: 3,
+          onChanged: (_) => setState(() {}),
+          textInputAction: TextInputAction.newline,
+          decoration: InputDecoration(
+            hintText: 'write_something_nice'.tr,
+            filled: true,
+            fillColor: isDark
+                ? Colors.white.withValues(alpha: 0.07)
+                : const Color(0xFFF7F3FF),
+            contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : const Color(0xFFE4DDF3),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.2,
+              ),
+            ),
+          ),
+          style: GoogleFonts.poppins(
+            fontSize: 13.4,
+            height: 1.45,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _quickCompliments()
+              .map(
+                (item) => ActionChip(
+                  onPressed: () => _appendQuick(item),
+                  side: BorderSide(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                  ),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                  label: Text(
+                    item,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.2,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'compliment_notification_hint'.trParams({'name': _displayName}),
+          style: GoogleFonts.poppins(
+            fontSize: 11.2,
+            fontWeight: FontWeight.w500,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.66)
+                : const Color(0xFF7A7488),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: CustomButton(
+                text: 'cancel'.tr,
+                variant: CustomButtonVariant.secondary,
+                onPressed: () => Navigator.of(context).pop(),
+                height: 48,
+                borderRadius: 14,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: CustomButton(
+                text: 'compliment_send_cta'.tr,
+                onPressed: _textController.text.trim().isEmpty ? null : _submit,
+                height: 48,
+                borderRadius: 14,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CardSectionLabel extends StatelessWidget {
+  const _CardSectionLabel({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: GoogleFonts.poppins(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: color,
+        letterSpacing: 0.1,
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({
+    required this.label,
+    required this.background,
+    required this.textColor,
+  });
+
+  final String label;
+  final Color background;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        color: widget.isDark ? AppColors.cardDark : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: background.withValues(alpha: 0.95)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontSize: 11.8,
+          fontWeight: FontWeight.w500,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftTag extends StatelessWidget {
+  const _SoftTag({
+    required this.label,
+    required this.background,
+    required this.textColor,
+  });
+
+  final String label;
+  final Color background;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontSize: 11.6,
+          fontWeight: FontWeight.w500,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileFact {
+  const _ProfileFact(this.label, this.value);
+
+  final String label;
+  final String value;
+}
+
+class _DetailFactsCard extends StatelessWidget {
+  const _DetailFactsCard({
+    required this.title,
+    required this.facts,
+    required this.surface,
+    required this.primary,
+    required this.secondary,
+    required this.dividerColor,
+  });
+
+  final String title;
+  final List<_ProfileFact> facts;
+  final Color surface;
+  final Color primary;
+  final Color secondary;
+  final Color dividerColor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (facts.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: primary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...List.generate(facts.length, (index) {
+            final fact = facts[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == facts.length - 1 ? 0 : 8,
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          fact.label,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12.4,
+                            fontWeight: FontWeight.w500,
+                            color: secondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          fact.value,
+                          textAlign: TextAlign.right,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12.8,
+                            fontWeight: FontWeight.w600,
+                            color: primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (index != facts.length - 1) ...[
+                    const SizedBox(height: 8),
+                    Divider(height: 1, thickness: 1, color: dividerColor),
+                  ],
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardPhoto extends StatelessWidget {
+  const _CardPhoto({required this.user, required this.imageUrl});
+
+  final UserModel user;
+  final String imageUrl;
+
+  String _extractEmbeddedUrl(String input) {
+    final value = input.trim();
+    if (value.isEmpty) return '';
+
+    final jsonUrl = RegExp(
+      "[\"']url[\"']\\s*:\\s*[\"']([^\"']+)[\"']",
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (jsonUrl != null) {
+      final extracted = (jsonUrl.group(1) ?? '').trim();
+      if (extracted.isNotEmpty) return extracted;
+    }
+
+    final absoluteUrl = RegExp(
+      "https?://[^\\s\"']+",
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (absoluteUrl != null) {
+      return (absoluteUrl.group(0) ?? '').trim();
+    }
+
+    return value;
+  }
+
+  String _apiOrigin() {
+    final base = ApiConstants.baseUrl.trim();
+    if (base.isEmpty) return '';
+
+    final uri = Uri.tryParse(base);
+    if (uri == null || uri.host.isEmpty) return '';
+
+    final scheme = uri.scheme.isNotEmpty ? uri.scheme : 'https';
+    final portSegment = uri.hasPort ? ':${uri.port}' : '';
+    return '$scheme://${uri.host}$portSegment';
+  }
+
+  String _normalizePhotoUrl(String? candidate) {
+    var value = (candidate ?? '').trim();
+    if (value.isEmpty) return '';
+
+    value = value.replaceAll('\\', '/');
+
+    while (value.startsWith('"') || value.startsWith("'")) {
+      value = value.substring(1);
+    }
+    while (value.endsWith('"') || value.endsWith("'")) {
+      value = value.substring(0, value.length - 1);
+    }
+
+    value = _extractEmbeddedUrl(value);
+    if (value.isEmpty) return '';
+
+    final lower = value.toLowerCase();
+    if (lower == 'null' ||
+        lower == 'undefined' ||
+        lower == 'nan' ||
+        lower == '[object object]' ||
+        lower.startsWith('data:') ||
+        lower.startsWith('blob:')) {
+      return '';
+    }
+
+    if (value.startsWith('//')) {
+      return 'https:$value';
+    }
+
+    if (lower.startsWith('http://') || lower.startsWith('https://')) {
+      final parsed = Uri.tryParse(value);
+      if (parsed == null || parsed.host.isEmpty) return '';
+
+      final hostLower = parsed.host.toLowerCase();
+      final localHosts = <String>{
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0',
+        '10.0.2.2',
+        '::1',
+        '[::1]',
+      };
+
+      final apiOrigin = Uri.tryParse(_apiOrigin());
+      if (apiOrigin != null && localHosts.contains(hostLower)) {
+        return parsed
+            .replace(
+              scheme: apiOrigin.scheme,
+              host: apiOrigin.host,
+              port: apiOrigin.hasPort ? apiOrigin.port : null,
+            )
+            .toString();
+      }
+
+      final secureUri = parsed.scheme.toLowerCase() == 'http' &&
+              !localHosts.contains(hostLower)
+          ? parsed.replace(scheme: 'https')
+          : parsed;
+      return Uri.encodeFull(secureUri.toString());
+    }
+
+    final knownScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://');
+    if (knownScheme.hasMatch(value)) {
+      return '';
+    }
+
+    if (RegExp(r'^[\w.-]+\.[a-zA-Z]{2,}(/.*)?$').hasMatch(value)) {
+      return Uri.encodeFull('https://$value');
+    }
+
+    final origin = _apiOrigin();
+    if (origin.isNotEmpty) {
+      if (value.startsWith('/')) {
+        return Uri.encodeFull('$origin$value');
+      }
+
+      if (value.startsWith('uploads/') ||
+          value.startsWith('upload/') ||
+          value.startsWith('images/') ||
+          value.startsWith('media/') ||
+          value.startsWith('api/') ||
+          value.startsWith('v1/')) {
+        return Uri.encodeFull('$origin/$value');
+      }
+    }
+
+    return Uri.encodeFull(value);
+  }
+
+  List<String> _resolvePhotoUrls() {
+    final results = <String>[];
+    final seen = <String>{};
+    final candidates = <String?>[
+      imageUrl,
+      user.mainPhotoUrl,
+      user.fallbackPhotoUrl,
+      ...(user.photos ?? const <PhotoModel>[]).map((photo) => photo.url),
+    ];
+
+    for (final candidate in candidates) {
+      final normalized = _normalizePhotoUrl(candidate);
+      if (normalized.isEmpty) continue;
+
+      final uri = Uri.tryParse(normalized);
+      if (uri == null ||
+          uri.host.isEmpty ||
+          !(uri.scheme.toLowerCase() == 'http' ||
+              uri.scheme.toLowerCase() == 'https')) {
+        continue;
+      }
+
+      if (seen.add(normalized)) {
+        results.add(normalized);
+      }
+
+      final transformed = CloudinaryUrl.large(normalized);
+      if (transformed.isNotEmpty && transformed != normalized && seen.add(transformed)) {
+        results.add(transformed);
+      }
+    }
+
+    return results;
+  }
+
+  Widget _fallback(bool isDark) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [const Color(0xFF1B1730), const Color(0xFF241D3F)]
+              : [const Color(0xFFF7E9FF), const Color(0xFFECE7FF)],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          Helpers.getInitials(user.firstName, user.lastName),
+          style: GoogleFonts.poppins(
+            fontSize: 56,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder(bool isDark) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [const Color(0xFF1C1831), const Color(0xFF261F42)]
+              : [const Color(0xFFF6F0FF), const Color(0xFFEDE7FF)],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final imageUrls = _resolvePhotoUrls();
+
+    if (imageUrls.isEmpty) {
+      return _fallback(isDark);
+    }
+
+    return _HomeResilientCachedImage(
+      urls: imageUrls,
+      fit: BoxFit.cover,
+      fallback: _fallback(isDark),
+      placeholder: _placeholder(isDark),
+    );
+  }
+}
+
+class _HomeResilientCachedImage extends StatefulWidget {
+  const _HomeResilientCachedImage({
+    required this.urls,
+    required this.fallback,
+    required this.placeholder,
+    required this.fit,
+  });
+
+  final List<String> urls;
+  final Widget fallback;
+  final Widget placeholder;
+  final BoxFit fit;
+
+  @override
+  State<_HomeResilientCachedImage> createState() => _HomeResilientCachedImageState();
+}
+
+class _HomeResilientCachedImageState extends State<_HomeResilientCachedImage> {
+  int _activeIndex = 0;
+
+  @override
+  void didUpdateWidget(covariant _HomeResilientCachedImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    var hasChanged = widget.urls.length != oldWidget.urls.length;
+    if (!hasChanged) {
+      for (var i = 0; i < widget.urls.length; i++) {
+        if (widget.urls[i] != oldWidget.urls[i]) {
+          hasChanged = true;
+          break;
+        }
+      }
+    }
+
+    if (hasChanged) {
+      _activeIndex = 0;
+    }
+  }
+
+  void _tryNextUrl() {
+    if (_activeIndex >= widget.urls.length - 1) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_activeIndex >= widget.urls.length - 1) return;
+      setState(() => _activeIndex += 1);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.urls.isEmpty) return widget.fallback;
+
+    final safeIndex = _activeIndex.clamp(0, widget.urls.length - 1);
+    final currentUrl = widget.urls[safeIndex];
+
+    return CachedNetworkImage(
+      key: ValueKey<String>(currentUrl),
+      imageUrl: currentUrl,
+      fit: widget.fit,
+      placeholder: (context, imageUrl) => widget.placeholder,
+      errorWidget: (context, imageUrl, error) {
+        _tryNextUrl();
+        return safeIndex < widget.urls.length - 1
+            ? widget.placeholder
+            : widget.fallback;
+      },
+    );
+  }
+}
+
+class _LabeledActionButton extends StatelessWidget {
+  const _LabeledActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.emphasis = 0,
+    this.highlightColor,
+    this.labelColor,
+    this.showLabel = true,
+    this.outerSize = 58,
+    this.innerSize = 48,
+    this.iconSize = 19,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final double emphasis;
+  final Color? highlightColor;
+  final Color? labelColor;
+  final bool showLabel;
+  final double outerSize;
+  final double innerSize;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!showLabel) {
+      return Tooltip(
+        message: label,
+        child: _ActionRingButton(
+          icon: icon,
+          color: color,
+          onTap: onTap,
+          emphasis: emphasis,
+          highlightColor: highlightColor,
+          outerSize: outerSize,
+          innerSize: innerSize,
+          iconSize: iconSize,
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ActionRingButton(
+          icon: icon,
+          color: color,
+          onTap: onTap,
+          emphasis: emphasis,
+          highlightColor: highlightColor,
+          outerSize: outerSize,
+          innerSize: innerSize,
+          iconSize: iconSize,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(
+            fontSize: 9.2,
+            fontWeight: FontWeight.w600,
+            color: labelColor ?? Colors.white.withValues(alpha: 0.96),
+            height: 1,
+            letterSpacing: 0.15,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionRingButton extends StatelessWidget {
+  const _ActionRingButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.emphasis = 0,
+    this.highlightColor,
+    this.outerSize = 58,
+    this.innerSize = 48,
+    this.iconSize = 19,
+  });
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final double emphasis;
+  final Color? highlightColor;
+  final double outerSize;
+  final double innerSize;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = emphasis.clamp(0.0, 1.0).toDouble();
+    final activeColor = highlightColor ?? color;
+    final ringExpansion = innerSize * 0.34;
+    final fillColor = Color.lerp(
+      activeColor.withValues(alpha: 0.86),
+      activeColor,
+      clamped,
+    );
+
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 130),
+      scale: 1 + (0.14 * clamped),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: outerSize,
+            height: outerSize,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                IgnorePointer(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: innerSize + (ringExpansion * clamped),
+                    height: innerSize + (ringExpansion * clamped),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: activeColor.withValues(alpha: 0.45 * clamped),
+                        width: 1.0 + (1.5 * clamped),
+                      ),
+                    ),
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 130),
+                  width: innerSize,
+                  height: innerSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: fillColor,
+                    border: Border.all(
+                      color: Colors.white.withValues(
+                        alpha: 0.26 + (0.2 * clamped),
+                      ),
+                      width: 1.05 + (0.55 * clamped),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: activeColor.withValues(
+                          alpha: 0.28 + (0.18 * clamped),
+                        ),
+                        blurRadius: 14 + (10 * clamped),
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    icon,
+                    size: iconSize + (2 * clamped),
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FocusedSwipeActionButton extends StatelessWidget {
+  const _FocusedSwipeActionButton({
+    required this.icon,
+    required this.color,
+    required this.emphasis,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final double emphasis;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = emphasis.clamp(0.0, 1.0).toDouble();
+    final outerSize = 84 + (20 * clamped);
+    final innerSize = 72 + (14 * clamped);
+    final iconSize = 29 + (8 * clamped);
+
+    return SizedBox(
+      width: outerSize + 30,
+      height: outerSize + 30,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IgnorePointer(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 90),
+              curve: Curves.easeOutCubic,
+              width: innerSize + (26 * clamped),
+              height: innerSize + (26 * clamped),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    color.withValues(alpha: 0.36 + (0.2 * clamped)),
+                    color.withValues(alpha: 0),
+                  ],
+                  stops: const [0.22, 1.0],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.2 + (0.22 * clamped)),
+                    blurRadius: 24 + (24 * clamped),
+                    spreadRadius: 1 + (6 * clamped),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          _ActionRingButton(
+            icon: icon,
+            color: color,
+            highlightColor: color,
+            emphasis: (0.55 + (0.45 * clamped)).clamp(0.0, 1.0).toDouble(),
+            outerSize: outerSize,
+            innerSize: innerSize,
+            iconSize: iconSize,
+            onTap: onTap,
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          physics: const BouncingScrollPhysics(),
+    );
+  }
+}
+
+class _BoostBenefitRow extends StatelessWidget {
+  const _BoostBenefitRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 17),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              color: isDark
+                  ? AppColors.textSecondaryDark
+                  : const Color(0xFF232129),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BoostInfoScreen extends StatefulWidget {
+  const _BoostInfoScreen({required this.onActivate});
+
+  final Future<void> Function() onActivate;
+
+  @override
+  State<_BoostInfoScreen> createState() => _BoostInfoScreenState();
+}
+
+class _BoostInfoScreenState extends State<_BoostInfoScreen> {
+  bool _isActivating = false;
+
+  Future<void> _activateBoost() async {
+    if (_isActivating) return;
+    setState(() => _isActivating = true);
+    await widget.onActivate();
+    if (!mounted) return;
+    setState(() => _isActivating = false);
+    Get.back<void>();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: isDark
+            ? AppColors.textPrimaryDark
+            : AppColors.textPrimaryLight,
+        title: Text(
+          'boost_your_profile'.tr,
+          style: GoogleFonts.poppins(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimaryLight,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Photo Section with indicators
-              _buildPhotoSection(user, controller),
-              
-              // User Details Section
-              _buildDetailsSection(user),
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: AppColors.boost.withValues(
+                    alpha: isDark ? 0.26 : 0.14,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  LucideIcons.zap,
+                  color: AppColors.boost,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'boost_desc'.tr,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 1.52,
+                  color: isDark
+                      ? AppColors.textSecondaryDark
+                      : const Color(0xFF66626F),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _BoostBenefitRow(
+                icon: LucideIcons.zap,
+                label: 'boost_benefit_1'.tr,
+              ),
+              const SizedBox(height: 12),
+              _BoostBenefitRow(
+                icon: LucideIcons.sparkles,
+                label: 'boost_benefit_2'.tr,
+              ),
+              const SizedBox(height: 12),
+              _BoostBenefitRow(
+                icon: LucideIcons.eye,
+                label: 'boost_benefit_3'.tr,
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomButton(
+                      text: 'not_now'.tr,
+                      onPressed: _isActivating ? null : () => Get.back<void>(),
+                      variant: CustomButtonVariant.secondary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CustomButton(
+                      text: 'activate_boost'.tr,
+                      isLoading: _isActivating,
+                      onPressed: _isActivating ? null : _activateBoost,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ),
     );
   }
-  
-  Widget _buildPhotoSection(UserModel user, HomeController controller) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    return SizedBox(
-      height: screenHeight * 0.72,
-      child: Stack(
-        children: [
-          // Photo PageView
-          PageView.builder(
-            itemCount: _photos.isEmpty ? 1 : _photos.length,
-            onPageChanged: (i) => _currentPhotoIndex.value = i,
-            itemBuilder: (context, index) {
-              if (_photos.isEmpty) {
-                return Container(
-                  color: Colors.grey.shade200,
-                  child: Center(
-                    child: Text(
-                      Helpers.getInitials(user.firstName, user.lastName),
-                      style: TextStyle(fontSize: 80, fontWeight: FontWeight.w900, color: Colors.grey.shade400),
-                    ),
-                  ),
-                );
-              }
-              return CachedNetworkImage(
-                imageUrl: CloudinaryUrl.large(_photos[index]),
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(color: Colors.grey.shade200),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey.shade200,
-                  child: const Icon(LucideIcons.user, size: 60, color: Colors.grey),
+}
+
+class _LocationGateOverlay extends StatelessWidget {
+  const _LocationGateOverlay({required this.onEnable, required this.onLater});
+
+  final Future<void> Function() onEnable;
+  final VoidCallback onLater;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ColoredBox(
+      color: isDark ? const Color(0xFF111218) : Colors.white,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 72, 22, 34),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
                 ),
-              );
-            },
-          ),
-          
-          // Photo Indicators
-          if (_photos.length > 1)
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Obx(() => Row(
-                children: List.generate(_photos.length, (i) => Expanded(
-                  child: Container(
-                    height: 3,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(
-                      color: i == _currentPhotoIndex.value ? Colors.white : Colors.white38,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                )),
-              )),
-            ),
-          
-          // Baraka Meter
-          Positioned(
-            top: 30,
-            left: 16,
-            child: Obx(() => BarakaMeter(
-              score: controller.getBarakaScore(user.id),
-              level: controller.getBarakaLevel(user.id),
-            )),
-          ),
-          
-          // Intent Badge
-          if (user.profile?.intentMode != null)
-            Positioned(
-              top: 30,
-              right: 16,
-              child: IntentBadge(intentMode: user.profile!.intentMode!),
-            ),
-          
-          // Bottom Gradient
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 120,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
+                child: const Icon(
+                  LucideIcons.mapPin,
+                  color: AppColors.primary,
+                  size: 32,
                 ),
               ),
-            ),
-          ),
-          
-          // Name & Basic Info overlay
-          Positioned(
-            bottom: 16,
-            left: 16,
-            right: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${user.firstName ?? user.username}, ${user.profile?.age ?? '?'}',
-                        style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                    if (user.selfieVerified)
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(color: Color(0xFFC69C6D), shape: BoxShape.circle),
-                        child: const Icon(LucideIcons.shieldCheck, color: Colors.white, size: 16),
-                      ),
-                  ],
+              const SizedBox(height: 26),
+              Text(
+                'enable_location'.tr,
+                style: GoogleFonts.poppins(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF232129),
+                  letterSpacing: -0.6,
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(LucideIcons.mapPin, color: Colors.white70, size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${user.profile?.city ?? 'Unknown'}${user.profile?.country != null ? ', ${user.profile!.country}' : ''}',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
-                    ),
-                  ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'location_subtitle'.tr,
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  height: 1.55,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.76)
+                      : const Color(0xFF706A7A),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildDetailsSection(UserModel user) {
-    final isDark = widget.isDark;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor = isDark ? Colors.white60 : Colors.grey.shade600;
-    
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Quick Tags
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (user.profile?.sect != null) 
-                _DetailChip(icon: LucideIcons.moon, label: user.profile!.sect!, isDark: isDark),
-              if (user.profile?.maritalStatus != null) 
-                _DetailChip(icon: LucideIcons.heart, label: user.profile!.maritalStatus!, isDark: isDark),
-              if (user.profile?.education != null) 
-                _DetailChip(icon: LucideIcons.graduationCap, label: user.profile!.education!, isDark: isDark),
-              if (user.profile?.height != null) 
-                _DetailChip(icon: LucideIcons.ruler, label: '${user.profile!.height} cm', isDark: isDark),
+              ),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                child: CustomButton(
+                  text: 'enable_location'.tr,
+                  onPressed: () => onEnable(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: CustomButton(
+                  text: 'not_now'.tr,
+                  onPressed: onLater,
+                  variant: CustomButtonVariant.secondary,
+                ),
+              ),
             ],
           ),
-          
-          // Bio
-          if (user.profile?.bio != null && user.profile!.bio!.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Text('About', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
-            const SizedBox(height: 8),
-            Text(
-              user.profile!.bio!,
-              style: TextStyle(fontSize: 14, height: 1.5, color: subtitleColor),
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-          
-          // Religious Info
-          if (user.profile?.religiousLevel != null || user.profile?.prayerFrequency != null) ...[
-            const SizedBox(height: 20),
-            _buildInfoCard(
-              title: 'Faith & Practice',
-              icon: LucideIcons.sparkles,
-              isDark: isDark,
-              children: [
-                if (user.profile?.religiousLevel != null)
-                  _buildInfoRow(LucideIcons.heart, 'Religious Level', user.profile!.religiousLevel!.replaceAll('_', ' '), isDark),
-                if (user.profile?.prayerFrequency != null)
-                  _buildInfoRow(LucideIcons.clock, 'Prayer', user.profile!.prayerFrequency!.replaceAll('_', ' '), isDark),
-                if (user.profile?.hijabStatus != null)
-                  _buildInfoRow(LucideIcons.shirt, 'Hijab', user.profile!.hijabStatus!, isDark),
-              ],
-            ),
-          ],
-          
-          // Career & Education
-          if (user.profile?.jobTitle != null || user.profile?.company != null) ...[
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              title: 'Career',
-              icon: LucideIcons.briefcase,
-              isDark: isDark,
-              children: [
-                if (user.profile?.jobTitle != null)
-                  _buildInfoRow(LucideIcons.briefcase, 'Job', user.profile!.jobTitle!, isDark),
-                if (user.profile?.company != null)
-                  _buildInfoRow(LucideIcons.building, 'Company', user.profile!.company!, isDark),
-              ],
-            ),
-          ],
-          
-          // Interests
-          if (user.profile?.interests != null && user.profile!.interests!.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Text('Interests', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: user.profile!.interests!.map((i) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(i, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
-              )).toList(),
-            ),
-          ],
-          
-          // Languages
-          if (user.profile?.languages != null && user.profile!.languages!.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Text('Languages', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: user.profile!.languages!.map((l) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(l, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textColor)),
-              )).toList(),
-            ),
-          ],
-          
-          // Bottom padding for swipe buttons
-          const SizedBox(height: 100),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildInfoCard({required String title, required IconData icon, required bool isDark, required List<Widget> children}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isDark ? Colors.white : Colors.black87)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...children,
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildInfoRow(IconData icon, String label, String value, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: isDark ? Colors.white38 : Colors.grey),
-          const SizedBox(width: 10),
-          Text('$label: ', style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.grey.shade600)),
-          Expanded(
-            child: Text(
-              value.replaceAll('_', ' ').split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' '),
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _DetailChip extends StatelessWidget {
-  final IconData icon;
+class _SwipeTutorialOverlay extends StatefulWidget {
+  const _SwipeTutorialOverlay({required this.onDismiss});
+
+  final VoidCallback onDismiss;
+
+  @override
+  State<_SwipeTutorialOverlay> createState() => _SwipeTutorialOverlayState();
+}
+
+class _SwipeTutorialOverlayState extends State<_SwipeTutorialOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _handController;
+
+  @override
+  void initState() {
+    super.initState();
+    _handController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _handController.dispose();
+    super.dispose();
+  }
+
+  Offset _handOffset(double t) {
+    if (t < 0.34) {
+      final progress = t / 0.34;
+      return Offset(-72 * progress, 18);
+    }
+    if (t < 0.68) {
+      final progress = (t - 0.34) / 0.34;
+      return Offset(-72 + (144 * progress), 18);
+    }
+    final progress = (t - 0.68) / 0.32;
+    return Offset(72 - (72 * progress), 18 - (86 * progress));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onDismiss,
+      behavior: HitTestBehavior.opaque,
+      child: ColoredBox(
+        color: Colors.black.withValues(alpha: 0.62),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 56, 18, 24),
+            child: Column(
+              children: [
+                Text(
+                  'swipe_tutorial_title'.tr,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'swipe_tutorial_subtitle'.tr,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white.withValues(alpha: 0.86),
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: 360,
+                        maxHeight: 420,
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          color: Colors.white.withValues(alpha: 0.08),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final topLine = constraints.maxHeight * 0.34;
+                            return Stack(
+                              children: [
+                                Positioned(
+                                  left: constraints.maxWidth / 2 - 0.6,
+                                  top: topLine,
+                                  bottom: 16,
+                                  child: Container(
+                                    width: 1.2,
+                                    color: Colors.white.withValues(alpha: 0.28),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: 16,
+                                  right: 16,
+                                  top: topLine,
+                                  child: Container(
+                                    height: 1.2,
+                                    color: Colors.white.withValues(alpha: 0.28),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 12,
+                                  left: 0,
+                                  right: 0,
+                                  child: Center(
+                                    child: _SwipeTutorialTag(
+                                      label: 'swipe_tutorial_compliment'.tr,
+                                      color: const Color(0xFF8B5CFF),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: 14,
+                                  right: constraints.maxWidth / 2 + 12,
+                                  bottom: 16,
+                                  child: Center(
+                                    child: _SwipeTutorialTag(
+                                      label: 'swipe_tutorial_pass'.tr,
+                                      color: const Color(0xFFFF5F7A),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: constraints.maxWidth / 2 + 12,
+                                  right: 14,
+                                  bottom: 16,
+                                  child: Center(
+                                    child: _SwipeTutorialTag(
+                                      label: 'swipe_tutorial_like'.tr,
+                                      color: const Color(0xFF31C48D),
+                                    ),
+                                  ),
+                                ),
+                                Positioned.fill(
+                                  child: AnimatedBuilder(
+                                    animation: _handController,
+                                    builder: (context, _) {
+                                      final offset = _handOffset(
+                                        _handController.value,
+                                      );
+                                      return Align(
+                                        alignment: const Alignment(0, 0.2),
+                                        child: Transform.translate(
+                                          offset: offset,
+                                          child: Container(
+                                            width: 66,
+                                            height: 66,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.2,
+                                              ),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.35,
+                                                ),
+                                              ),
+                                            ),
+                                            child: const Icon(
+                                              Icons.pan_tool_alt_rounded,
+                                              color: Colors.white,
+                                              size: 34,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: CustomButton(
+                    text: 'swipe_tutorial_got_it'.tr,
+                    onPressed: widget.onDismiss,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SwipeTutorialTag extends StatelessWidget {
+  const _SwipeTutorialTag({required this.label, required this.color});
+
   final String label;
-  final bool isDark;
-  
-  const _DetailChip({required this.icon, required this.label, required this.isDark});
-  
+  final Color color;
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
+        color: color.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.7)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: isDark ? Colors.white70 : Colors.grey.shade700),
-          const SizedBox(width: 6),
-          Text(
-            label.replaceAll('_', ' ').split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' '),
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  final String label;
-  const _InfoChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-    );
-  }
-}
-
-class _SwipeBtn extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final double size;
-  final VoidCallback onTap;
-  final bool isEnabled;
-
-  const _SwipeBtn({required this.icon, required this.color, required this.size, required this.onTap, this.isEnabled = true});
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isEnabled ? 1.0 : 0.5,
-      child: GestureDetector(
-        onTap: isEnabled ? onTap : null,
-        child: Container(
-          width: size, height: size,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 15, offset: const Offset(0, 5)),
-            ],
-          ),
-          child: Icon(icon, color: color, size: size * 0.4),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionCircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isDark;
-  final bool hasBadge;
-
-  const _ActionCircleButton({required this.icon, required this.onTap, required this.isDark, this.hasBadge = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-            ),
-            child: Icon(icon, color: isDark ? Colors.white : AppColors.secondary, size: 20),
-          ),
-          if (hasBadge)
-            Positioned(
-              right: 2, top: 2,
-              child: Container(
-                width: 10, height: 10,
-                decoration: BoxDecoration(color: AppColors.error, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// BOTTOM SECTION — User info + action bar
-// ═══════════════════════════════════════════════════════════════════════════
-class _BottomSection extends StatelessWidget {
-  final UserModel user;
-  final double bottomPad;
-  final bool isDark;
-  final VoidCallback onLike, onPass, onRewind, onCompliment, onDetails;
-
-  const _BottomSection({
-    required this.user,
-    required this.bottomPad,
-    required this.isDark,
-    required this.onLike,
-    required this.onPass,
-    required this.onRewind,
-    required this.onCompliment,
-    required this.onDetails,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final HomeController controller = Get.find<HomeController>();
-    final isPremium = controller.isPremium;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // Rewind (Gold Glass)
-          _ActionBtn(
-            icon: LucideIcons.refreshCcw,
-            bgColor: isDark ? AppColors.cardDark.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.8),
-            iconColor: AppColors.gold,
-            size: 46,
-            iconSize: 20,
-            outlined: true,
-            onTap: () {
-              if (isPremium) {
-                onRewind();
-              } else {
-                _showPremiumRequired('Rewind');
-              }
-            },
-          ),
-          // Dislike (Plum/Grey)
-          _ActionBtn(
-            icon: LucideIcons.x,
-            bgColor: AppColors.secondaryDark.withValues(alpha: 0.9),
-            iconColor: Colors.white,
-            size: 58,
-            iconSize: 26,
-            onTap: onPass,
-          ),
-          // Like (Emerald) - Largest
-          _ActionBtn(
-            icon: LucideIcons.heart,
-            bgColor: AppColors.emerald,
-            iconColor: Colors.white,
-            size: 72,
-            iconSize: 32,
-            onTap: onLike,
-          ),
-          // Send Compliment (Gold)
-          _ActionBtn(
-            icon: LucideIcons.award,
-            bgColor: AppColors.gold,
-            iconColor: Colors.white,
-            size: 58,
-            iconSize: 26,
-            onTap: () {
-              if (isPremium) {
-                onCompliment();
-              } else {
-                _showPremiumRequired('Compliment');
-              }
-            },
-          ),
-          // Boost (Accent/Glass)
-          _ActionBtn(
-            icon: LucideIcons.zap,
-            bgColor: isDark ? AppColors.cardDark.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.8),
-            iconColor: Colors.amber,
-            size: 46,
-            iconSize: 20,
-            outlined: true,
-            onTap: () {
-              if (isPremium) {
-                Helpers.showSnackbar(message: 'profile_boosted_msg'.tr);
-              } else {
-                _showPremiumRequired('Boost');
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPremiumRequired(String feature) {
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(LucideIcons.crown, size: 48, color: AppColors.gold),
-            const SizedBox(height: 16),
-            Text('premium_required'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            Text('upgrade_to_unlock'.tr, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => Get.back(),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, minimumSize: const Size(double.infinity, 50)),
-              child: Text('maybe_later'.tr, style: const TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ), // Or a dedicated "Go Premium" modal
-      isScrollControlled: true,
-    );
-    Helpers.showSnackbar(
-      message: 'premium_feature_msg'.trParams({'feature': feature}),
-      isError: false,
+      ),
     );
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ACTION BUTTON — Glass morphism circle
-// ═══════════════════════════════════════════════════════════════════════════
-class _ActionBtn extends StatefulWidget {
-  final IconData icon;
-  final Color bgColor;
-  final Color iconColor;
-  final double size;
-  final double iconSize;
-  final bool outlined;
-  final VoidCallback onTap;
+class _StartupRadarOverlay extends StatefulWidget {
+  const _StartupRadarOverlay({required this.controller});
 
-  const _ActionBtn({
-    required this.icon,
-    required this.bgColor,
-    required this.iconColor,
-    required this.size,
-    required this.iconSize,
-    this.outlined = false,
-    required this.onTap,
-  });
+  final HomeController controller;
 
   @override
-  State<_ActionBtn> createState() => _ActionBtnState();
+  State<_StartupRadarOverlay> createState() => _StartupRadarOverlayState();
 }
 
-class _ActionBtnState extends State<_ActionBtn> with SingleTickerProviderStateMixin {
-  late AnimationController _scaleCtrl;
+class _StartupRadarOverlayState extends State<_StartupRadarOverlay>
+    with TickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final AnimationController _sweepController;
+
+  static const List<_StartupRadarOrbitSlot> _orbitSlots = [
+    _StartupRadarOrbitSlot(angle: -0.15, radiusFactor: 0.34),
+    _StartupRadarOrbitSlot(angle: 0.78, radiusFactor: 0.48),
+    _StartupRadarOrbitSlot(angle: 1.58, radiusFactor: 0.36),
+    _StartupRadarOrbitSlot(angle: 2.46, radiusFactor: 0.5),
+    _StartupRadarOrbitSlot(angle: 3.3, radiusFactor: 0.37),
+    _StartupRadarOrbitSlot(angle: 4.2, radiusFactor: 0.5),
+    _StartupRadarOrbitSlot(angle: 5.0, radiusFactor: 0.36),
+    _StartupRadarOrbitSlot(angle: 5.72, radiusFactor: 0.48),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _scaleCtrl = AnimationController(
+    _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 120),
-      lowerBound: 0.85,
-      upperBound: 1.0,
-      value: 1.0,
-    );
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _sweepController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat();
   }
 
   @override
   void dispose() {
-    _scaleCtrl.dispose();
+    _pulseController.dispose();
+    _sweepController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _scaleCtrl.reverse(),
-      onTapUp: (_) {
-        _scaleCtrl.forward();
-        widget.onTap();
-      },
-      onTapCancel: () => _scaleCtrl.forward(),
-      child: ScaleTransition(
-        scale: _scaleCtrl,
-        child: Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            color: widget.outlined
-                ? Colors.white.withValues(alpha: 0.1)
-                : widget.bgColor,
-            shape: BoxShape.circle,
-            border: widget.outlined
-                ? Border.all(color: widget.iconColor.withValues(alpha: 0.5), width: 2)
-                : null,
-            boxShadow: [
-              if (!widget.outlined)
-                BoxShadow(
-                  color: widget.bgColor.withValues(alpha: 0.4),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-            ],
-          ),
-          child: Icon(widget.icon, color: widget.iconColor, size: widget.iconSize),
-        ),
-      ),
-    );
-  }
-}
+    final focusUser =
+        widget.controller.currentUser ??
+        (widget.controller.discoverUsers.isNotEmpty
+            ? widget.controller.discoverUsers.first
+            : null);
+    final orbitUsers = widget.controller.discoverUsers
+        .where((user) => user.id.isNotEmpty)
+        .take(_orbitSlots.length)
+        .toList(growable: false);
 
-// ═══════════════════════════════════════════════════════════════════════════
-// USER DETAILS BOTTOM SHEET
-// ═══════════════════════════════════════════════════════════════════════════
-class _UserDetailsSheet extends StatelessWidget {
-  final UserModel user;
-  const _UserDetailsSheet({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      ),
+    return ColoredBox(
+      color: const Color(0xFF971DFF),
       child: Stack(
+        fit: StackFit.expand,
         children: [
-          // ── Scrollable Content ──
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-            child: ListView(
-              padding: EdgeInsets.zero,
+          const _StartupRadarBackdrop(),
+          SafeArea(
+            child: Column(
               children: [
-                // 1. Photo Gallery with Indicators
-                _buildGallery(user),
+                const Spacer(flex: 3),
+                Expanded(
+                  flex: 7,
+                  child: Center(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final radarSize = math.min(
+                          constraints.maxWidth * 0.8,
+                          constraints.maxHeight * 0.72,
+                        );
+                        final avatarSize = radarSize * 0.14;
 
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 2. Name & Age & Verified
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${user.firstName ?? user.username ?? 'User'}${user.profile?.age != null ? ", ${user.profile!.age}" : ""}',
-                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5),
-                            ),
+                        return SizedBox(
+                          width: radarSize,
+                          height: radarSize,
+                          child: AnimatedBuilder(
+                            animation: Listenable.merge([
+                              _pulseController,
+                              _sweepController,
+                            ]),
+                            builder: (context, _) {
+                              final phase =
+                                  _sweepController.value * math.pi * 2;
+                              final outerPulse =
+                                  1 + (_pulseController.value * 0.04);
+                              final middlePulse =
+                                  1 + (_pulseController.value * 0.03);
+                              final innerPulse =
+                                  1 + (_pulseController.value * 0.02);
+
+                              return Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Transform.scale(
+                                    scale: outerPulse,
+                                    child: Container(
+                                      width: radarSize,
+                                      height: radarSize,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Transform.scale(
+                                    scale: middlePulse,
+                                    child: Container(
+                                      width: radarSize * 0.72,
+                                      height: radarSize * 0.72,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.22,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Transform.scale(
+                                    scale: innerPulse,
+                                    child: Container(
+                                      width: radarSize * 0.44,
+                                      height: radarSize * 0.44,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.58,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  ClipOval(
+                                    child: _StartupRadarSweep(
+                                      size: radarSize * 0.96,
+                                      phase: phase,
+                                    ),
+                                  ),
+                                  for (
+                                    var index = 0;
+                                    index < _orbitSlots.length;
+                                    index++
+                                  )
+                                    Builder(
+                                      builder: (context) {
+                                        final slot = _orbitSlots[index];
+                                        final user = index < orbitUsers.length
+                                            ? orbitUsers[index]
+                                            : null;
+                                        final orbitAngle =
+                                            slot.angle +
+                                            phase *
+                                                (index.isEven ? 0.06 : -0.06);
+                                        final radius =
+                                            radarSize * 0.5 * slot.radiusFactor;
+                                        final dx =
+                                            math.cos(orbitAngle) * radius;
+                                        final dy =
+                                            math.sin(orbitAngle) * radius;
+
+                                        return Transform.translate(
+                                          offset: Offset(dx, dy),
+                                          child: AnimatedSwitcher(
+                                            duration: const Duration(
+                                              milliseconds: 420,
+                                            ),
+                                            switchInCurve: Curves.easeOutBack,
+                                            switchOutCurve: Curves.easeInBack,
+                                            transitionBuilder:
+                                                (child, animation) {
+                                                  return FadeTransition(
+                                                    opacity: animation,
+                                                    child: ScaleTransition(
+                                                      scale: animation,
+                                                      child: child,
+                                                    ),
+                                                  );
+                                                },
+                                            child: user == null
+                                                ? SizedBox(
+                                                    key: ValueKey(
+                                                      'empty_orbit_$index',
+                                                    ),
+                                                    width: avatarSize,
+                                                    height: avatarSize,
+                                                  )
+                                                : _StartupRadarAvatar(
+                                                    key: ValueKey(
+                                                      'startup_orbit_${user.id}',
+                                                    ),
+                                                    user: user,
+                                                    size: avatarSize,
+                                                  ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  Container(
+                                    width: radarSize * 0.24,
+                                    height: radarSize * 0.24,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  _StartupRadarAvatar(
+                                    key: ValueKey(
+                                      'startup_focus_${focusUser?.id ?? 'me'}',
+                                    ),
+                                    user: focusUser,
+                                    size: radarSize * 0.2,
+                                  ),
+                                ],
+                              );
+                            },
                           ),
-                          if (user.selfieVerified) ...[
-                             Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(color: Color(0xFFC69C6D), shape: BoxShape.circle),
-                              child: const Icon(LucideIcons.shieldCheck, color: Colors.white, size: 16),
-                            ),
-                          ],
-                        ],
-                      ),
-                      
-                      if (user.profile?.city != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(LucideIcons.mapPin, size: 14, color: Colors.grey),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${user.profile!.city!}${user.profile!.country != null ? " ${Helpers.getCountryFlag(user.profile!.country)}" : ""}',
-                              style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ],
-                      
-                      const SizedBox(height: 24),
-
-                      // 3. About Me
-                      if (user.profile?.bio?.isNotEmpty == true) ...[
-                        _buildSectionHeader('about_me'.tr),
-                        Text(
-                          user.profile!.bio!,
-                          style: TextStyle(fontSize: 15, height: 1.6, color: Colors.grey.shade800),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // 4. Faith & Foundation (Premium Section)
-                      if (user.profile?.sect != null || user.profile?.religiousLevel != null) ...[
-                        _buildPremiumSection(
-                          title: 'religious_foundation'.tr,
-                          icon: LucideIcons.moon,
-                          child: Wrap(
-                            spacing: 8, runSpacing: 8,
-                            children: [
-                              if (user.profile?.sect != null) _buildPill(user.profile!.sect!.capitalizeFirst!),
-                              if (user.profile?.religiousLevel != null) _buildPill(user.profile!.religiousLevel!.replaceAll('_', ' ').capitalizeFirst!),
-                              if (user.profile?.prayerFrequency != null) _buildPill('${'prayer_label'.tr}: ${user.profile!.prayerFrequency!.replaceAll('_', ' ').capitalizeFirst!}'),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // 5. Lifestyle & Attributes
-                      _buildPremiumSection(
-                        title: 'lifestyle_vibe'.tr,
-                        icon: LucideIcons.heart,
-                        child: Wrap(
-                          spacing: 8, runSpacing: 8,
-                          children: [
-                            if (user.profile?.maritalStatus != null) _buildPill(user.profile!.maritalStatus!.capitalizeFirst!),
-                            if (user.profile?.height != null) _buildPill('${user.profile!.height} cm'),
-                            if (user.profile?.education != null) _buildPill(user.profile!.education!.capitalizeFirst!),
-                            if (user.profile?.dietary != null) _buildPill(user.profile!.dietary!.capitalizeFirst!),
-                            if (user.profile?.hijabStatus != null) _buildPill(user.profile!.hijabStatus!.capitalizeFirst!),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // 6. Career
-                      if (user.profile?.jobTitle != null) ...[
-                        _buildPremiumSection(
-                          title: 'profession_label'.tr,
-                          icon: LucideIcons.briefcase,
-                          child: _buildAttributeRow(LucideIcons.briefcase, '${user.profile!.jobTitle!}${user.profile?.company != null ? " at ${user.profile!.company}" : ""}', padding: 0),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // 7. Interests
-                      if (user.profile?.interests?.isNotEmpty == true) ...[
-                        _buildSectionHeader('interests'.tr),
-                        _buildPills(user.profile!.interests!),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // 8. Languages
-                      if (user.profile?.languages?.isNotEmpty == true) ...[
-                        _buildSectionHeader('languages'.tr),
-                        _buildPills(user.profile!.languages!),
-                        const SizedBox(height: 24),
-                      ],
-
-                      const SizedBox(height: 180), // Bottom spacer for buttons
-                    ],
+                        );
+                      },
+                    ),
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'finding_people_nearby'.tr,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  orbitUsers.isEmpty
+                      ? 'finding_people_nearby'.tr
+                      : '${orbitUsers.length} ${'people_found_nearby'.tr}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.88),
+                  ),
+                ),
+                const SizedBox(height: 42),
               ],
             ),
           ),
-
-          // ── Fixed Top Header ──
-          PositionedDirectional(
-            top: 0,
-            start: 0,
-            end: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.9),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                   PositionedDirectional(
-                    start: 0,
-                    child: IconButton(
-                      icon: const Icon(LucideIcons.x, size: 24),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                  Text(
-                    'profile'.tr,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  PositionedDirectional(
-                    end: 0,
-                    child: IconButton(
-                      icon: const Icon(LucideIcons.moreVertical, size: 24),
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Fixed Bottom Actions ──
-          Positioned(
-            bottom: bottomPad > 0 ? bottomPad + 10 : 20,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _ModalActionBtn(icon: LucideIcons.x, color: Colors.red, onTap: () => Navigator.pop(context)),
-                  _ModalActionBtn(
-                    icon: LucideIcons.award, 
-                    color: Colors.orange, 
-                    isCircle: true, 
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showComplimentDialog(context, user.id, Get.find<HomeController>());
-                    }
-                  ),
-                  _ModalActionBtn(icon: LucideIcons.heart, color: Colors.pink, onTap: () {
-                    Navigator.pop(context);
-                    Get.find<HomeController>().likeUser(user.id);
-                  }),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildGallery(UserModel user) {
-    final photos = user.photos ?? [];
-    if (photos.isEmpty && user.mainPhotoUrl == null) {
-      return Container(
-        height: 400,
-        width: double.infinity,
-        color: Colors.grey.shade200,
-        child: const Icon(LucideIcons.image, size: 48, color: Colors.grey),
-      );
-    }
+class _StartupRadarOrbitSlot {
+  const _StartupRadarOrbitSlot({
+    required this.angle,
+    required this.radiusFactor,
+  });
 
-    final displayPhotos = photos.isNotEmpty 
-        ? photos.map((p) => p.url).toList() 
-        : [user.mainPhotoUrl!];
+  final double angle;
+  final double radiusFactor;
+}
 
-    final pageController = PageController();
-    final currentPage = 0.obs;
+class _StartupRadarSweep extends StatelessWidget {
+  const _StartupRadarSweep({required this.size, required this.phase});
 
+  final double size;
+  final double phase;
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
-      height: 500,
+      width: size,
+      height: size,
+      child: Transform.rotate(
+        angle: phase,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            width: size * 0.54,
+            height: size * 0.54,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withValues(alpha: 0.34),
+                  Colors.white.withValues(alpha: 0.02),
+                ],
+              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(size)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StartupRadarBackdrop extends StatelessWidget {
+  const _StartupRadarBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
       child: Stack(
         children: [
-          PageView.builder(
-            controller: pageController,
-            itemCount: displayPhotos.length,
-            onPageChanged: (v) => currentPage.value = v,
-            itemBuilder: (context, index) {
-              return CachedNetworkImage(
-                imageUrl: CloudinaryUrl.getResizedUrl(displayPhotos[index], width: 800),
-                fit: BoxFit.cover,
-                width: double.infinity,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey.shade200,
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-                errorWidget: (context, url, error) => _PlaceholderPhoto(user: user),
-              );
-            },
+          Positioned(
+            top: -120,
+            left: -80,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
           ),
-          // Indicators
-          PositionedDirectional(
-            top: 70, // Below header
-            start: 16,
-            end: 16,
-            child: Obx(() => Row(
-              children: List.generate(displayPhotos.length, (i) => Expanded(
-                child: Container(
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  decoration: BoxDecoration(
-                    color: i == currentPage.value ? Colors.white : Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              )),
-            )),
+          Positioned(
+            right: -80,
+            bottom: 120,
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildAttributeRow(IconData icon, String text, {double padding = 12}) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: padding),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey.shade600),
-          const SizedBox(width: 12),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.grey.shade700))),
-        ],
-      ),
-    );
-  }
+class _StartupRadarAvatar extends StatelessWidget {
+  const _StartupRadarAvatar({
+    super.key,
+    required this.user,
+    required this.size,
+  });
 
-  Widget _buildPremiumSection({required String title, required IconData icon, required Widget child}) {
+  final UserModel? user;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = CloudinaryUrl.medium(user?.mainPhotoUrl ?? '');
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2.4),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+      child: ClipOval(
+        child: imageUrl.isEmpty
+            ? Container(
+                color: const Color(0xFFF0E7FF),
+                alignment: Alignment.center,
+                child: Text(
+                  Helpers.getInitials(user?.firstName, user?.lastName),
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
                 ),
-                child: Icon(icon, size: 16, color: AppColors.primary),
+              )
+            : CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                errorWidget: (context, imageUrl, error) => Container(
+                  color: const Color(0xFFF0E7FF),
+                  alignment: Alignment.center,
+                  child: Text(
+                    Helpers.getInitials(user?.firstName, user?.lastName),
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(width: 12),
-              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
-            ],
+      ),
+    );
+  }
+}
+
+class _LoadingCard extends StatelessWidget {
+  const _LoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : const Color(0xFFF7F4FB),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [const Color(0xFF1B1730), const Color(0xFF241D3F)]
+                    : [const Color(0xFFF8F1FF), const Color(0xFFEDE6FF)],
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
-          child,
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 88,
+            child: Container(
+              height: 24,
+              width: 140,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.18)
+                    : Colors.white.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 120,
+            bottom: 56,
+            child: Container(
+              height: 14,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.14)
+                    : Colors.white.withValues(alpha: 0.58),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-      ),
-    );
-  }
-
-  Widget _buildPills(List<String> items) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: items.map((it) => _buildPill(it)).toList(),
-    );
-  }
-
-  Widget _buildPill(String text, {bool isActive = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: isActive ? Colors.pink.withValues(alpha: 0.1) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isActive ? Colors.pink : Colors.black12, width: 1),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: isActive ? Colors.pink : Colors.grey.shade800,
-        ),
-      ),
-    );
-  }
-
 }
 
-class _ModalActionBtn extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final bool isCircle;
-  final VoidCallback onTap;
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.onRefresh});
 
-  const _ModalActionBtn({required this.icon, required this.color, this.isCircle = false, required this.onTap});
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: isCircle ? 64 : 54,
-        height: isCircle ? 64 : 54,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-          boxShadow: [
-            BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4)),
-          ],
-        ),
-        child: Icon(icon, color: color, size: isCircle ? 32 : 24),
-      ),
+    return AnimatedEmptyState(
+      lottieAsset: 'assets/animations/no_matches.json',
+      title: 'no_profiles_right_now'.tr,
+      subtitle: 'refresh_profiles_hint'.tr,
+      fallbackIcon: LucideIcons.heart,
+      fallbackColor: AppColors.primary,
+      width: 196,
+      primaryActionLabel: 'refresh'.tr,
+      onPrimaryAction: onRefresh,
     );
   }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PLACEHOLDER PHOTO
-// ═══════════════════════════════════════════════════════════════════════════
-class _PlaceholderPhoto extends StatelessWidget {
-  final UserModel user;
-  const _PlaceholderPhoto({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2C3E50), Color(0xFF000000)],
-        ),
-      ),
-      child: Center(
-        child: Text(
-          Helpers.getInitials(user.firstName ?? user.username, user.lastName),
-          style: const TextStyle(fontSize: 80, fontWeight: FontWeight.w900, color: Colors.white24),
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// STRING EXTENSION
-// ═══════════════════════════════════════════════════════════════════════════
-
-void _showComplimentDialog(BuildContext context, String userId, HomeController controller) {
-  final tc = TextEditingController();
-  Get.dialog(
-    AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text('compliments_label'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
-      content: TextField(
-        controller: tc,
-        maxLength: 200,
-        autofocus: true,
-        decoration: InputDecoration(
-          hintText: 'say_hello'.tr,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        maxLines: 3,
-      ),
-      actions: [
-        TextButton(onPressed: () => Get.back(), child: Text('cancel'.tr)),
-        ElevatedButton(
-          onPressed: () {
-            if (tc.text.trim().isNotEmpty) {
-              controller.complimentUser(userId, tc.text.trim());
-              Get.back();
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          child: Text('send'.tr),
-        ),
-      ],
-    ),
-  );
-}
-

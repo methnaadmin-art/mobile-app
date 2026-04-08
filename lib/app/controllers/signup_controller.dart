@@ -1,22 +1,29 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart' hide Headers;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide FormData, MultipartFile, Response;
 import 'package:get_storage/get_storage.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
+import 'package:methna_app/app/data/services/verification_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/data/services/location_service.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/constants/api_constants.dart';
 import 'package:methna_app/core/constants/app_constants.dart';
+import 'package:methna_app/core/utils/upload_image_optimizer.dart';
 import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/core/utils/validators.dart';
 import 'signup_data.dart';
 
 class SignupController extends GetxController {
   // ─── Constants & Dependencies ──────────────────────────────
   static const int totalSteps = 12;
+  static const int maxHobbiesSelection = 5;
+  static const Set<int> _skippableOptionalSteps = {6, 7, 8};
   static const String _draftKey = AppConstants.signupDraftKey;
 
   final AuthService _auth = Get.find<AuthService>();
@@ -26,10 +33,16 @@ class SignupController extends GetxController {
   final RxInt currentStep = 0.obs;
   final RxBool isLoading = false.obs;
   final RxBool isProcessing = false.obs;
+  final RxBool isNavigatingStep = false.obs;
   bool _navigating = false;
   bool _isDirty = false;
   bool _isLoadingDraft = false;
-  
+  bool _photosUploaded = false;
+  bool _selfieUploaded = false;
+  bool _selfieVerificationRequested = false;
+  Future<void>? _photosUploadFuture;
+  Future<void>? _selfieUploadFuture;
+
   // ─── Workers & Triggers ─────────────────────────────────────
   Worker? _usernameWorker;
   Worker? _draftWorker;
@@ -39,6 +52,10 @@ class SignupController extends GetxController {
   final usernameController = TextEditingController();
   final RxBool usernameAvailable = false.obs;
   final RxBool checkingUsername = false.obs;
+  final RxBool usernameCheckFailed = false.obs;
+  final RxBool usernameChecked = false.obs;
+  final RxBool usernameTaken = false.obs;
+  final RxInt usernameInputTick = 0.obs;
   final RxString usernameError = ''.obs;
   final RxString debouncedUsername = ''.obs;
 
@@ -77,10 +94,19 @@ class SignupController extends GetxController {
   final companyController = TextEditingController();
   final heightController = TextEditingController();
   final bioController = TextEditingController();
+  final RxnBool hasChildren = RxnBool();
+  final numberOfChildrenController = TextEditingController();
+  final RxList<String> selectedLanguages = <String>[].obs;
+  final RxList<String> selectedNationalities = <String>[].obs;
+  final RxString selectedEthnicity = ''.obs;
+  final RxList<String> selectedFamilyValues = <String>[].obs;
 
   // ─── Step 9: Photos ────────────────────────────────────────
   final RxList<File> selectedPhotos = <File>[].obs;
   final RxInt mainPhotoIndex = 0.obs;
+  List<String> _draftPhotoPaths = const <String>[];
+  String? _draftSelfiePath;
+  bool _mediaDraftHydrated = false;
 
   // ─── Step 10: Selfie ──────────────────────────────────────
   final Rx<File?> selfiePhoto = Rx<File?>(null);
@@ -89,9 +115,19 @@ class SignupController extends GetxController {
   final RxBool locationEnabled = false.obs;
   final RxString selectedCountry = 'Algeria'.obs;
   final RxString selectedCity = ''.obs;
+  final RxDouble preferredDistanceKm = 80.0.obs;
+  final RxString selectedPhoneDialCode = '+213'.obs;
+  final RxString selectedPhoneCountryCode = 'DZ'.obs;
+  final RxString selectedPhoneCountryName = 'Algeria'.obs;
 
-  List<String> get availableCities => SignupData.countryCities[selectedCountry.value] ?? [];
+  List<String> get availableCities =>
+      SignupData.countryCities[selectedCountry.value] ?? [];
   List<String> get arabicCountries => SignupData.arabicCountries;
+  int get formChangeTick => _draftTrigger.value;
+  String? get primaryNationality =>
+      selectedNationalities.isNotEmpty ? selectedNationalities.first : null;
+  String? get secondaryNationality =>
+      selectedNationalities.length > 1 ? selectedNationalities[1] : null;
 
   // ─── Loading states ────────────────────────────────────────
   final RxBool obscurePassword = true.obs;
@@ -99,7 +135,7 @@ class SignupController extends GetxController {
 
   void togglePasswordVisibility() => obscurePassword.toggle();
 
-    // Lists moved to SignupData
+  // Lists moved to SignupData
 
   // ─── Route → step index map (source of truth for progress) ──
   static const _routeToStep = {
@@ -127,14 +163,22 @@ class SignupController extends GetxController {
   /// Call this from every signup screen's build method to sync the step.
   void syncStep(String route) {
     final idx = _routeToStep[route];
-    if (idx != null && (currentStep.value != idx || Get.currentRoute != route)) {
+    if (Get.currentRoute == route && _navigating && !isNavigatingStep.value) {
+      _navigating = false;
+    }
+    if (idx != null) {
+      _maybeHydrateMediaDraft(idx);
+    }
+
+    if (idx != null &&
+        (currentStep.value != idx || Get.currentRoute != route)) {
       Future.microtask(() {
         currentStep.value = idx;
         _triggerSave(); // Use the debounced save
       });
       debugPrint('[Signup] SyncStep: $route (index: $idx)');
     }
-    
+
     // Start listening for username changes if we're on the username screen
     if (route == AppRoutes.signupUsername && _usernameWorker == null) {
       _usernameWorker = debounce(
@@ -142,28 +186,63 @@ class SignupController extends GetxController {
         (value) => _checkUsername(value),
         time: const Duration(milliseconds: 600),
       );
-      
+
       usernameController.addListener(() {
-        final val = usernameController.text.trim().toLowerCase();
-        if (val.isEmpty) {
+        usernameInputTick.value++;
+        final rawValue = usernameController.text.trim();
+        final normalizedValue = rawValue.toLowerCase();
+
+        if (rawValue.isEmpty) {
           usernameAvailable.value = false;
           checkingUsername.value = false;
+          usernameCheckFailed.value = false;
+          usernameChecked.value = false;
+          usernameTaken.value = false;
           usernameError.value = '';
           return;
         }
-        if (val.length < 3) {
-          usernameError.value = 'username_min'.tr;
+
+        final localValidation = Validators.username(rawValue);
+        if (localValidation != null) {
+          usernameError.value = localValidation;
           usernameAvailable.value = false;
+          checkingUsername.value = false;
+          usernameCheckFailed.value = false;
+          usernameChecked.value = false;
+          usernameTaken.value = false;
           return;
         }
-        
+
         // This triggers the debounce Worker above
-        if (val != debouncedUsername.value) {
+        if (normalizedValue != debouncedUsername.value) {
           usernameError.value = '';
+          usernameAvailable.value = false;
+          usernameCheckFailed.value = false;
+          usernameChecked.value = false;
+          usernameTaken.value = false;
           checkingUsername.value = true;
-          debouncedUsername.value = val;
+          debouncedUsername.value = normalizedValue;
         }
       });
+    }
+  }
+
+  void _maybeHydrateMediaDraft(int stepIdx) {
+    if (_mediaDraftHydrated || stepIdx < 9) return;
+
+    try {
+      if (_draftPhotoPaths.isNotEmpty && selectedPhotos.isEmpty) {
+        selectedPhotos.assignAll(_draftPhotoPaths.map((p) => File(p)).toList());
+      }
+      if (_draftSelfiePath != null && selfiePhoto.value == null) {
+        selfiePhoto.value = File(_draftSelfiePath!);
+      }
+      _mediaDraftHydrated = true;
+      debugPrint(
+        '[Signup] Media draft hydrated: photos=${selectedPhotos.length}, selfie=${selfiePhoto.value != null}',
+      );
+    } catch (e) {
+      debugPrint('[Signup] Media draft hydration failed: $e');
     }
   }
 
@@ -171,34 +250,56 @@ class SignupController extends GetxController {
     if (value.length < 3) {
       checkingUsername.value = false;
       usernameAvailable.value = false;
+      usernameCheckFailed.value = false;
+      usernameChecked.value = false;
+      usernameTaken.value = false;
       return;
     }
-    
+
     checkingUsername.value = true;
     try {
       debugPrint('[Signup] Checking username: $value');
-      final response = await _api.get(ApiConstants.checkUsername, queryParameters: {'username': value.toLowerCase()});
+      final response = await _api.get(
+        ApiConstants.checkUsername,
+        queryParameters: {'username': value.toLowerCase()},
+        options: Options(
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          extra: {
+            'disable_retry': true,
+            'skip_auth': true,
+            'skip_auth_refresh': true,
+          },
+        ),
+      );
       debugPrint('[Signup] Username check response: ${response.data}');
-      
-      // Handle both unwrapped {available: true} and raw response
-      final data = response.data;
-      bool isAvailable = false;
-      if (data is Map) {
-        isAvailable = data['available'] == true;
-      } else if (data is bool) {
-        isAvailable = data;
-      }
-      
+
+      final isAvailable = _extractUsernameAvailability(response.data);
+
       // Only update if the username hasn't changed while we were checking
       if (debouncedUsername.value == value) {
-        usernameAvailable.value = isAvailable;
-        usernameError.value = isAvailable ? '' : 'username_taken'.tr;
+        if (isAvailable == null) {
+          usernameAvailable.value = false;
+          usernameCheckFailed.value = true;
+          usernameChecked.value = true;
+          usernameTaken.value = false;
+          usernameError.value = 'username_check_fail'.tr;
+        } else {
+          usernameAvailable.value = isAvailable;
+          usernameCheckFailed.value = false;
+          usernameChecked.value = true;
+          usernameTaken.value = !isAvailable;
+          usernameError.value = isAvailable ? '' : 'username_taken'.tr;
+        }
       }
     } catch (e) {
       debugPrint('[Signup] Username check ERROR: $e');
       // Don't block user on network errors — allow them to proceed
       if (debouncedUsername.value == value) {
         usernameAvailable.value = false;
+        usernameCheckFailed.value = true;
+        usernameChecked.value = true;
+        usernameTaken.value = false;
         usernameError.value = 'username_check_fail'.tr;
       }
     } finally {
@@ -206,19 +307,93 @@ class SignupController extends GetxController {
     }
   }
 
+  bool? _extractUsernameAvailability(dynamic data) {
+    dynamic value = data;
+
+    if (data is Map) {
+      value =
+          data['available'] ??
+          data['isAvailable'] ??
+          data['is_available'] ??
+          data['status'];
+      if (value == null && data['data'] is Map) {
+        final nested = data['data'] as Map;
+        value =
+            nested['available'] ??
+            nested['isAvailable'] ??
+            nested['is_available'] ??
+            nested['status'];
+      }
+    }
+
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      const truthy = {'true', '1', 'yes', 'available'};
+      const falsy = {'false', '0', 'no', 'taken', 'unavailable'};
+      if (truthy.contains(normalized)) return true;
+      if (falsy.contains(normalized)) return false;
+    }
+
+    return null;
+  }
+
+  int? _parseChildrenCount() {
+    final raw = numberOfChildrenController.text.trim();
+    if (raw.isEmpty) return null;
+
+    final normalized = _normalizeDigits(raw);
+    final parsed = int.tryParse(normalized);
+    if (parsed == null || parsed < 0) return null;
+    return parsed;
+  }
+
+  String _normalizeDigits(String value) {
+    const arabicIndic = <String, String>{
+      '٠': '0',
+      '١': '1',
+      '٢': '2',
+      '٣': '3',
+      '٤': '4',
+      '٥': '5',
+      '٦': '6',
+      '٧': '7',
+      '٨': '8',
+      '٩': '9',
+      '۰': '0',
+      '۱': '1',
+      '۲': '2',
+      '۳': '3',
+      '۴': '4',
+      '۵': '5',
+      '۶': '6',
+      '۷': '7',
+      '۸': '8',
+      '۹': '9',
+    };
+
+    final buffer = StringBuffer();
+    for (final rune in value.runes) {
+      final char = String.fromCharCode(rune);
+      buffer.write(arabicIndic[char] ?? char);
+    }
+    return buffer.toString();
+  }
+
   final List<String> stepRoutes = [
-    AppRoutes.signupUsername,      // 0
-    AppRoutes.signupGender,        // 1
+    AppRoutes.signupUsername, // 0
+    AppRoutes.signupGender, // 1
     AppRoutes.signupMaritalStatus, // 2
-    AppRoutes.signupProfileDetails,// 3
-    AppRoutes.signupBirthday,      // 4
+    AppRoutes.signupProfileDetails, // 3
+    AppRoutes.signupBirthday, // 4
     AppRoutes.signupEmailVerification, // 5
     AppRoutes.signupFaithReligion, // 6
-    AppRoutes.signupHobbies,       // 7
-    AppRoutes.signupProfession,    // 8
-    AppRoutes.signupPhotos,        // 9
-    AppRoutes.signupSelfie,        // 10
-    AppRoutes.signupLocation,      // 11
+    AppRoutes.signupHobbies, // 7
+    AppRoutes.signupProfession, // 8
+    AppRoutes.signupPhotos, // 9
+    AppRoutes.signupSelfie, // 10
+    AppRoutes.signupLocation, // 11
   ];
 
   @override
@@ -227,25 +402,48 @@ class SignupController extends GetxController {
     _loadDraft();
 
     final List<RxInterface> autoSaveFields = [
-      selectedGender, selectedMaritalStatus, dateOfBirth, 
-      selectedSect, selectedReligiousLevel, selectedPrayerFrequency,
-      selectedDietary, selectedAlcohol, selectedHijab,
-      selectedEducation, locationEnabled, selectedCountry, selectedCity,
-      mainPhotoIndex, selfiePhoto,
+      selectedGender,
+      selectedMaritalStatus,
+      dateOfBirth,
+      selectedSect,
+      selectedReligiousLevel,
+      selectedPrayerFrequency,
+      selectedDietary,
+      selectedAlcohol,
+      selectedHijab,
+      selectedEducation,
+      hasChildren,
+      selectedEthnicity,
+      locationEnabled,
+      selectedCountry,
+      selectedCity,
+      preferredDistanceKm,
+      mainPhotoIndex,
+      selfiePhoto,
     ];
     for (var field in autoSaveFields) {
       ever(field, (_) => _triggerSave());
     }
-    
+
     // Auto-save hobbies & photos
     ever(selectedHobbies, (_) => _triggerSave());
     ever(selectedPhotos, (_) => _triggerSave());
+    ever(selectedLanguages, (_) => _triggerSave());
+    ever(selectedNationalities, (_) => _triggerSave());
+    ever(selectedFamilyValues, (_) => _triggerSave());
 
     // Debounced auto-save for text controllers
     final textControllers = [
-      usernameController, firstNameController, lastNameController,
-      emailController, phoneController, jobTitleController,
-      companyController, heightController, bioController,
+      usernameController,
+      firstNameController,
+      lastNameController,
+      emailController,
+      phoneController,
+      jobTitleController,
+      companyController,
+      heightController,
+      numberOfChildrenController,
+      bioController,
     ];
     for (var tc in textControllers) {
       tc.addListener(() => _triggerSave());
@@ -274,54 +472,138 @@ class SignupController extends GetxController {
       _isLoadingDraft = true;
       debugPrint('[Signup] Loading draft data...');
       try {
-      if (draft['username'] != null) {
-        final savedUsername = draft['username'].toString().trim();
-        usernameController.text = savedUsername;
-        // Senior Fix: Trigger check immediately if we have a draft value
-        if (savedUsername.length >= 3) {
-          _checkUsername(savedUsername);
+        if (draft['username'] != null) {
+          final savedUsername = draft['username'].toString().trim();
+          usernameController.text = savedUsername;
+          // Senior Fix: Trigger check immediately if we have a draft value
+          if (savedUsername.length >= 3) {
+            debouncedUsername.value = savedUsername.toLowerCase();
+            _checkUsername(debouncedUsername.value);
+          }
         }
-      }
-      if (draft['gender'] != null) selectedGender.value = draft['gender'];
-      if (draft['maritalStatus'] != null) selectedMaritalStatus.value = draft['maritalStatus'];
-      if (draft['firstName'] != null) firstNameController.text = draft['firstName'];
-      if (draft['lastName'] != null) lastNameController.text = draft['lastName'];
-      if (draft['email'] != null) emailController.text = draft['email'];
-      if (draft['phone'] != null) phoneController.text = draft['phone'];
-      if (draft['dob'] != null) dateOfBirth.value = DateTime.tryParse(draft['dob']);
-      if (draft['sect'] != null) selectedSect.value = draft['sect'];
-      if (draft['religiousLevel'] != null) selectedReligiousLevel.value = draft['religiousLevel'];
-      if (draft['prayerFrequency'] != null) selectedPrayerFrequency.value = draft['prayerFrequency'];
-      if (draft['dietary'] != null) selectedDietary.value = draft['dietary'];
-      if (draft['alcohol'] != null) selectedAlcohol.value = draft['alcohol'];
-      if (draft['hijabStatus'] != null) selectedHijab.value = draft['hijabStatus'];
-      if (draft['hobbies'] != null) selectedHobbies.assignAll(List<String>.from(draft['hobbies']));
-      if (draft['jobTitle'] != null) jobTitleController.text = draft['jobTitle'];
-      if (draft['education'] != null) selectedEducation.value = draft['education'];
-      if (draft['company'] != null) companyController.text = draft['company'];
-      if (draft['height'] != null) heightController.text = draft['height'];
-      if (draft['bio'] != null) bioController.text = draft['bio'];
-      if (draft['country'] != null) selectedCountry.value = draft['country'];
-      if (draft['city'] != null) selectedCity.value = draft['city'];
-      if (draft['locationEnabled'] != null) locationEnabled.value = draft['locationEnabled'];
-      
-      if (draft['photoPaths'] != null) {
-        final paths = List<String>.from(draft['photoPaths']);
-        // Senior Fix: Defer photo loading until after transition to avoid main-thread block
-        Future.delayed(const Duration(milliseconds: 800), () {
-          selectedPhotos.assignAll(paths.map((p) => File(p)).toList());
-          debugPrint('[Signup] Deferred photos loaded: ${selectedPhotos.length}');
-        });
-      }
-      if (draft['mainPhotoIndex'] != null) mainPhotoIndex.value = draft['mainPhotoIndex'];
-      
-      if (draft['selfiePath'] != null) {
-        // Defer selfie too
-        Future.delayed(const Duration(milliseconds: 1000), () {
-           selfiePhoto.value = File(draft['selfiePath']);
-        });
-      }
-      // Note: Navigation to lastRoute is now handled by SplashController for better stability
+        if (draft['gender'] != null) {
+          selectedGender.value = draft['gender'];
+        }
+        if (draft['maritalStatus'] != null) {
+          selectedMaritalStatus.value = draft['maritalStatus'];
+        }
+        if (draft['firstName'] != null) {
+          firstNameController.text = draft['firstName'];
+        }
+        if (draft['lastName'] != null) {
+          lastNameController.text = draft['lastName'];
+        }
+        if (draft['email'] != null) {
+          emailController.text = draft['email'];
+        }
+        if (draft['phone'] != null) {
+          phoneController.text = draft['phone'];
+        }
+        if (draft['dob'] != null) {
+          dateOfBirth.value = DateTime.tryParse(draft['dob']);
+        }
+        if (draft['sect'] != null) {
+          selectedSect.value = draft['sect'];
+        }
+        if (draft['religiousLevel'] != null) {
+          selectedReligiousLevel.value = draft['religiousLevel'];
+        }
+        if (draft['prayerFrequency'] != null) {
+          selectedPrayerFrequency.value = draft['prayerFrequency'];
+        }
+        if (draft['dietary'] != null) {
+          selectedDietary.value = draft['dietary'];
+        }
+        if (draft['alcohol'] != null) {
+          selectedAlcohol.value = draft['alcohol'];
+        }
+        if (draft['hijabStatus'] != null) {
+          selectedHijab.value = draft['hijabStatus'];
+        }
+        if (draft['hobbies'] != null) {
+          selectedHobbies.assignAll(
+            List<String>.from(draft['hobbies']).take(maxHobbiesSelection),
+          );
+        }
+        if (draft['jobTitle'] != null) {
+          jobTitleController.text = draft['jobTitle'];
+        }
+        if (draft['education'] != null) {
+          selectedEducation.value = draft['education'];
+        }
+        if (draft['company'] != null) {
+          companyController.text = draft['company'];
+        }
+        if (draft['height'] != null) {
+          heightController.text = draft['height'];
+        }
+        if (draft['hasChildren'] != null) {
+          hasChildren.value = draft['hasChildren'] == true;
+        }
+        if (draft['numberOfChildren'] != null) {
+          numberOfChildrenController.text = draft['numberOfChildren']
+              .toString();
+        }
+        if (draft['languages'] != null) {
+          selectedLanguages.assignAll(List<String>.from(draft['languages']));
+        }
+        if (draft['nationalities'] != null) {
+          selectedNationalities.assignAll(
+            List<String>.from(draft['nationalities']).take(2),
+          );
+        }
+        if (draft['ethnicity'] != null) {
+          selectedEthnicity.value = draft['ethnicity'].toString();
+        }
+        if (draft['familyValues'] != null) {
+          selectedFamilyValues.assignAll(
+            List<String>.from(draft['familyValues']),
+          );
+        }
+        if (draft['bio'] != null) {
+          bioController.text = draft['bio'];
+        }
+        if (draft['country'] != null) {
+          selectedCountry.value = draft['country'];
+        }
+        if (draft['city'] != null) {
+          selectedCity.value = draft['city'];
+        }
+        if (draft['phoneDialCode'] != null) {
+          selectedPhoneDialCode.value = _normalizeDialCode(
+            draft['phoneDialCode'].toString(),
+          );
+        }
+        if (draft['phoneCountryCode'] != null) {
+          selectedPhoneCountryCode.value = draft['phoneCountryCode'].toString();
+        }
+        if (draft['phoneCountryName'] != null) {
+          selectedPhoneCountryName.value = draft['phoneCountryName'].toString();
+        }
+        if (draft['locationEnabled'] != null) {
+          locationEnabled.value = draft['locationEnabled'];
+        }
+        if (draft['preferredDistanceKm'] != null) {
+          final rawDistance = draft['preferredDistanceKm'];
+          if (rawDistance is num) {
+            preferredDistanceKm.value = rawDistance.toDouble();
+          } else if (rawDistance is String) {
+            final parsed = double.tryParse(rawDistance);
+            if (parsed != null) {
+              preferredDistanceKm.value = parsed;
+            }
+          }
+        }
+
+        _draftPhotoPaths = draft['photoPaths'] != null
+            ? List<String>.from(draft['photoPaths'])
+            : const <String>[];
+        if (draft['mainPhotoIndex'] != null) {
+          mainPhotoIndex.value = draft['mainPhotoIndex'];
+        }
+
+        _draftSelfiePath = draft['selfiePath']?.toString();
+        // Note: Navigation to lastRoute is now handled by SplashController for better stability
       } catch (e) {
         debugPrint('[Signup] Failed to load draft: $e');
       } finally {
@@ -332,13 +614,19 @@ class SignupController extends GetxController {
 
   // ─── Persistence ───────────────────────────────────────────
   void _saveDraft() {
-    if (!_isDirty || _isLoadingDraft) return;
-    
-    // Senior Fix: Use a background task approach (Future.delayed(0) or compute) 
+    if (!_isDirty || _isLoadingDraft || _navigating || isNavigatingStep.value) {
+      return;
+    }
+
+    // Senior Fix: Use a background task approach (Future.delayed(0) or compute)
     // to ensure Disk I/O never blocks the current UI frame during navigation.
     Future.delayed(Duration.zero, () async {
       try {
         final stopwatch = Stopwatch()..start();
+        final photoPaths = selectedPhotos.isNotEmpty
+            ? selectedPhotos.map((f) => f.path).toList()
+            : _draftPhotoPaths;
+        final selfiePath = selfiePhoto.value?.path ?? _draftSelfiePath;
         final draft = {
           'username': usernameController.text,
           'gender': selectedGender.value,
@@ -359,28 +647,66 @@ class SignupController extends GetxController {
           'education': selectedEducation.value,
           'company': companyController.text,
           'height': heightController.text,
+          'hasChildren': hasChildren.value,
+          'numberOfChildren': numberOfChildrenController.text,
+          'languages': selectedLanguages.toList(),
+          'nationalities': selectedNationalities.toList(),
+          'ethnicity': selectedEthnicity.value,
+          'familyValues': selectedFamilyValues.toList(),
           'bio': bioController.text,
-          'photoPaths': selectedPhotos.map((f) => f.path).toList(),
+          'photoPaths': photoPaths,
           'mainPhotoIndex': mainPhotoIndex.value,
           'country': selectedCountry.value,
           'city': selectedCity.value,
+          'phoneDialCode': selectedPhoneDialCode.value,
+          'phoneCountryCode': selectedPhoneCountryCode.value,
+          'phoneCountryName': selectedPhoneCountryName.value,
           'locationEnabled': locationEnabled.value,
+          'preferredDistanceKm': preferredDistanceKm.value,
           'lastRoute': Get.currentRoute,
-          if (selfiePhoto.value != null) 'selfiePath': selfiePhoto.value!.path,
+          // ignore: use_null_aware_elements
+          if (selfiePath case final value?) 'selfiePath': value,
         };
-        
+
         await GetStorage().write(_draftKey, draft);
         _isDirty = false;
         stopwatch.stop();
-        debugPrint('[Signup] Draft saved successfully in ${stopwatch.elapsedMilliseconds}ms');
+        debugPrint(
+          '[Signup] Draft saved successfully in ${stopwatch.elapsedMilliseconds}ms',
+        );
       } catch (e) {
         debugPrint('[Signup] Failed to save draft: $e');
       }
     });
   }
 
+  Future<void> _persistDraftRoute(String route) async {
+    try {
+      final storage = GetStorage();
+      final existing = Map<String, dynamic>.from(
+        storage.read<Map<String, dynamic>>(_draftKey) ?? <String, dynamic>{},
+      );
+      existing['lastRoute'] = route;
+      await storage.write(_draftKey, existing);
+    } catch (e) {
+      debugPrint('[Signup] Failed to persist draft route ($route): $e');
+    }
+  }
+
   void _clearDraft() {
     GetStorage().remove(_draftKey);
+    _draftPhotoPaths = const <String>[];
+    _draftSelfiePath = null;
+    _mediaDraftHydrated = false;
+    preferredDistanceKm.value = 80.0;
+    selectedPhoneDialCode.value = '+213';
+    selectedPhoneCountryCode.value = 'DZ';
+    selectedPhoneCountryName.value = 'Algeria';
+    _photosUploaded = false;
+    _selfieUploaded = false;
+    _selfieVerificationRequested = false;
+    _photosUploadFuture = null;
+    _selfieUploadFuture = null;
     debugPrint('[Signup] Draft cleared');
   }
 
@@ -394,15 +720,52 @@ class SignupController extends GetxController {
     _triggerSave();
   }
 
+  void setPhoneCountry({
+    required String dialCode,
+    required String countryCode,
+    required String countryName,
+  }) {
+    selectedPhoneDialCode.value = _normalizeDialCode(dialCode);
+    selectedPhoneCountryCode.value = countryCode;
+    selectedPhoneCountryName.value = countryName;
+    _triggerSave();
+  }
+
+  String _normalizeDialCode(String rawDialCode) {
+    final compact = rawDialCode.trim().replaceAll(RegExp(r'\s+'), '');
+    final digitsOnly = compact.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly.isEmpty) {
+      return '+213';
+    }
+    return '+$digitsOnly';
+  }
+
+  String _composePhoneForSubmit(String rawPhone) {
+    final normalized = rawPhone.trim().replaceAll(RegExp(r'\s+'), '');
+    if (normalized.isEmpty) return '';
+    if (normalized.startsWith('+')) return normalized;
+
+    final dialCode = selectedPhoneDialCode.value.trim().isNotEmpty
+        ? _normalizeDialCode(selectedPhoneDialCode.value)
+        : '+213';
+    final localNumber = normalized.startsWith('0')
+        ? normalized.substring(1)
+        : normalized;
+    return '$dialCode$localNumber';
+  }
+
   void navigateTo(String route) {
     if (_navigating) return;
     _navigating = true;
     debugPrint('[Signup] navigateTo: $route');
-    Get.focusScope?.unfocus(); 
+    Get.focusScope?.unfocus();
     syncStep(route);
     _saveDraft(); // Immediate save before navigation to ensure persistence
     Get.toNamed(route);
-    Future.delayed(const Duration(milliseconds: 500), () => _navigating = false);
+    Future.delayed(
+      const Duration(milliseconds: 500),
+      () => _navigating = false,
+    );
   }
 
   void goBack() {
@@ -415,66 +778,208 @@ class SignupController extends GetxController {
   }
 
   Future<void> goToNextStep() async {
-    if (_navigating) return;
-    _navigating = true;
-    Get.focusScope?.unfocus();
-    
-    final currentIdx = _routeToStep[Get.currentRoute] ?? currentStep.value;
-    
-    // Senior Persistence Layer: Save data to DB immediately at key checkpoints
-    try {
-      if (currentIdx == 6 || currentIdx == 8) {
-        // Faith, Profession (NOT steps 3-4 — user has no auth token until OTP verification at step 5)
-        await updateProfile();
-      } else if (currentIdx == 9) {
-        // Photos - immediate upload
-        await uploadPhotos();
-      } else if (currentIdx == 10) {
-        // Selfie - immediate upload & verify
-        await uploadSelfie();
-      }
-    } catch (e) {
-      debugPrint('[Signup] Immediate persistence failed at step $currentIdx: $e');
-      // We don't block navigation here unless it's a critical failure, 
-      // but the user might see a snackbar from the called methods.
-    }
-
-    final nextIdx = currentIdx + 1;
-    final nextRoute = nextIdx < totalSteps ? stepRoutes[nextIdx] : null;
-    
-    // Senior Validation Layer
-    if (!validateStep(currentIdx)) {
+    if (_navigating && !isNavigatingStep.value) {
       _navigating = false;
+    }
+    if (_navigating || isNavigatingStep.value) return;
+    _navigating = true;
+    isNavigatingStep.value = true;
+    Get.focusScope?.unfocus();
+
+    var loaderShown = false;
+    var loaderCanceled = false;
+
+    try {
+      final currentIdx = _routeToStep[Get.currentRoute] ?? currentStep.value;
+      final shouldShowLoader = currentIdx == 6 || currentIdx == 8;
+      final isOptionalStep = _skippableOptionalSteps.contains(currentIdx);
+      final stepIsComplete = isOptionalStep
+          ? _isOptionalStepComplete(currentIdx)
+          : validateStep(currentIdx);
+
+      if (shouldShowLoader) {
+        Future.delayed(const Duration(milliseconds: 140), () {
+          if (loaderCanceled || !isNavigatingStep.value || loaderShown) return;
+          loaderShown = true;
+          if (!(Get.isDialogOpen ?? false)) {
+            Get.dialog(
+              const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+              barrierDismissible: false,
+            );
+          }
+        });
+      }
+
+      if (!isOptionalStep && !stepIsComplete) {
+        return;
+      }
+
+      // Keep flow responsive: run persistence in background for media steps.
+      if (currentIdx == 6 || currentIdx == 8) {
+        if (stepIsComplete) {
+          unawaited(
+            updateProfile(setLoading: false).catchError((Object e) {
+              debugPrint(
+                '[Signup] Background profile sync failed at step $currentIdx: $e',
+              );
+            }),
+          );
+        }
+      } else if (currentIdx == 9 && stepIsComplete) {
+        unawaited(
+          uploadPhotos().catchError((Object e) {
+            debugPrint('[Signup] Background photo upload failed at step 9: $e');
+          }),
+        );
+      } else if (currentIdx == 10 && stepIsComplete) {
+        unawaited(
+          uploadSelfie().catchError((Object e) {
+            debugPrint(
+              '[Signup] Background selfie upload failed at step 10: $e',
+            );
+          }),
+        );
+      }
+
+      final nextIdx = currentIdx + 1;
+      final nextRoute = nextIdx < totalSteps ? stepRoutes[nextIdx] : null;
+
+      debugPrint(
+        '[Signup] goToNextStep: currentIdx=$currentIdx -> nextIdx=$nextIdx, target=$nextRoute',
+      );
+
+      if (nextRoute != null) {
+        currentStep.value = nextIdx;
+        debugPrint('[Signup] Transition -> $nextRoute (from $currentIdx)');
+        Get.toNamed(nextRoute);
+
+        if (currentIdx == 9) {
+          Future.microtask(() {
+            Helpers.showSnackbar(
+              title: 'saving'.tr,
+              message: 'saving_in_background'.tr,
+              duration: const Duration(seconds: 2),
+            );
+          });
+        }
+
+        // Persist route out of the transition critical path.
+        Future.microtask(() => unawaited(_persistDraftRoute(nextRoute)));
+      }
+
+      _triggerSave();
+    } catch (e) {
+      debugPrint('[Signup] goToNextStep unexpected error: $e');
+    } finally {
+      loaderCanceled = true;
+      if (loaderShown && (Get.isDialogOpen ?? false)) {
+        Get.back();
+      }
+
+      isNavigatingStep.value = false;
+      Future.delayed(
+        const Duration(milliseconds: 500),
+        () => _navigating = false,
+      );
+    }
+  }
+
+  bool _isOptionalStepComplete(int step) {
+    switch (step) {
+      case 6:
+        final isFemale = selectedGender.value.toLowerCase() == 'female';
+        return selectedSect.value.isNotEmpty &&
+            selectedReligiousLevel.value.isNotEmpty &&
+            selectedDietary.value.isNotEmpty &&
+            selectedAlcohol.value.isNotEmpty &&
+            (!isFemale || selectedHijab.value.isNotEmpty);
+      case 7:
+        return selectedHobbies.isNotEmpty &&
+            selectedHobbies.length <= maxHobbiesSelection;
+      case 8:
+        final hasChildrenValue = hasChildren.value;
+        final validChildrenCount =
+            !(hasChildrenValue ?? false) || _parseChildrenCount() != null;
+
+        return selectedEducation.value.isNotEmpty &&
+            jobTitleController.text.trim().isNotEmpty &&
+            selectedLanguages.isNotEmpty &&
+            selectedNationalities.isNotEmpty &&
+            selectedEthnicity.value.isNotEmpty &&
+            hasChildrenValue != null &&
+            validChildrenCount &&
+            selectedFamilyValues.isNotEmpty;
+      default:
+        return true;
+    }
+  }
+
+  Future<void> skipCurrentOptionalStep() async {
+    if (_navigating && !isNavigatingStep.value) {
+      _navigating = false;
+    }
+    if (_navigating || isNavigatingStep.value) return;
+
+    final currentIdx = _routeToStep[Get.currentRoute] ?? currentStep.value;
+    if (!_skippableOptionalSteps.contains(currentIdx)) {
+      debugPrint(
+        '[Signup] skipCurrentOptionalStep ignored for step $currentIdx',
+      );
       return;
     }
 
-    debugPrint('[Signup] goToNextStep: currentIdx=$currentIdx -> nextIdx=$nextIdx, target=$nextRoute');
-    
-    if (nextRoute != null) {
-      currentStep.value = nextIdx;
-      Get.toNamed(nextRoute);
+    _navigating = true;
+    isNavigatingStep.value = true;
+    Get.focusScope?.unfocus();
+
+    try {
+      final nextIdx = currentIdx + 1;
+      final nextRoute = nextIdx < totalSteps ? stepRoutes[nextIdx] : null;
+
+      debugPrint(
+        '[Signup] skipCurrentOptionalStep: currentIdx=$currentIdx -> nextIdx=$nextIdx, target=$nextRoute',
+      );
+
+      if (nextRoute != null) {
+        currentStep.value = nextIdx;
+        Get.toNamed(nextRoute);
+        Future.microtask(() => unawaited(_persistDraftRoute(nextRoute)));
+      }
+
+      _triggerSave();
+    } catch (e) {
+      debugPrint('[Signup] skipCurrentOptionalStep unexpected error: $e');
+    } finally {
+      isNavigatingStep.value = false;
+      Future.delayed(
+        const Duration(milliseconds: 500),
+        () => _navigating = false,
+      );
     }
-    
-    Future.delayed(const Duration(milliseconds: 500), () => _navigating = false);
   }
 
   bool validateStep(int step) {
     switch (step) {
       case 0: // Username
-        if (usernameController.text.trim().isEmpty) {
-          _handleError(null, 'username_required'.tr);
-          return false;
-        }
-        if (usernameController.text.trim().length < 3) {
-          _handleError(null, 'username_min'.tr);
+        final usernameValidation = Validators.username(
+          usernameController.text.trim(),
+        );
+        if (usernameValidation != null) {
+          _handleError(null, usernameValidation);
           return false;
         }
         if (checkingUsername.value) {
           _handleError(null, 'checking_username'.tr);
           return false;
         }
-        if (!usernameAvailable.value) {
+        if (usernameTaken.value) {
           _handleError(null, 'username_not_available'.tr);
+          return false;
+        }
+        if (!usernameAvailable.value && !usernameCheckFailed.value) {
+          _handleError(null, 'checking_username'.tr);
           return false;
         }
         return true;
@@ -491,7 +996,8 @@ class SignupController extends GetxController {
         }
         return true;
       case 3: // Profile Details (Form)
-        if (profileFormKey.currentState == null || !profileFormKey.currentState!.validate()) {
+        if (profileFormKey.currentState == null ||
+            !profileFormKey.currentState!.validate()) {
           return false;
         }
         return true;
@@ -502,9 +1008,10 @@ class SignupController extends GetxController {
         }
         return true;
       case 5: // Email verification is handled by verifyEmailOtp
-        return true; 
+        return true;
       case 6: // Faith
-        if (selectedSect.value.isEmpty || selectedReligiousLevel.value.isEmpty) {
+        if (selectedSect.value.isEmpty ||
+            selectedReligiousLevel.value.isEmpty) {
           _handleError(null, 'faith_details_required'.tr);
           return false;
         }
@@ -512,7 +1019,8 @@ class SignupController extends GetxController {
           _handleError(null, 'diet_and_alcohol_required'.tr);
           return false;
         }
-        if (selectedGender.value.toLowerCase() == 'female' && selectedHijab.value.isEmpty) {
+        if (selectedGender.value.toLowerCase() == 'female' &&
+            selectedHijab.value.isEmpty) {
           _handleError(null, 'hijab_status_required'.tr);
           return false;
         }
@@ -522,10 +1030,45 @@ class SignupController extends GetxController {
           _handleError(null, 'select_min_hobbies'.trParams({'count': '1'}));
           return false;
         }
+        if (selectedHobbies.length > maxHobbiesSelection) {
+          _handleError(
+            null,
+            'max_hobbies_reached'.trParams({'count': '$maxHobbiesSelection'}),
+          );
+          return false;
+        }
         return true;
       case 8: // Profession
-        if (jobTitleController.text.isEmpty || selectedEducation.value.isEmpty) {
+        if (jobTitleController.text.isEmpty ||
+            selectedEducation.value.isEmpty) {
           _handleError(null, 'profession_required'.tr);
+          return false;
+        }
+        if (selectedLanguages.isEmpty) {
+          _handleError(null, 'Please select at least one language.');
+          return false;
+        }
+        if (selectedNationalities.isEmpty) {
+          _handleError(null, 'Please select at least one nationality.');
+          return false;
+        }
+        if (selectedEthnicity.value.isEmpty) {
+          _handleError(null, 'Please select your ethnicity.');
+          return false;
+        }
+        if (hasChildren.value == null) {
+          _handleError(null, 'Please specify if you have children.');
+          return false;
+        }
+        if ((hasChildren.value ?? false) && _parseChildrenCount() == null) {
+          _handleError(
+            null,
+            'Please enter the number of children or set it to 0.',
+          );
+          return false;
+        }
+        if (selectedFamilyValues.isEmpty) {
+          _handleError(null, 'Please select at least one family value.');
           return false;
         }
         return true;
@@ -548,10 +1091,13 @@ class SignupController extends GetxController {
 
   // ─── Register account & advance to email verification ────
   Future<void> registerAccount() async {
-    if (isLoading.value) return; 
+    if (isLoading.value) return;
     isLoading.value = true;
-    debugPrint('[Signup] registerAccount: email=${emailController.text.trim()}');
+    debugPrint(
+      '[Signup] registerAccount: email=${emailController.text.trim()}',
+    );
     try {
+      final submittedPhone = _composePhoneForSubmit(phoneController.text);
       final result = await _auth.register(
         email: emailController.text.trim(),
         password: passwordController.text,
@@ -561,9 +1107,7 @@ class SignupController extends GetxController {
         username: usernameController.text.trim().isNotEmpty
             ? usernameController.text.trim()
             : null,
-        phone: phoneController.text.trim().isNotEmpty
-            ? phoneController.text.trim()
-            : null,
+        phone: submittedPhone.isNotEmpty ? submittedPhone : null,
       );
       debugPrint('[Signup] registerAccount success: $result');
 
@@ -593,6 +1137,8 @@ class SignupController extends GetxController {
         otpController.text.trim(),
       );
       Helpers.showSnackbar(message: 'email_verified_continue'.tr);
+      // Ensure restart resume never returns to pre-OTP screens after a verified account.
+      await _persistDraftRoute(AppRoutes.signupFaithReligion);
       goToNextStep();
     } catch (e) {
       _handleError(e, 'verification_failed'.tr);
@@ -614,9 +1160,88 @@ class SignupController extends GetxController {
     return label.toLowerCase().replaceAll("'", "").replaceAll(' ', '_');
   }
 
-  Future<void> updateProfile() async {
-    isLoading.value = true;
+  int _uploadedPhotoCount(UserModel? user) {
+    final photos = user?.photos;
+    if (photos == null || photos.isEmpty) return 0;
+    return photos.where((photo) => photo.url.trim().isNotEmpty).length;
+  }
+
+  bool _hasUploadedSelfie(UserModel? user) {
+    final selfieUrl = user?.selfieUrl?.trim() ?? '';
+    return selfieUrl.isNotEmpty || (user?.selfieVerified ?? false);
+  }
+
+  Future<void> _syncDiscoveryPreference() async {
+    final roundedDistance = preferredDistanceKm.value.round();
+    final payload = {
+      'maxDistance': roundedDistance,
+      'preferredDistanceKm': roundedDistance,
+      'distanceUnit': 'km',
+    };
+
     try {
+      await _api.patch(ApiConstants.preferences, data: payload);
+    } catch (_) {
+      try {
+        await _api.post(ApiConstants.preferences, data: payload);
+      } catch (e) {
+        debugPrint('[Signup] discovery preference sync skipped: $e');
+      }
+    }
+  }
+
+  Future<UserModel?> _refreshSignupState({int attempts = 4}) async {
+    UserModel? latest = _auth.currentUser.value;
+
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        latest = await _auth.fetchMe();
+      } catch (e) {
+        if (attempt == attempts - 1) {
+          debugPrint('[Signup] fetchMe during completion failed: $e');
+          break;
+        }
+      }
+
+      if (_isSignupPersisted(latest)) {
+        return latest;
+      }
+
+      if (attempt < attempts - 1) {
+        await Future.delayed(Duration(milliseconds: 600 * (attempt + 1)));
+      }
+    }
+
+    return latest;
+  }
+
+  bool _isSignupPersisted(UserModel? user) {
+    final profile = user?.profile;
+    final profileMarkedComplete =
+        (profile?.isComplete ?? false) ||
+        ((profile?.profileCompletionPercentage ?? 0) >= 50);
+    final hasCoreProfile =
+        profile != null &&
+        (profile.gender?.trim().isNotEmpty ?? false) &&
+        profile.dateOfBirth != null;
+
+    return _uploadedPhotoCount(user) >= 2 &&
+        _hasUploadedSelfie(user) &&
+        (hasCoreProfile || profileMarkedComplete);
+  }
+
+  Future<void> updateProfile({bool setLoading = true}) async {
+    if (setLoading) {
+      isLoading.value = true;
+    }
+    try {
+      if (selectedCountry.value.trim().isEmpty) {
+        selectedCountry.value = 'Algeria';
+      }
+      if (selectedCity.value.trim().isEmpty && availableCities.isNotEmpty) {
+        selectedCity.value = availableCities.first;
+      }
+
       final profileData = {
         'gender': selectedGender.value.toLowerCase(),
         'dateOfBirth': dateOfBirth.value?.toIso8601String().split('T')[0],
@@ -631,58 +1256,115 @@ class SignupController extends GetxController {
           'dietary': _toEnumValue(selectedDietary.value),
         if (selectedAlcohol.value.isNotEmpty)
           'alcohol': _toEnumValue(selectedAlcohol.value),
-        if (selectedGender.value.toLowerCase() == 'female' && selectedHijab.value.isNotEmpty)
+        if (selectedGender.value.toLowerCase() == 'female' &&
+            selectedHijab.value.isNotEmpty)
           'hijabStatus': _toEnumValue(selectedHijab.value),
         'interests': selectedHobbies.toList(),
         if (selectedEducation.value.isNotEmpty)
           'education': _toEnumValue(selectedEducation.value),
+        if (selectedLanguages.isNotEmpty)
+          'languages': selectedLanguages.toList(),
+        if (selectedNationalities.isNotEmpty)
+          'nationalities': selectedNationalities.toList(),
+        if (selectedNationalities.isNotEmpty)
+          'nationality': selectedNationalities.first,
+        if (selectedEthnicity.value.isNotEmpty)
+          'ethnicity': selectedEthnicity.value,
+        if (selectedFamilyValues.isNotEmpty)
+          'familyValues': selectedFamilyValues.map(_toEnumValue).toList(),
+        if (hasChildren.value != null) 'hasChildren': hasChildren.value,
+        if ((hasChildren.value ?? false) && _parseChildrenCount() != null)
+          'numberOfChildren': _parseChildrenCount(),
         if (jobTitleController.text.isNotEmpty)
           'jobTitle': jobTitleController.text.trim(),
         if (companyController.text.isNotEmpty)
           'company': companyController.text.trim(),
         if (heightController.text.isNotEmpty)
           'height': int.tryParse(heightController.text),
-        if (bioController.text.isNotEmpty)
-          'bio': bioController.text.trim(),
+        if (bioController.text.isNotEmpty) 'bio': bioController.text.trim(),
         'country': selectedCountry.value,
-        if (selectedCity.value.isNotEmpty)
-          'city': selectedCity.value,
+        if (selectedCity.value.isNotEmpty) 'city': selectedCity.value,
       };
-      
+
       debugPrint('[SignupController] Updating profile with data: $profileData');
       await _api.post(ApiConstants.createOrUpdateProfile, data: profileData);
     } catch (e) {
       _handleError(e, 'profile_update_failed'.tr);
       rethrow; // Rethrow so completeSignup knows it failed
     } finally {
-      isLoading.value = false;
+      if (setLoading) {
+        isLoading.value = false;
+      }
     }
   }
 
   Future<void> uploadPhotos() async {
     if (selectedPhotos.isEmpty) return;
-    
+    if (_photosUploaded) return;
+    if (_photosUploadFuture != null) {
+      await _photosUploadFuture;
+      return;
+    }
+
+    final operation = _uploadPhotosInternal();
+    _photosUploadFuture = operation;
+    try {
+      await operation;
+    } finally {
+      if (identical(_photosUploadFuture, operation)) {
+        _photosUploadFuture = null;
+      }
+    }
+  }
+
+  Future<void> _uploadPhotosInternal() async {
     isProcessing.value = true;
     try {
-      final uploadTasks = <Future>[];
-      
       for (int i = 0; i < selectedPhotos.length; i++) {
         final file = selectedPhotos[i];
-        final formData = FormData.fromMap({
-          'photo': await MultipartFile.fromFile(
-            file.path, 
-            filename: 'photo_${DateTime.now().millisecondsSinceEpoch}_$i.jpg'
-          ),
-          'isMain': i == mainPhotoIndex.value,
-        });
-        
-        uploadTasks.add(_api.upload(ApiConstants.uploadPhoto, formData));
+        final optimizedPhoto = await UploadImageOptimizer.optimizeProfilePhoto(
+          file,
+        );
+        Object? lastError;
+        var uploaded = false;
+
+        for (var attempt = 0; attempt < 2 && !uploaded; attempt++) {
+          try {
+            final formData = FormData.fromMap({
+              'photo': await MultipartFile.fromFile(
+                optimizedPhoto.path,
+                filename:
+                    'photo_${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+              ),
+              'isMain': i == mainPhotoIndex.value,
+            });
+
+            await _api
+                .upload(ApiConstants.uploadPhoto, formData)
+                .timeout(const Duration(seconds: 45));
+            uploaded = true;
+          } catch (e) {
+            lastError = e;
+            if (attempt == 0) {
+              await Future.delayed(const Duration(milliseconds: 800));
+            }
+          }
+        }
+
+        if (!uploaded) {
+          throw lastError ?? Exception('Photo upload failed at index $i');
+        }
       }
-      
-      // Parallelize uploads for senior-level performance
-      await Future.wait(uploadTasks);
+
+      _photosUploaded = true;
+      try {
+        await _auth.fetchMe().timeout(const Duration(seconds: 15));
+      } catch (e) {
+        debugPrint('[Signup] fetchMe after photo upload failed: $e');
+      }
       debugPrint('[Signup] All photos uploaded successfully');
     } catch (e) {
+      _photosUploaded = false;
       _handleError(e, 'photo_upload_failed'.tr);
       rethrow;
     } finally {
@@ -693,10 +1375,12 @@ class SignupController extends GetxController {
   void addPhoto(File file) {
     if (selectedPhotos.length < 6) {
       selectedPhotos.add(file);
+      _photosUploaded = false;
     } else {
       Get.snackbar('limit_reached'.tr, 'photo_limit_desc'.tr);
     }
   }
+
   void removePhoto(int index) {
     if (index < selectedPhotos.length) {
       // If we've already uploaded photos to the DB, we'd need to call a delete endpoint here.
@@ -705,120 +1389,289 @@ class SignupController extends GetxController {
       if (mainPhotoIndex.value >= selectedPhotos.length) {
         mainPhotoIndex.value = 0;
       }
+      _photosUploaded = false;
       _triggerSave();
     }
   }
 
   void setMainPhoto(int index) {
     mainPhotoIndex.value = index;
+    _photosUploaded = false;
     _triggerSave();
   }
 
   void setSelfie(File file) {
     selfiePhoto.value = file;
+    _selfieUploaded = false;
+    _selfieVerificationRequested = false;
     _triggerSave();
   }
 
   Future<void> uploadSelfie() async {
     if (selfiePhoto.value == null) return;
+    if (_selfieUploaded) {
+      _triggerSelfieVerificationInBackground();
+      return;
+    }
+    if (_selfieUploadFuture != null) {
+      await _selfieUploadFuture;
+      return;
+    }
+
+    final operation = _uploadSelfieInternal();
+    _selfieUploadFuture = operation;
     try {
+      await operation;
+    } finally {
+      if (identical(_selfieUploadFuture, operation)) {
+        _selfieUploadFuture = null;
+      }
+    }
+  }
+
+  Future<void> _uploadSelfieInternal() async {
+    try {
+      final optimizedSelfie = await UploadImageOptimizer.optimizeSelfie(
+        selfiePhoto.value!,
+      );
       final formData = FormData.fromMap({
         'selfie': await MultipartFile.fromFile(
-          selfiePhoto.value!.path,
+          optimizedSelfie.path,
           filename: 'selfie_${DateTime.now().millisecondsSinceEpoch}.jpg',
         ),
       });
-      await _api.upload(ApiConstants.selfieUpload, formData);
-      
-      // ─── SENIOR AUTOMATION: Trigger verification immediately after upload ───
-      debugPrint('[Signup] Selfie uploaded, triggering verification...');
-      await _api.post(ApiConstants.selfieVerify);
-      
-      debugPrint('[Signup] Selfie verification triggered successfully');
+      await _api
+          .upload(ApiConstants.selfieUpload, formData)
+          .timeout(const Duration(seconds: 45));
+
+      _selfieUploaded = true;
+      try {
+        await _auth.fetchMe().timeout(const Duration(seconds: 15));
+      } catch (e) {
+        debugPrint('[Signup] fetchMe after selfie upload failed: $e');
+      }
+
+      _triggerSelfieVerificationInBackground();
     } catch (e) {
+      _selfieUploaded = false;
       _handleError(e, 'selfie_upload_failed'.tr);
       rethrow;
     }
   }
 
-  Future<void> completeSignup() async {
+  void _triggerSelfieVerificationInBackground() {
+    if (_selfieVerificationRequested) return;
+    _selfieVerificationRequested = true;
+
+    unawaited(() async {
+      var verificationTriggered = false;
+      final verificationService = Get.isRegistered<VerificationService>()
+          ? Get.find<VerificationService>()
+          : null;
+
+      for (var attempt = 0; attempt < 3 && !verificationTriggered; attempt++) {
+        try {
+          if (verificationService != null) {
+            final result = await verificationService.verifySelfie().timeout(
+              const Duration(seconds: 30),
+            );
+            verificationTriggered = result != null;
+          } else {
+            await _api
+                .post(
+                  ApiConstants.selfieVerify,
+                  data: const {'selfieVerified': true, 'selfie_verified': true},
+                )
+                .timeout(const Duration(seconds: 30));
+            verificationTriggered = true;
+          }
+          debugPrint('[Signup] Selfie verification triggered successfully');
+        } catch (e) {
+          if (attempt < 2) {
+            await Future.delayed(Duration(seconds: attempt + 1));
+          } else {
+            debugPrint('[Signup] Selfie verification trigger failed: $e');
+          }
+        }
+      }
+
+      if (!verificationTriggered) {
+        _selfieVerificationRequested = false;
+        return;
+      }
+
+      if (verificationService != null) {
+        try {
+          await verificationService.ensureSelfieVerificationPersisted(
+            attempts: 2,
+          );
+        } catch (e) {
+          debugPrint(
+            '[Signup] selfie verification persistence ensure failed: $e',
+          );
+        }
+      }
+
+      try {
+        await _auth.fetchMe().timeout(const Duration(seconds: 15));
+      } catch (e) {
+        debugPrint('[Signup] fetchMe after selfie verify trigger failed: $e');
+      }
+
+      if (Get.isRegistered<VerificationService>()) {
+        try {
+          await Get.find<VerificationService>().fetchVerificationStatus();
+        } catch (e) {
+          debugPrint('[Signup] verification status refresh failed: $e');
+        }
+      }
+    }());
+  }
+
+  Future<void> completeSignup({bool fastEnterHome = false}) async {
     if (isLoading.value) return;
 
+    final cachedUser = _auth.currentUser.value;
+
     // final double-check validation
-    if (selectedPhotos.length < 2) {
-      Helpers.showSnackbar(message: 'min_photos_required'.trParams({'count': '2'}), isError: true);
+    if (selectedPhotos.length < 2 && _uploadedPhotoCount(cachedUser) < 2) {
+      Helpers.showSnackbar(
+        message: 'min_photos_required'.trParams({'count': '2'}),
+        isError: true,
+      );
       return;
     }
-    if (selfiePhoto.value == null) {
+    if (selfiePhoto.value == null && !_hasUploadedSelfie(cachedUser)) {
       Helpers.showSnackbar(message: 'selfie_required'.tr, isError: true);
       return;
     }
 
     isLoading.value = true;
+    var enteredHome = false;
+
+    Future<void> enterHomeNow() async {
+      if (enteredHome) return;
+      enteredHome = true;
+      _clearDraft();
+      await GetStorage().write(AppConstants.swipeTutorialPendingKey, true);
+      Get.offAllNamed(AppRoutes.main);
+    }
+
     try {
       debugPrint('[Signup] Starting final completion flow...');
-      
-      // Each step is wrapped individually so one failure doesn't block navigation
-      try {
-        await updateProfile();
-      } catch (e) {
-        debugPrint('[Signup] updateProfile failed (non-blocking): $e');
+
+      if (fastEnterHome) {
+        await enterHomeNow();
       }
 
-      try {
-        await uploadPhotos();
-      } catch (e) {
-        debugPrint('[Signup] uploadPhotos failed (non-blocking): $e');
+      await updateProfile();
+      var syncedUser = await _auth.fetchMe();
+
+      final backendPhotoCount = _uploadedPhotoCount(syncedUser);
+      final hasBackendPhotos = backendPhotoCount >= 2;
+      if (hasBackendPhotos) {
+        _photosUploaded = true;
       }
 
-      try {
-        await uploadSelfie();
-      } catch (e) {
-        debugPrint('[Signup] uploadSelfie failed (non-blocking): $e');
+      final needsPhotoUpload =
+          selectedPhotos.isNotEmpty && !_photosUploaded && !hasBackendPhotos;
+      if (needsPhotoUpload) {
+        try {
+          await uploadPhotos();
+        } catch (e) {
+          syncedUser = await _auth.fetchMe();
+          if (_uploadedPhotoCount(syncedUser) < 2) {
+            rethrow;
+          }
+          _photosUploaded = true;
+          debugPrint('[Signup] Photo upload recovered from backend state');
+        }
+        syncedUser = await _auth.fetchMe();
       }
+
+      final hasBackendSelfie = _hasUploadedSelfie(syncedUser);
+      if (hasBackendSelfie) {
+        _selfieUploaded = true;
+      }
+
+      final needsSelfieUpload = selfiePhoto.value != null && !_selfieUploaded;
+      if (needsSelfieUpload && !hasBackendSelfie) {
+        try {
+          await uploadSelfie();
+        } catch (e) {
+          syncedUser = await _auth.fetchMe();
+          if (!_hasUploadedSelfie(syncedUser)) {
+            rethrow;
+          }
+          _selfieUploaded = true;
+          debugPrint('[Signup] Selfie upload recovered from backend state');
+        }
+        syncedUser = await _auth.fetchMe();
+      }
+
+      if (!syncedUser.selfieVerified &&
+          Get.isRegistered<VerificationService>()) {
+        try {
+          final persisted = await Get.find<VerificationService>()
+              .ensureSelfieVerificationPersisted(attempts: 2);
+          if (persisted) {
+            syncedUser = await _auth.fetchMe();
+          }
+        } catch (e) {
+          debugPrint(
+            '[Signup] selfie verification persistence check failed: $e',
+          );
+        }
+      }
+
+      await _syncDiscoveryPreference();
 
       if (locationEnabled.value) {
         try {
           final locationService = Get.find<LocationService>();
           var position = locationService.currentPosition.value;
-          if (position == null) {
-            position = await locationService.getCurrentPosition();
-          }
+          position ??= await locationService.getCurrentPosition();
 
           if (position != null) {
-            await _api.patch(ApiConstants.updateLocation, data: {
-              'latitude': position.latitude,
-              'longitude': position.longitude,
-            });
+            await _api.patch(
+              ApiConstants.updateLocation,
+              data: {
+                'latitude': position.latitude,
+                'longitude': position.longitude,
+              },
+            );
           }
         } catch (e) {
           debugPrint('[Signup] location sync error: $e');
         }
       }
-      
-      try {
-        debugPrint('[Signup] Refreshing user data...');
-        await _auth.fetchMe();
-      } catch (e) {
-        debugPrint('[Signup] fetchMe failed (non-blocking): $e');
+
+      debugPrint('[Signup] Refreshing user data...');
+      final refreshedUser = await _refreshSignupState();
+      if (!_isSignupPersisted(refreshedUser)) {
+        debugPrint(
+          '[Signup] Completion persisted check still pending; continuing to main.',
+        );
       }
-      
-      _clearDraft(); 
-      Helpers.showSnackbar(message: 'welcome_to_methna'.tr);
-      Get.offAllNamed(AppRoutes.main);
-      
-      Future.delayed(const Duration(seconds: 1), () {
-        if (Get.isRegistered<SignupController>()) {
-          Get.delete<SignupController>(force: true);
-        }
-      });
+
+      if (!fastEnterHome) {
+        await enterHomeNow();
+        Helpers.showSnackbar(message: 'welcome_to_methna'.tr);
+      }
     } catch (e) {
       debugPrint('[Signup] completeSignup unexpected error: $e');
-      // Even on unexpected error, navigate to home so user is never stuck
-      _clearDraft();
-      Get.offAllNamed(AppRoutes.main);
+      if (!enteredHome) {
+        _handleError(e, 'Unable to finish signup. Please try again.');
+      }
     } finally {
       isLoading.value = false;
+      if (enteredHome) {
+        Future.delayed(const Duration(seconds: 1), () {
+          if (Get.isRegistered<SignupController>()) {
+            Get.delete<SignupController>(force: true);
+          }
+        });
+      }
     }
   }
 
@@ -826,7 +1679,98 @@ class SignupController extends GetxController {
     if (selectedHobbies.contains(hobby)) {
       selectedHobbies.remove(hobby);
     } else {
+      if (selectedHobbies.length >= maxHobbiesSelection) {
+        Helpers.showSnackbar(
+          message: 'max_hobbies_reached'.trParams({
+            'count': '$maxHobbiesSelection',
+          }),
+          isError: true,
+        );
+        return;
+      }
       selectedHobbies.add(hobby);
+    }
+    _triggerSave();
+  }
+
+  void toggleLanguage(String language) {
+    if (selectedLanguages.contains(language)) {
+      selectedLanguages.remove(language);
+    } else {
+      selectedLanguages.add(language);
+    }
+    _triggerSave();
+  }
+
+  void toggleNationality(String nationality) {
+    if (selectedNationalities.contains(nationality)) {
+      selectedNationalities.remove(nationality);
+      _triggerSave();
+      return;
+    }
+    if (selectedNationalities.length >= 2) {
+      Helpers.showSnackbar(
+        message: 'You can select up to 2 nationalities only.',
+        isError: true,
+      );
+      return;
+    }
+    selectedNationalities.add(nationality);
+    _triggerSave();
+  }
+
+  void setPrimaryNationality(String nationality) {
+    final secondary = secondaryNationality;
+    selectedNationalities
+      ..clear()
+      ..add(nationality);
+
+    if (secondary != null && secondary != nationality) {
+      selectedNationalities.add(secondary);
+    }
+    _triggerSave();
+  }
+
+  void setSecondaryNationality(String? nationality) {
+    final primary = primaryNationality;
+    if (primary == null || primary.isEmpty) {
+      Helpers.showSnackbar(
+        message: 'Please select first nationality first.',
+        isError: true,
+      );
+      return;
+    }
+
+    selectedNationalities
+      ..clear()
+      ..add(primary);
+
+    if (nationality != null &&
+        nationality.isNotEmpty &&
+        nationality != primary) {
+      selectedNationalities.add(nationality);
+    }
+    _triggerSave();
+  }
+
+  void setEthnicity(String ethnicity) {
+    selectedEthnicity.value = ethnicity;
+    _triggerSave();
+  }
+
+  void setHasChildren(bool value) {
+    hasChildren.value = value;
+    if (!value) {
+      numberOfChildrenController.clear();
+    }
+    _triggerSave();
+  }
+
+  void toggleFamilyValue(String value) {
+    if (selectedFamilyValues.contains(value)) {
+      selectedFamilyValues.remove(value);
+    } else {
+      selectedFamilyValues.add(value);
     }
     _triggerSave();
   }
@@ -834,7 +1778,7 @@ class SignupController extends GetxController {
   // ─── Error Handling Helper ────────────────────────────────
   void _handleError(dynamic e, String defaultMessage) {
     debugPrint('[Signup] Error Details: $e');
-    
+
     if (e is DioException) {
       // ── SENIOR SESSION RECOVERY: Handle Unauthorized 401 ──
       if (e.response?.statusCode == 401) {
@@ -850,11 +1794,13 @@ class SignupController extends GetxController {
         return;
       }
     }
-    
+
     final extracted = (e != null) ? Helpers.extractErrorMessage(e) : null;
     Helpers.showSnackbar(
-      message: (extracted != null && extracted != 'something_went_wrong'.tr) ? extracted : defaultMessage, 
-      isError: true
+      message: (extracted != null && extracted != 'something_went_wrong'.tr)
+          ? extracted
+          : defaultMessage,
+      isError: true,
     );
   }
 
@@ -873,18 +1819,22 @@ class SignupController extends GetxController {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: Text('cancel'.tr, style: const TextStyle(color: Colors.grey)),
+            child: Text(
+              'cancel'.tr,
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
               Get.back(); // Close dialog
-              _isRedirectingToLogin = true;
               Get.offAllNamed(AppRoutes.login);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
             ),
             child: Text('login'.tr),
           ),
@@ -894,24 +1844,31 @@ class SignupController extends GetxController {
     );
   }
 
-  bool _isRedirectingToLogin = false;
-
   @override
   void onClose() {
     _usernameWorker?.dispose();
     _draftWorker?.dispose();
-    
+
     final controllers = [
-      usernameController, firstNameController, lastNameController,
-      emailController, phoneController, passwordController,
-      confirmPasswordController, otpController, jobTitleController,
-      companyController, heightController, bioController
+      usernameController,
+      firstNameController,
+      lastNameController,
+      emailController,
+      phoneController,
+      passwordController,
+      confirmPasswordController,
+      otpController,
+      jobTitleController,
+      companyController,
+      heightController,
+      numberOfChildrenController,
+      bioController,
     ];
-    
+
     for (var c in controllers) {
       c.dispose();
     }
-    
+
     super.onClose();
   }
 }

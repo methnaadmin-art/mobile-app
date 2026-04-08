@@ -21,41 +21,41 @@ class RadarAnimation extends StatefulWidget {
   State<RadarAnimation> createState() => _RadarAnimationState();
 }
 
-class _RadarAnimationState extends State<RadarAnimation> with TickerProviderStateMixin {
+class _RadarAnimationState extends State<RadarAnimation>
+    with TickerProviderStateMixin {
   late AnimationController _scanController;
   late AnimationController _pulseController;
-  
+
   final Random _random = Random();
   final List<_AvatarNode> _nodes = [];
-
-  // High quality human placeholders for "Pro" feel
-  final List<String> _placeholders = [
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop',
-  ];
 
   @override
   void initState() {
     super.initState();
-    _scanController = AnimationController(vsync: this, duration: widget.duration)..repeat();
-    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _scanController = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+    )..repeat();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
     _generateNodes();
   }
 
   void _generateNodes() {
-    for (int i = 0; i < 8; i++) {
+    final visibleUsers = widget.users.take(8).toList();
+    for (int i = 0; i < visibleUsers.length; i++) {
       final angle = _random.nextDouble() * pi * 2;
       final distance = 80.0 + _random.nextDouble() * 100.0;
-      _nodes.add(_AvatarNode(
-        dx: cos(angle) * distance,
-        dy: sin(angle) * distance,
-        delay: _random.nextDouble(),
-        imageUrl: widget.users.length > i ? widget.users[i].mainPhotoUrl : _placeholders[i % _placeholders.length],
-      ));
+      _nodes.add(
+        _AvatarNode(
+          dx: cos(angle) * distance,
+          dy: sin(angle) * distance,
+          delay: _random.nextDouble(),
+          imageUrl: visibleUsers[i].mainPhotoUrl,
+        ),
+      );
     }
   }
 
@@ -69,7 +69,7 @@ class _RadarAnimationState extends State<RadarAnimation> with TickerProviderStat
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       width: double.infinity,
       height: double.infinity,
@@ -89,19 +89,31 @@ class _RadarAnimationState extends State<RadarAnimation> with TickerProviderStat
           // 1. Subtle Grid
           Positioned.fill(
             child: CustomPaint(
-              painter: _RadarGridPainter(color: (isDark ? Colors.white : AppColors.primary).withValues(alpha: 0.05)),
+              painter: _RadarGridPainter(
+                color: (isDark ? Colors.white : AppColors.primary).withValues(
+                  alpha: 0.05,
+                ),
+              ),
             ),
           ),
 
           // 2. Decorative Circles
-          ...List.generate(3, (i) => Container(
-            width: (i + 1) * 160.0,
-            height: (i + 1) * 160.0,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: (isDark ? Colors.white : AppColors.primary).withValues(alpha: 0.1), width: 1),
+          ...List.generate(
+            3,
+            (i) => Container(
+              width: (i + 1) * 160.0,
+              height: (i + 1) * 160.0,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: (isDark ? Colors.white : AppColors.primary).withValues(
+                    alpha: 0.1,
+                  ),
+                  width: 1,
+                ),
+              ),
             ),
-          )),
+          ),
 
           // 3. Scanning Beam
           RotationTransition(
@@ -125,7 +137,10 @@ class _RadarAnimationState extends State<RadarAnimation> with TickerProviderStat
           ),
 
           // 4. Avatars
-          ..._nodes.map((node) => _AnimatedAvatarNode(node: node, controller: _scanController)),
+          ..._nodes.map(
+            (node) =>
+                _AnimatedAvatarNode(node: node, controller: _scanController),
+          ),
 
           // 5. Center Profile
           _CentralProfile(user: widget.currentUser, pulse: _pulseController),
@@ -149,7 +164,9 @@ class _RadarAnimationState extends State<RadarAnimation> with TickerProviderStat
                   child: LinearProgressIndicator(
                     borderRadius: BorderRadius.circular(10),
                     backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
+                    ),
                   ),
                 ),
               ],
@@ -167,7 +184,9 @@ class _RadarGridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color..strokeWidth = 1;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
     const step = 40.0;
     for (double x = 0; x < size.width; x += step) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
@@ -186,7 +205,12 @@ class _AvatarNode {
   final double dy;
   final double delay;
   final String? imageUrl;
-  _AvatarNode({required this.dx, required this.dy, required this.delay, this.imageUrl});
+  _AvatarNode({
+    required this.dx,
+    required this.dy,
+    required this.delay,
+    this.imageUrl,
+  });
 }
 
 class _AnimatedAvatarNode extends StatelessWidget {
@@ -200,7 +224,7 @@ class _AnimatedAvatarNode extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
-        // Appears when the scan beam passes over it? 
+        // Appears when the scan beam passes over it?
         // For simplicity and "Pro" feel, let's just do a nice floating pulse
         return Transform.translate(
           offset: Offset(node.dx, node.dy),
@@ -224,7 +248,11 @@ class _ProfileBubble extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: [
-          BoxShadow(color: AppColors.primary.withValues(alpha: 0.2), blurRadius: 10, spreadRadius: 2),
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.2),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
         ],
       ),
       child: ClipOval(
@@ -232,12 +260,18 @@ class _ProfileBubble extends StatelessWidget {
             ? CachedNetworkImage(
                 imageUrl: imageUrl!,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: Colors.grey.shade200),
-                errorWidget: (_, __, ___) => Container(color: AppColors.primarySurface),
+                placeholder: (context, url) =>
+                    Container(color: Colors.grey.shade200),
+                errorWidget: (context, url, error) =>
+                    Container(color: AppColors.primarySurface),
               )
             : Container(
                 color: AppColors.primarySurface,
-                child: const Icon(Icons.person, color: AppColors.primary, size: 24),
+                child: const Icon(
+                  Icons.person,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
               ),
       ),
     );
@@ -263,7 +297,9 @@ class _CentralProfile extends StatelessWidget {
               height: 80 + (pulse.value * 40),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primary.withValues(alpha: 0.2 * (1 - pulse.value)),
+                color: AppColors.primary.withValues(
+                  alpha: 0.2 * (1 - pulse.value),
+                ),
               ),
             ),
             // Avatar
@@ -274,7 +310,11 @@ class _CentralProfile extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 4),
                 boxShadow: [
-                  BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 5),
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
                 ],
               ),
               child: ClipOval(
@@ -285,7 +325,11 @@ class _CentralProfile extends StatelessWidget {
                       )
                     : Container(
                         color: AppColors.primary,
-                        child: const Icon(Icons.person, color: Colors.white, size: 40),
+                        child: const Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 40,
+                        ),
                       ),
               ),
             ),

@@ -12,7 +12,12 @@ class Validators {
 
   static String? loginIdentifier(String? value) {
     if (value == null || value.isEmpty) return 'identifier_required'.tr;
-    // Simple check: if it contains @, treat as email, else as username
+    final normalized = value.trim().replaceAll(' ', '');
+    final phoneRegex = RegExp(r'^\+?[0-9]{8,15}$');
+    if (phoneRegex.hasMatch(normalized)) {
+      return null;
+    }
+    // If it contains @, treat as email, else as username
     if (value.contains('@')) {
       return email(value);
     }
@@ -43,7 +48,7 @@ class Validators {
     if (value == null || value.isEmpty) return 'username_required'.tr;
     if (value.length < 3) return 'username_min'.tr;
     if (value.length > 20) return 'username_max'.tr;
-    final regex = RegExp(r'^[a-zA-Z0-9_]+$');
+    final regex = RegExp(r'^[a-zA-Z0-9_.]+$');
     if (!regex.hasMatch(value)) return 'username_format'.tr;
     return null;
   }

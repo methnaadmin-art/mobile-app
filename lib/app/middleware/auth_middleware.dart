@@ -34,7 +34,7 @@ class GuestMiddleware extends GetMiddleware {
     try {
       final auth = Get.find<AuthService>();
       if (auth.isLoggedIn.value) {
-        return const RouteSettings(name: AppRoutes.home);
+        return const RouteSettings(name: AppRoutes.main);
       }
     } catch (_) {
       // Service not ready yet; allow navigation

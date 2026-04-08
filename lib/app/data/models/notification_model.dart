@@ -20,15 +20,27 @@ class NotificationModel {
   });
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    final rawData = json['data'];
+    final rawCreatedAt =
+        json['createdAt'] ?? json['timestamp'] ?? json['sentAt'];
+    final data = rawData is Map ? Map<String, dynamic>.from(rawData) : null;
+    final rawType = (json['type'] ?? 'system').toString();
+    final derivedType = (data?['notificationType'] ?? data?['type'] ?? rawType)
+        .toString();
+
     return NotificationModel(
-      id: json['id'] ?? '',
-      userId: json['userId'] ?? '',
-      type: json['type'] ?? 'system',
-      title: json['title'] ?? '',
-      body: json['body'] ?? '',
-      data: json['data'] is Map ? Map<String, dynamic>.from(json['data']) : null,
-      isRead: json['isRead'] ?? false,
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+      id: (json['id'] ?? json['_id'] ?? '').toString(),
+      userId: (json['userId'] ?? json['recipientId'] ?? '').toString(),
+      type: derivedType.trim().isEmpty ? rawType : derivedType,
+      title: (json['title'] ?? json['heading'] ?? '').toString(),
+      body: (json['body'] ?? json['message'] ?? '').toString(),
+      data: data,
+      isRead:
+          json['isRead'] == true ||
+          json['read'] == true ||
+          json['readAt'] != null,
+      createdAt:
+          DateTime.tryParse(rawCreatedAt?.toString() ?? '') ?? DateTime.now(),
     );
   }
 

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_shadows.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 
 class CustomTextField extends StatefulWidget {
   final TextEditingController? controller;
@@ -19,6 +23,7 @@ class CustomTextField extends StatefulWidget {
   final int? maxLength;
   final TextInputAction textInputAction;
   final FocusNode? focusNode;
+  final TextAlign textAlign;
 
   const CustomTextField({
     super.key,
@@ -39,6 +44,7 @@ class CustomTextField extends StatefulWidget {
     this.maxLength,
     this.textInputAction = TextInputAction.next,
     this.focusNode,
+    this.textAlign = TextAlign.start,
   });
 
   @override
@@ -77,22 +83,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Senior UI - Clean Minimal Look (App Background Color)
-    final bgColor = isDark 
-        ? AppColors.backgroundDark 
-        : AppColors.backgroundLight;
-        
-    final borderColor = _isFocused 
-        ? AppColors.primary 
+    final bgColor = isDark
+        ? AppColors.surfaceMutedDark
+        : AppColors.surfaceMutedLight;
+    final borderColor = _isFocused
+        ? AppColors.primary
         : (isDark ? AppColors.borderDark : AppColors.borderLight);
-        
-    final shadowColor = _isFocused && !isDark
-        ? AppColors.primary.withValues(alpha: 0.1) 
-        : Colors.transparent;
-        
-    final iconColor = _isFocused 
-        ? AppColors.primary 
+    final iconColor = _isFocused
+        ? AppColors.primary
         : (isDark ? AppColors.textHintDark : AppColors.textHintLight);
 
     return Column(
@@ -103,36 +101,28 @@ class _CustomTextFieldState extends State<CustomTextField> {
             padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Text(
               widget.label!,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
-                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+              style: AppTextStyles.titleSmall.copyWith(
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondaryLight,
               ),
             ),
           ),
         ],
         AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: borderColor,
-              width: _isFocused ? 1.2 : 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(AppRadii.lg),
+            border: Border.all(color: borderColor, width: _isFocused ? 1.4 : 1),
+            boxShadow: AppShadows.subtleField(isDark, focused: _isFocused),
           ),
           child: TextFormField(
             controller: widget.controller,
-            initialValue: widget.controller == null ? widget.initialValue : null,
+            initialValue: widget.controller == null
+                ? widget.initialValue
+                : null,
             obscureText: widget.obscureText,
             enabled: widget.enabled,
             keyboardType: widget.keyboardType,
@@ -144,26 +134,30 @@ class _CustomTextFieldState extends State<CustomTextField> {
             maxLength: widget.maxLength,
             textInputAction: widget.textInputAction,
             focusNode: _focusNode,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+            textAlign: widget.textAlign,
+            style: AppTextStyles.bodyLarge.copyWith(
+              color: isDark
+                  ? AppColors.textPrimaryDark
+                  : AppColors.textPrimaryLight,
             ),
             decoration: InputDecoration(
               hintText: widget.hint,
-              hintStyle: TextStyle(
-                color: isDark ? AppColors.textHintDark : AppColors.textHintLight,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
+              hintStyle: AppTextStyles.bodyMedium.copyWith(
+                color: isDark
+                    ? AppColors.textHintDark
+                    : AppColors.textHintLight,
               ),
               prefixIcon: widget.prefixIcon != null
                   ? AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Icon(
-                        widget.prefixIcon,
-                        key: ValueKey(_isFocused),
-                        size: 20,
-                        color: iconColor,
+                      duration: const Duration(milliseconds: 220),
+                      child: Container(
+                        key: ValueKey<bool>(_isFocused),
+                        margin: const EdgeInsets.only(left: 6, right: 2),
+                        child: Icon(
+                          widget.prefixIcon,
+                          size: 19,
+                          color: iconColor,
+                        ),
                       ),
                     )
                   : null,
@@ -171,15 +165,12 @@ class _CustomTextFieldState extends State<CustomTextField> {
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: 18,
               ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppColors.error, width: 2.0),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
             ),
           ),
         ),

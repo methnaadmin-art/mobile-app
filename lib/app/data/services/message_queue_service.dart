@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -50,13 +51,19 @@ class QueuedMessage {
 class MessageQueueService extends GetxService {
   static const String _storageKey = 'offline_message_queue';
   static const int _maxRetries = 5;
+  static const Duration _ackTimeout = Duration(seconds: 8);
 
   final GetStorage _box = GetStorage();
   final RxList<QueuedMessage> queue = <QueuedMessage>[].obs;
   final RxBool isFlushing = false.obs;
+  final Map<String, Timer> _ackTimers = {};
+  bool _initialized = false;
 
   Future<MessageQueueService> init() async {
+    if (_initialized) return this;
+    _initialized = true;
     _loadQueue();
+    _listenForServerAcks();
     // Listen for socket connection changes to auto-flush
     ever(Get.find<SocketService>().isConnected, (bool connected) {
       if (connected && queue.isNotEmpty) {
@@ -93,8 +100,23 @@ class MessageQueueService extends GetxService {
 
   /// Enqueue a message for sending.
   /// Returns the queued message ID for tracking.
-  String enqueue(String conversationId, String content) {
-    final id = 'q_${DateTime.now().millisecondsSinceEpoch}_${queue.length}';
+  String enqueue(String conversationId, String content, {String? clientMsgId}) {
+    if (clientMsgId != null) {
+      final existing = queue.firstWhereOrNull((m) => m.id == clientMsgId);
+      if (existing != null) {
+        existing.status = QueuedMessageStatus.sending;
+        queue.refresh();
+        _saveQueue();
+
+        final socket = Get.find<SocketService>();
+        if (socket.isConnected.value) {
+          unawaited(_trySend(existing));
+        }
+        return existing.id;
+      }
+    }
+
+    final id = clientMsgId ?? 'q_${DateTime.now().millisecondsSinceEpoch}_${queue.length}';
     final msg = QueuedMessage(
       id: id,
       conversationId: conversationId,
@@ -130,6 +152,7 @@ class MessageQueueService extends GetxService {
 
   /// Mark a message as sent and remove from queue
   void markSent(String messageId) {
+    _cancelAckTimer(messageId);
     queue.removeWhere((m) => m.id == messageId);
     _saveQueue();
     debugPrint('[MsgQueue] Message $messageId marked as sent, removed from queue');
@@ -137,6 +160,7 @@ class MessageQueueService extends GetxService {
 
   /// Mark a message as failed
   void markFailed(String messageId) {
+    _cancelAckTimer(messageId);
     final msg = queue.firstWhereOrNull((m) => m.id == messageId);
     if (msg != null) {
       msg.status = QueuedMessageStatus.failed;
@@ -197,10 +221,8 @@ class MessageQueueService extends GetxService {
       msg.status = QueuedMessageStatus.sending;
       queue.refresh();
 
-      socket.sendMessage(msg.conversationId, msg.content);
-
-      // Assume sent if no error (socket.io is fire-and-forget for emit)
-      markSent(msg.id);
+      socket.sendMessageWithId(msg.conversationId, msg.content, msg.id);
+      _scheduleAckTimeout(msg);
     } catch (e) {
       debugPrint('[MsgQueue] Send failed for ${msg.id}: $e');
       markFailed(msg.id);
@@ -217,8 +239,42 @@ class MessageQueueService extends GetxService {
 
   /// Clear entire queue
   void clearQueue() {
+    for (final timer in _ackTimers.values) {
+      timer.cancel();
+    }
+    _ackTimers.clear();
     queue.clear();
     _saveQueue();
     debugPrint('[MsgQueue] Queue cleared');
+  }
+
+  void _listenForServerAcks() {
+    try {
+      final socket = Get.find<SocketService>();
+      socket.onNewMessage((data) {
+        if (data == null || data is! Map) return;
+        final clientMsgId = data['clientMsgId'] as String?;
+        if (clientMsgId != null) {
+          markSent(clientMsgId);
+        }
+      });
+    } catch (e) {
+      debugPrint('[MsgQueue] Failed to attach ack listener: $e');
+    }
+  }
+
+  void _scheduleAckTimeout(QueuedMessage msg) {
+    _cancelAckTimer(msg.id);
+    _ackTimers[msg.id] = Timer(_ackTimeout, () {
+      final pending = queue.firstWhereOrNull((m) => m.id == msg.id);
+      if (pending != null && pending.status == QueuedMessageStatus.sending) {
+        debugPrint('[MsgQueue] Ack timeout for ${msg.id} - marking failed');
+        markFailed(msg.id);
+      }
+    });
+  }
+
+  void _cancelAckTimer(String messageId) {
+    _ackTimers.remove(messageId)?.cancel();
   }
 }

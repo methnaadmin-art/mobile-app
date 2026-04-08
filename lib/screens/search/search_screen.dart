@@ -1,16 +1,21 @@
 import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/controllers/users_controller.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
-import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/constants/api_constants.dart';
 import 'package:methna_app/core/utils/helpers.dart';
-import 'package:methna_app/core/widgets/animated_empty_state.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-import 'package:methna_app/core/widgets/islamic_pattern_painter.dart';
-import 'package:methna_app/core/widgets/mihrab_clipper.dart';
+import 'package:methna_app/core/widgets/app_card.dart';
+import 'package:methna_app/core/widgets/custom_button.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
+import 'package:methna_app/core/widgets/discovery_flow.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -63,7 +68,10 @@ class _SearchScreenState extends State<SearchScreen> {
       final birth = DateTime.parse(dob);
       final now = DateTime.now();
       int age = now.year - birth.year;
-      if (now.month < birth.month || (now.month == birth.month && now.day < birth.day)) age--;
+      if (now.month < birth.month ||
+          (now.month == birth.month && now.day < birth.day)) {
+        age--;
+      }
       return age;
     } catch (_) {
       return 0;
@@ -74,46 +82,61 @@ class _SearchScreenState extends State<SearchScreen> {
     isLoading.value = true;
     hasSearched.value = true;
     try {
-      final response = await _api.get(ApiConstants.search, queryParameters: {
-        'name': q,
-        'q': q,
-        'limit': 20,
-      });
+      final response = await _api.get(
+        ApiConstants.search,
+        queryParameters: {'name': q, 'q': q, 'limit': 20},
+      );
       final data = response.data;
-      final list = data is Map ? (data['users'] ?? data['results'] ?? []) : (data is List ? data : []);
-      results.value = (list as List).map((item) {
-        if (item is Map<String, dynamic>) {
-          // Extract photo: from photos array (enriched format) or flat 'photo' field
-          String? photoUrl = item['photo'];
-          if (photoUrl == null && item['photos'] is List && (item['photos'] as List).isNotEmpty) {
-            final mainPhoto = (item['photos'] as List).firstWhere(
-              (p) => p['isMain'] == true,
-              orElse: () => (item['photos'] as List).first,
-            );
-            photoUrl = mainPhoto['url'];
-          }
-          // Extract profile fields (may be nested or flat)
-          final profile = item['profile'] is Map ? item['profile'] as Map<String, dynamic> : null;
-          return _SearchResult(
-            userId: item['id'] ?? item['userId'] ?? '',
-            firstName: item['firstName'] ?? '',
-            lastName: item['lastName'] ?? '',
-            age: item['age'] ?? (profile?['dateOfBirth'] != null ? _calcAge(profile!['dateOfBirth']) : 0),
-            city: profile?['city'] ?? item['city'] ?? '',
-            country: profile?['country'] ?? item['country'] ?? '',
-            photo: photoUrl,
-            bio: profile?['bio'] ?? item['bio'],
-            interests: (profile?['interests'] ?? item['interests']) != null
-                ? List<String>.from(profile?['interests'] ?? item['interests'])
-                : [],
-          );
-        }
-        return null;
-      }).whereType<_SearchResult>().toList();
+      final list = data is Map
+          ? (data['users'] ?? data['results'] ?? [])
+          : (data is List ? data : []);
+      results.value = (list as List)
+          .map((item) {
+            if (item is Map<String, dynamic>) {
+              String? photoUrl = item['photo'];
+              if (photoUrl == null &&
+                  item['photos'] is List &&
+                  (item['photos'] as List).isNotEmpty) {
+                final mainPhoto = (item['photos'] as List).firstWhere(
+                  (p) => p['isMain'] == true,
+                  orElse: () => (item['photos'] as List).first,
+                );
+                photoUrl = mainPhoto['url'];
+              }
+              final profile = item['profile'] is Map
+                  ? item['profile'] as Map<String, dynamic>
+                  : null;
+              return _SearchResult(
+                userId: item['id'] ?? item['userId'] ?? '',
+                firstName: item['firstName'] ?? '',
+                lastName: item['lastName'] ?? '',
+                age:
+                    item['age'] ??
+                    (profile?['dateOfBirth'] != null
+                        ? _calcAge(profile!['dateOfBirth'])
+                        : 0),
+                city: profile?['city'] ?? item['city'] ?? '',
+                country: profile?['country'] ?? item['country'] ?? '',
+                photo: photoUrl,
+                bio: profile?['bio'] ?? item['bio'],
+                interests: (profile?['interests'] ?? item['interests']) != null
+                    ? List<String>.from(
+                        profile?['interests'] ?? item['interests'],
+                      )
+                    : [],
+              );
+            }
+            return null;
+          })
+          .whereType<_SearchResult>()
+          .toList();
     } catch (e) {
       debugPrint('[Search] _performSearch error: $e');
       results.clear();
-      Helpers.showSnackbar(message: 'Search failed. Please try again.', isError: true);
+      Helpers.showSnackbar(
+        message: 'search_failed'.tr,
+        isError: true,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -122,216 +145,302 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.backgroundDark : const Color(0xFFFFF8F0);
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final secondaryColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+    final textColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimaryLight;
+    final secondaryColor = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
 
     return Scaffold(
-      backgroundColor: bgColor,
-      body: Stack(
-        children: [
-          // 0. Islamic Background Pattern
-          Positioned.fill(
-            child: IslamicPatternWidget(
-              opacity: isDark ? 0.03 : 0.05,
-              color: isDark ? Colors.white : AppColors.emerald,
-            ),
-          ),
-          
-          SafeArea(
-            child: Column(
-              children: [
-            // ── Search Bar ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Get.back(),
-                    child: Container(
-                      width: 44, height: 48,
-                      padding: const EdgeInsets.all(2),
-                      child: ClipPath(
-                        clipper: MihrabClipper(),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isDark ? AppColors.cardDark : Colors.white,
-                            border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
-                          ),
-                          child: Icon(LucideIcons.chevronLeft, size: 20, color: AppColors.emerald),
-                        ),
-                      ),
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : AppColors.backgroundLight,
+      body: DatifyBackground(
+        compact: true,
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                  AppSpacing.lg,
+                  0,
+                ),
+                child: Row(
+                  children: [
+                    DiscoveryIconButton(
+                      icon: LucideIcons.chevronLeft,
+                      onTap: () => Get.back(),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.cardDark : Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.gold.withValues(alpha: 0.3),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _searchCtrl,
-                        focusNode: _focusNode,
-                        autofocus: true,
-                        style: TextStyle(fontSize: 15, color: textColor),
-                        decoration: InputDecoration(
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Obx(
+                        () => DiscoverySearchField(
+                          controller: _searchCtrl,
+                          focusNode: _focusNode,
                           hintText: 'search_hint'.tr,
-                          hintStyle: TextStyle(fontSize: 14, color: secondaryColor.withValues(alpha: 0.5)),
-                          prefixIcon: const Icon(LucideIcons.search, size: 20, color: AppColors.emerald),
-                          suffixIcon: Obx(() => query.value.isNotEmpty
-                              ? GestureDetector(
-                                  onTap: () {
-                                    _searchCtrl.clear();
-                                  },
-                                  child: const Icon(LucideIcons.x, size: 18, color: AppColors.gold),
-                                )
-                              : const SizedBox.shrink()),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                          autofocus: true,
+                          onClear: _searchCtrl.clear,
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: AppSpacing.md),
+              Expanded(
+                child: Obx(() {
+                  if (isLoading.value) {
+                    return _buildSkeletonList(isDark);
+                  }
 
-            const SizedBox(height: 12),
+                  if (!hasSearched.value) {
+                    return _buildInitialState();
+                  }
 
-            // ── Results ──
-            Expanded(
-              child: Obx(() {
-                if (isLoading.value) {
-                  return _buildSkeletonList(isDark);
-                }
+                  if (results.isEmpty) {
+                    return ListView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.sm,
+                        AppSpacing.lg,
+                        40,
+                      ),
+                      children: [
+                        DiscoveryEmptyCard(
+                          icon: LucideIcons.searchX,
+                          title: 'no_results_found'.tr,
+                          subtitle:
+                              'no_results_found_desc'.tr,
+                          action: CustomButton(
+                            text: 'clear_search'.tr,
+                            variant: CustomButtonVariant.secondary,
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              _focusNode.requestFocus();
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  }
 
-                if (!hasSearched.value) {
-                  return _buildInitialState(isDark, secondaryColor);
-                }
+                  return ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      0,
+                      AppSpacing.lg,
+                      32,
+                    ),
+                    children: [
+                      DiscoverySectionHeader(
+                        title: 'search_results'.tr,
+                        subtitle:
+                            '${results.length} ${'profiles_matched'.tr}',
+                      ),
+                      ...results.map(
+                        (result) => Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                          child: _SearchResultTile(
+                            result: result,
+                            textColor: textColor,
+                            secondaryColor: secondaryColor,
+                            onTap: () {
+                              final usersController =
+                                  Get.isRegistered<UsersController>()
+                                  ? Get.find<UsersController>()
+                                  : null;
 
-                if (results.isEmpty) {
-                  return const AnimatedEmptyState(
-                    lottieAsset: 'assets/animations/no_users.json',
-                    title: 'No results found',
-                    subtitle: 'Try different keywords or\nadjust your search terms.',
-                    fallbackIcon: LucideIcons.searchX,
-                  );
-                }
+                              if (usersController != null) {
+                                usersController.openUserDetailById(result.userId);
+                                return;
+                              }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: results.length,
-                  itemBuilder: (context, index) {
-                    final r = results[index];
-                    return _SearchResultTile(
-                      result: r,
-                      isDark: isDark,
-                      textColor: textColor,
-                      secondaryColor: secondaryColor,
-                        onTap: () {
-                          Get.toNamed(AppRoutes.userDetail, arguments: {'userId': r.userId});
-                        },
-                      );
-                    },
+                              Get.toNamed(
+                                AppRoutes.userDetail,
+                                arguments: {'userId': result.userId},
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 }),
               ),
             ],
           ),
         ),
-      ],
-    ),
-  );
-}
-
-  Widget _buildInitialState(bool isDark, Color secondaryColor) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.emerald.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
-            ),
-            child: const Icon(LucideIcons.search, size: 36, color: AppColors.gold),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Search for people',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Find users by name, city, or interests',
-            style: TextStyle(fontSize: 14, color: secondaryColor),
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildSkeletonList(bool isDark) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: 6,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
+  Widget _buildInitialState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimaryLight;
+    final subtitleColor = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        40,
+      ),
+      children: [
+        DiscoveryHeroHeader(
+          eyebrow: 'search_eyebrow'.tr,
+          title: 'find_someone_meaningful'.tr,
+          subtitle:
+              'find_someone_meaningful_desc'.tr,
+        ),
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      const Color(0x338E2CFF),
+                      const Color(0x1A171821),
+                    ]
+                  : [
+                      const Color(0x22A020F9),
+                      const Color(0xFFFDF9FF),
+                    ],
+            ),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.borderDark
+                  : AppColors.primary.withValues(alpha: 0.14),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _shimmerBox(isDark, 52, 52, isCircle: true),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _shimmerBox(isDark, double.infinity, 14),
-                    const SizedBox(height: 8),
-                    _shimmerBox(isDark, 120, 10),
-                  ],
+              Text(
+                'best_ways_to_search'.tr,
+                style: AppTextStyles.headlineSmall.copyWith(
+                  color: titleColor,
                 ),
               ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'best_ways_to_search_desc'.tr,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: subtitleColor,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  DiscoveryInfoPill(
+                    icon: LucideIcons.user,
+                    label: 'first_name'.tr,
+                    color: AppColors.primary,
+                  ),
+                  DiscoveryInfoPill(
+                    icon: LucideIcons.mapPin,
+                    label: 'city'.tr,
+                    color: AppColors.gold,
+                  ),
+                  DiscoveryInfoPill(
+                    icon: LucideIcons.sparkles,
+                    label: 'interests'.tr,
+                    color: AppColors.like,
+                  ),
+                ],
+              ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkeletonList(bool isDark) {
+    final cardColor = isDark ? AppColors.surfaceDark : Colors.white;
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        32,
+      ),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+          child: AppCard(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                Container(
+                  width: 62,
+                  height: 62,
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _shimmerBox(isDark, double.infinity, 16),
+                      const SizedBox(height: AppSpacing.xs),
+                      _shimmerBox(isDark, 140, 12),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: List.generate(
+                          3,
+                          (i) => Padding(
+                            padding: EdgeInsets.only(
+                              right: i == 2 ? 0 : AppSpacing.xs,
+                            ),
+                            child: _shimmerBox(isDark, 56, 22),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _shimmerBox(bool isDark, double width, double height, {bool isCircle = false}) {
+  Widget _shimmerBox(bool isDark, double width, double height) {
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : Colors.grey.shade200,
-        borderRadius: isCircle ? null : BorderRadius.circular(8),
-        shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
+        color: isDark ? AppColors.surfaceDark : Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(10),
       ),
     );
   }
 }
 
-// ─── Search Result Model ──────────────────────────────────────────────────
 class _SearchResult {
   final String userId;
   final String firstName;
@@ -359,17 +468,14 @@ class _SearchResult {
   String get location => [city, country].where((s) => s.isNotEmpty).join(', ');
 }
 
-// ─── Search Result Tile ───────────────────────────────────────────────────
 class _SearchResultTile extends StatelessWidget {
   final _SearchResult result;
-  final bool isDark;
   final Color textColor;
   final Color secondaryColor;
   final VoidCallback onTap;
 
   const _SearchResultTile({
     required this.result,
-    required this.isDark,
     required this.textColor,
     required this.secondaryColor,
     required this.onTap,
@@ -377,82 +483,48 @@ class _SearchResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return AppCard(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.cardDark : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: AppColors.gold.withValues(alpha: 0.2),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Avatar
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isDark ? AppColors.surfaceDark : Colors.grey.shade100,
-              ),
-              child: result.photo != null && result.photo!.isNotEmpty
-                  ? ClipOval(
-                      child: CachedNetworkImage(
-                        imageUrl: result.photo!,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Center(
-                          child: Text(
-                            Helpers.getInitials(result.firstName, result.lastName),
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary),
-                          ),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SearchAvatar(result: result),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${result.fullName}${result.age > 0 ? ', ${result.age}' : ''}',
+                        style: AppTextStyles.titleLarge.copyWith(
+                          color: textColor,
                         ),
-                        errorWidget: (_, __, ___) => Center(
-                          child: Text(
-                            Helpers.getInitials(result.firstName, result.lastName),
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary),
-                          ),
-                        ),
-                      ),
-                    )
-                  : Center(
-                        child: Text(
-                        Helpers.getInitials(result.firstName, result.lastName),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.emerald,
-                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-            ),
-            const SizedBox(width: 14),
-
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                    Icon(
+                      LucideIcons.chevronRight,
+                      size: 18,
+                      color: secondaryColor,
+                    ),
+                  ],
+                ),
+                if (result.location.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xxs),
                   Row(
                     children: [
-                      Flexible(
+                      Icon(LucideIcons.mapPin, size: 13, color: secondaryColor),
+                      const SizedBox(width: AppSpacing.xxs),
+                      Expanded(
                         child: Text(
-                          '${result.fullName}${result.age > 0 ? ', ${result.age}' : ''}',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: textColor,
+                          result.location,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: secondaryColor,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -460,45 +532,83 @@ class _SearchResultTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (result.location.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Icon(LucideIcons.mapPin, size: 12, color: secondaryColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          result.location,
-                          style: TextStyle(fontSize: 12, color: secondaryColor),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (result.interests.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Wrap(
-                      children: result.interests.take(3).map((i) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.gold.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.gold.withValues(alpha: 0.2)),
-                          ),
-                          child: Text(
-                            i,
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.gold),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
                 ],
-              ),
+                if (result.bio != null && result.bio!.trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    result.bio!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: secondaryColor,
+                    ),
+                  ),
+                ],
+                if (result.interests.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: result.interests.take(3).map((interest) {
+                      return DiscoveryInfoPill(
+                        icon: LucideIcons.sparkles,
+                        label: interest,
+                        color: AppColors.gold,
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-            Icon(LucideIcons.chevronRight, size: 16, color: secondaryColor),
-          ],
-        ),
+class _SearchAvatar extends StatelessWidget {
+  final _SearchResult result;
+
+  const _SearchAvatar({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = Helpers.getInitials(result.firstName, result.lastName);
+    return Container(
+      width: 62,
+      height: 62,
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        shape: BoxShape.circle,
+      ),
+      padding: const EdgeInsets.all(2),
+      child: ClipOval(
+        child: result.photo != null && result.photo!.isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: result.photo!,
+                fit: BoxFit.cover,
+                errorWidget: (_, _, _) => _FallbackAvatar(initials: initials),
+              )
+            : _FallbackAvatar(initials: initials),
+      ),
+    );
+  }
+}
+
+class _FallbackAvatar extends StatelessWidget {
+  final String initials;
+
+  const _FallbackAvatar({required this.initials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.primarySurface,
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: AppTextStyles.titleLarge.copyWith(color: AppColors.primary),
       ),
     );
   }

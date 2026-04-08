@@ -8,6 +8,11 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_shadows.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -15,23 +20,27 @@ class SelfieVerificationScreen extends StatefulWidget {
   const SelfieVerificationScreen({super.key});
 
   @override
-  State<SelfieVerificationScreen> createState() => _SelfieVerificationScreenState();
+  State<SelfieVerificationScreen> createState() =>
+      _SelfieVerificationScreenState();
 }
 
 class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
   final SignupController controller = Get.find<SignupController>();
-  
+
   CameraController? _cameraController;
   FaceDetector? _faceDetector;
   bool _isInitializing = true;
   bool _isProcessing = false;
   bool _faceDetected = false;
   String _statusMessage = 'position_face_oval'.tr;
-  
+  bool _isCapturingSelfie = false;
+
   // Detection states
   bool _isCentered = false;
   bool _isCorrectDistance = false;
-  
+
+  bool get _canCapture => _faceDetected && _isCentered && _isCorrectDistance;
+
   @override
   void initState() {
     super.initState();
@@ -61,15 +70,17 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
         frontCamera,
         ResolutionPreset.medium,
         enableAudio: false,
-        imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+        imageFormatGroup: Platform.isAndroid
+            ? ImageFormatGroup.nv21
+            : ImageFormatGroup.bgra8888,
       );
 
       await _cameraController!.initialize();
-      
+
       if (!mounted) return;
-      
+
       setState(() => _isInitializing = false);
-      
+
       // Start processing stream
       _startImageStream();
     } catch (e) {
@@ -79,7 +90,11 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
   }
 
   void _startImageStream() {
-    _cameraController?.startImageStream((CameraImage image) {
+    final camera = _cameraController;
+    if (camera == null || !camera.value.isInitialized) return;
+    if (camera.value.isStreamingImages) return;
+
+    camera.startImageStream((CameraImage image) {
       if (_isProcessing) return;
       _isProcessing = true;
       _processImage(image);
@@ -104,22 +119,28 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
         } else {
           final face = faces.first;
           _faceDetected = true;
-          
-          // Check centering (simplified)
-          final centerX = face.boundingBox.center.dx;
-          final centerY = face.boundingBox.center.dy;
-          
-          // These thresholds are approximate for the ResolutionPreset.medium
-          _isCentered = centerX > 100 && centerX < 400 && centerY > 100 && centerY < 600;
-          
-          // Check distance (bounding box width)
-          final width = face.boundingBox.width;
-          _isCorrectDistance = width > 150 && width < 350;
+
+          // Device-safe checks based on current frame size.
+          final frameWidth = image.width.toDouble();
+          final frameHeight = image.height.toDouble();
+
+          final centerX = face.boundingBox.center.dx.clamp(0.0, frameWidth);
+          final centerY = face.boundingBox.center.dy.clamp(0.0, frameHeight);
+          final centerOffsetX = (centerX - (frameWidth / 2)).abs();
+          final centerOffsetY = (centerY - (frameHeight / 2)).abs();
+
+          _isCentered = centerOffsetX <= frameWidth * 0.22 &&
+              centerOffsetY <= frameHeight * 0.26;
+
+          final widthRatio = face.boundingBox.width / frameWidth;
+          _isCorrectDistance = widthRatio >= 0.22 && widthRatio <= 0.58;
 
           if (!_isCentered) {
             _statusMessage = 'center_your_face'.tr;
           } else if (!_isCorrectDistance) {
-            _statusMessage = width < 150 ? 'move_closer'.tr : 'move_further_back'.tr;
+            _statusMessage = widthRatio < 0.22
+                ? 'move_closer'.tr
+                : 'move_further_back'.tr;
           } else {
             _statusMessage = 'verified_hold_still'.tr;
           }
@@ -134,15 +155,19 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
 
   InputImage _inputImageFromCameraImage(CameraImage image) {
     final sensorOrientation = _cameraController!.description.sensorOrientation;
-    final inputImageFormat = InputImageFormatValue.fromRawValue(image.format.raw) ?? InputImageFormat.nv21;
-    
+    final inputImageFormat =
+        InputImageFormatValue.fromRawValue(image.format.raw) ??
+        InputImageFormat.nv21;
+
     final plane = image.planes.first;
 
     return InputImage.fromBytes(
       bytes: plane.bytes,
       metadata: InputImageMetadata(
         size: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: InputImageRotationValue.fromRawValue(sensorOrientation) ?? InputImageRotation.rotation0deg,
+        rotation:
+            InputImageRotationValue.fromRawValue(sensorOrientation) ??
+            InputImageRotation.rotation0deg,
         format: inputImageFormat,
         bytesPerRow: plane.bytesPerRow,
       ),
@@ -151,21 +176,34 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
 
   Future<void> _captureSelfie() async {
     if (!_faceDetected || !_isCentered || !_isCorrectDistance) return;
+    if (_isCapturingSelfie) return;
 
     try {
+      if (mounted) {
+        setState(() => _isCapturingSelfie = true);
+      }
+
       // Pause stream to take photo
       await _cameraController?.stopImageStream();
       final image = await _cameraController?.takePicture();
-      
+
       if (image != null) {
         final file = File(image.path);
-        
+
         // Show scanning effect
         if (!mounted) return;
         _showMatchingFlow(file);
+      } else {
+        if (mounted) {
+          setState(() => _isCapturingSelfie = false);
+        }
+        _startImageStream();
       }
     } catch (e) {
       debugPrint('[Selfie] Capture error: $e');
+      if (mounted) {
+        setState(() => _isCapturingSelfie = false);
+      }
       _startImageStream();
     }
   }
@@ -179,14 +217,31 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
         onComplete: () {
           controller.setSelfie(file);
           Get.back(); // Close dialog
-          controller.goToNextStep();
+          unawaited(
+            controller.goToNextStep().whenComplete(() {
+              if (!mounted) return;
+              if (Get.currentRoute == AppRoutes.signupSelfie) {
+                setState(() => _isCapturingSelfie = false);
+                _startImageStream();
+              }
+            }),
+          );
         },
       ),
     );
+
+    if (!mounted) return;
+    if (Get.currentRoute == AppRoutes.signupSelfie && _isCapturingSelfie) {
+      setState(() => _isCapturingSelfie = false);
+      _startImageStream();
+    }
   }
 
   @override
   void dispose() {
+    if (_cameraController?.value.isStreamingImages ?? false) {
+      _cameraController?.stopImageStream();
+    }
     _cameraController?.dispose();
     _faceDetector?.close();
     super.dispose();
@@ -197,18 +252,26 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
     final primaryColor = AppColors.primary;
-    
+
     if (_isInitializing) {
       return Scaffold(
         backgroundColor: bgColor,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: primaryColor),
-              const SizedBox(height: 24),
-              Text('initializing_camera'.tr, style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)),
-            ],
+        body: DatifyBackground(
+          compact: true,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: primaryColor),
+                const SizedBox(height: 24),
+                Text(
+                  'initializing_camera'.tr,
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -217,16 +280,28 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return Scaffold(
         backgroundColor: bgColor,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(LucideIcons.cameraOff, size: 48, color: Colors.grey),
-              const SizedBox(height: 16),
-              Text('camera_error'.tr, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16)),
-              const SizedBox(height: 24),
-              TextButton(onPressed: _initializeCamera, child: Text('retry'.tr)),
-            ],
+        body: DatifyBackground(
+          compact: true,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(LucideIcons.cameraOff, size: 48, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(
+                  'camera_error'.tr,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                TextButton(
+                  onPressed: _initializeCamera,
+                  child: Text('retry'.tr),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -237,20 +312,13 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
       body: Stack(
         children: [
           // ── Camera Preview ──
-          Positioned.fill(
-            child: _cameraController!.value.isInitialized 
-                ? AspectRatio(
-                    aspectRatio: 1 / _cameraController!.value.aspectRatio,
-                    child: CameraPreview(_cameraController!),
-                  )
-                : Container(color: Colors.black),
-          ),
+          Positioned.fill(child: _buildCameraPreview()),
 
           // ── PREMIUM GLASS OVERLAY ──
           Positioned.fill(
             child: CustomPaint(
               painter: _FaceOvalPainter(
-                isVerified: _faceDetected && _isCentered && _isCorrectDistance,
+                isVerified: _canCapture,
                 isDark: isDark,
                 primaryColor: primaryColor,
               ),
@@ -258,100 +326,223 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
           ),
 
           // ── SCANNING LASER (Conditional) ──
-          if (_faceDetected && _isCentered && _isCorrectDistance)
-            _ScanningLaser(primaryColor: primaryColor),
 
           // ── UI CONTENT ──
           SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 20),
-                // Premium Glass Header
-                _GlassContainer(
-                   child: Row(
-                     mainAxisSize: MainAxisSize.min,
-                     children: [
-                       const Icon(LucideIcons.shieldCheck, color: Colors.white, size: 16),
-                       const SizedBox(width: 8),
-                       Text(
-                        'identity_verification_header'.tr.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    0,
+                  ),
+                  child: Row(
+                    children: [
+                      DatifyBackButton(onTap: () => Get.back()),
+                      const Spacer(),
+                      const DatifyHeaderBadge(text: '11 / 12'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'selfie_verification'.tr,
+                  style: AppTextStyles.headlineMedium.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ).animate().fadeIn(duration: 320.ms),
+                const SizedBox(height: AppSpacing.xs),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                  child: Text(
+                    'selfie_desc_short'.tr,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ).animate().fadeIn(duration: 360.ms),
+
+                const Spacer(),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(AppRadii.xxl),
+                    ),
+                    boxShadow: AppShadows.surface(false),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _canCapture ? 'face_aligned'.tr : 'align_your_face'.tr,
+                        style: AppTextStyles.headlineMedium.copyWith(
+                          color: AppColors.textPrimaryLight,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 2,
                         ),
                       ),
-                     ],
-                   ),
-                ).animate().fadeIn(duration: 600.ms).slideY(begin: -0.2),
-                
-                const Spacer(),
-                
-                // Real-time Status Guide
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: _StatusGuide(
-                    faceDetected: _faceDetected,
-                    isCentered: _isCentered,
-                    isCorrectDistance: _isCorrectDistance,
-                    statusMessage: _statusMessage,
-                    primaryColor: primaryColor,
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        _statusMessage,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textSecondaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      _GuideRow(label: 'face_visible'.tr, done: _faceDetected),
+                      const SizedBox(height: AppSpacing.sm),
+                      _GuideRow(
+                        label: 'centered_in_frame'.tr,
+                        done: _isCentered,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      _GuideRow(
+                        label: 'good_distance'.tr,
+                        done: _isCorrectDistance,
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _canCapture && !_isCapturingSelfie
+                              ? _captureSelfie
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            backgroundColor: AppColors.primary,
+                            disabledBackgroundColor: const Color(0xFFE7DDFB),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppRadii.pill),
+                            ),
+                          ),
+                          child: Text(
+                            _isCapturingSelfie
+                              ? 'capture_selfie'.tr
+                                : (_canCapture
+                                      ? 'capture_selfie'.tr
+                                      : 'align_your_face'.tr),
+                            style: AppTextStyles.titleMedium.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Center(
+                        child: Text(
+                          'selfie_privacy_note'.tr,
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textSecondaryLight,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ).animate().fadeIn(duration: 400.ms),
-                
-                const SizedBox(height: 48),
-                
-                // Shutter Button
-                _ShutterButton(
-                  isEnabled: _faceDetected && _isCentered && _isCorrectDistance,
-                  onTap: _captureSelfie,
-                ).animate().scale(delay: 300.ms),
-                
-                const SizedBox(height: 40),
+                ).animate().fadeIn(duration: 420.ms).slideY(begin: 0.12),
               ],
-            ),
-          ),
-          
-          // Back Action
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 16,
-            child: ClipOval(
-              child: Material(
-                color: Colors.black.withValues(alpha: 0.3),
-                child: IconButton(
-                  onPressed: () => Get.back(),
-                  icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-                ),
-              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildCameraPreview() {
+    final camera = _cameraController;
+    if (camera == null || !camera.value.isInitialized) {
+      return Container(color: Colors.black);
+    }
+
+    final previewSize = camera.value.previewSize;
+    if (previewSize == null) {
+      return CameraPreview(camera);
+    }
+
+    final screenSize = MediaQuery.of(context).size;
+    final screenAspectRatio = screenSize.width / screenSize.height;
+    final previewAspectRatio = previewSize.height / previewSize.width;
+    final scale = previewAspectRatio / screenAspectRatio;
+
+    return ClipRect(
+      child: Transform.scale(
+        scale: scale < 1 ? 1 / scale : scale,
+        child: Center(child: CameraPreview(camera)),
+      ),
+    );
+  }
 }
 
+class _GuideRow extends StatelessWidget {
+  final String label;
+  final bool done;
+
+  const _GuideRow({required this.label, required this.done});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            color: done ? AppColors.primary : const Color(0xFFF2ECFB),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Icon(
+            done ? LucideIcons.check : LucideIcons.dot,
+            size: done ? 13 : 16,
+            color: done ? Colors.white : AppColors.textHintLight,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            label,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textPrimaryLight,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ignore: unused_element
 class _GlassContainer extends StatelessWidget {
   final Widget child;
-  final double blur;
-  final double opacity;
 
-  const _GlassContainer({required this.child, this.blur = 10, this.opacity = 0.2});
+  const _GlassContainer({required this.child});
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: opacity),
+            color: Colors.white.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
           ),
           child: child,
         ),
@@ -360,6 +551,7 @@ class _GlassContainer extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _StatusGuide extends StatelessWidget {
   final bool faceDetected;
   final bool isCentered;
@@ -378,7 +570,7 @@ class _StatusGuide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool allValid = faceDetected && isCentered && isCorrectDistance;
-    
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -388,7 +580,7 @@ class _StatusGuide extends StatelessWidget {
             key: ValueKey(statusMessage),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             decoration: BoxDecoration(
-              color: allValid 
+              color: allValid
                   ? AppColors.verified.withValues(alpha: 0.9)
                   : Colors.black.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(30),
@@ -397,9 +589,17 @@ class _StatusGuide extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (allValid)
-                  const Icon(LucideIcons.checkCircle, color: Colors.white, size: 20)
+                  const Icon(
+                    LucideIcons.checkCircle,
+                    color: Colors.white,
+                    size: 20,
+                  )
                 else if (faceDetected)
-                  const Icon(LucideIcons.maximize, color: Colors.white70, size: 18)
+                  const Icon(
+                    LucideIcons.maximize,
+                    color: Colors.white70,
+                    size: 18,
+                  )
                 else
                   const Icon(LucideIcons.user, color: Colors.white70, size: 18),
                 const SizedBox(width: 10),
@@ -428,7 +628,8 @@ class _ScanningLaser extends StatefulWidget {
   State<_ScanningLaser> createState() => _ScanningLaserState();
 }
 
-class _ScanningLaserState extends State<_ScanningLaser> with SingleTickerProviderStateMixin {
+class _ScanningLaserState extends State<_ScanningLaser>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -452,7 +653,9 @@ class _ScanningLaserState extends State<_ScanningLaser> with SingleTickerProvide
       animation: _controller,
       builder: (context, child) {
         return Positioned(
-          top: MediaQuery.of(context).size.height * (0.3 + 0.4 * _controller.value),
+          top:
+              MediaQuery.of(context).size.height *
+              (0.3 + 0.4 * _controller.value),
           left: MediaQuery.of(context).size.width * 0.15,
           right: MediaQuery.of(context).size.width * 0.15,
           child: Container(
@@ -460,8 +663,16 @@ class _ScanningLaserState extends State<_ScanningLaser> with SingleTickerProvide
             decoration: BoxDecoration(
               color: widget.primaryColor,
               boxShadow: [
-                BoxShadow(color: widget.primaryColor, blurRadius: 15, spreadRadius: 2),
-                BoxShadow(color: widget.primaryColor.withValues(alpha: 0.5), blurRadius: 30, spreadRadius: 5),
+                BoxShadow(
+                  color: widget.primaryColor,
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: widget.primaryColor.withValues(alpha: 0.5),
+                  blurRadius: 30,
+                  spreadRadius: 5,
+                ),
               ],
             ),
           ),
@@ -476,18 +687,22 @@ class _FaceOvalPainter extends CustomPainter {
   final bool isDark;
   final Color primaryColor;
 
-  _FaceOvalPainter({required this.isVerified, required this.isDark, required this.primaryColor});
+  _FaceOvalPainter({
+    required this.isVerified,
+    required this.isDark,
+    required this.primaryColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.75)
+      ..color = Colors.black.withValues(alpha: 0.64)
       ..style = PaintingStyle.fill;
 
     // Adjust oval size to be more "portrait" friendly
     final ovalWidth = size.width * 0.72;
     final ovalHeight = size.height * 0.48;
-    
+
     final ovalRect = Rect.fromCenter(
       center: Offset(size.width / 2, size.height * 0.45), // Shifted up slightly
       width: ovalWidth,
@@ -502,81 +717,33 @@ class _FaceOvalPainter extends CustomPainter {
 
     canvas.drawPath(path, paint);
 
-    // Draw high-end border
     final borderPaint = Paint()
-      ..color = isVerified ? AppColors.verified : Colors.white.withValues(alpha: 0.3)
+      ..color = isVerified
+          ? primaryColor
+          : Colors.white.withValues(alpha: 0.82)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
-    // Outer glow for verified state
     if (isVerified) {
       canvas.drawOval(
         ovalRect.inflate(4),
         Paint()
-          ..color = AppColors.verified.withValues(alpha: 0.2)
+          ..color = primaryColor.withValues(alpha: 0.18)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 6
+          ..strokeWidth = 8
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
     }
 
     canvas.drawOval(ovalRect, borderPaint);
-    
-    // Corner brackets for a "tech" feel
-    _drawBrackets(canvas, ovalRect, isVerified ? AppColors.verified : Colors.white54);
-  }
-
-  void _drawBrackets(Canvas canvas, Rect rect, Color color) {
-    final bracketPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-
-    final double length = 30;
-    
-    // Top Left
-    canvas.drawPath(
-      Path()
-        ..moveTo(rect.left, rect.top + length)
-        ..lineTo(rect.left, rect.top)
-        ..lineTo(rect.left + length, rect.top),
-      bracketPaint,
-    );
-    
-    // Top Right
-    canvas.drawPath(
-      Path()
-        ..moveTo(rect.right - length, rect.top)
-        ..lineTo(rect.right, rect.top)
-        ..lineTo(rect.right, rect.top + length),
-      bracketPaint,
-    );
-    
-    // Bottom Left
-    canvas.drawPath(
-      Path()
-        ..moveTo(rect.left, rect.bottom - length)
-        ..lineTo(rect.left, rect.bottom)
-        ..lineTo(rect.left + length, rect.bottom),
-      bracketPaint,
-    );
-    
-    // Bottom Right
-    canvas.drawPath(
-      Path()
-        ..moveTo(rect.right - length, rect.bottom)
-        ..lineTo(rect.right, rect.bottom)
-        ..lineTo(rect.right, rect.bottom - length),
-      bracketPaint,
-    );
   }
 
   @override
-  bool shouldRepaint(covariant _FaceOvalPainter oldDelegate) => 
+  bool shouldRepaint(covariant _FaceOvalPainter oldDelegate) =>
       oldDelegate.isVerified != isVerified || oldDelegate.isDark != isDark;
 }
 
+// ignore: unused_element
 class _ShutterButton extends StatelessWidget {
   final bool isEnabled;
   final VoidCallback onTap;
@@ -586,29 +753,36 @@ class _ShutterButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: isEnabled ? onTap : null,
-      child: Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 4),
-        ),
-        child: Container(
-          margin: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isEnabled ? Colors.white : Colors.white.withValues(alpha: 0.3),
+          onTap: isEnabled ? onTap : null,
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 4),
+            ),
+            child: Container(
+              margin: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isEnabled
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.3),
+              ),
+              child: Icon(
+                LucideIcons.camera,
+                color: isEnabled ? Colors.black : Colors.black26,
+                size: 32,
+              ),
+            ),
           ),
-          child: Icon(
-            LucideIcons.camera,
-            color: isEnabled ? Colors.black : Colors.black26,
-            size: 32,
-          ),
-        ),
-      ),
-    ).animate(target: isEnabled ? 1 : 0)
-     .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1), duration: 200.ms);
+        )
+        .animate(target: isEnabled ? 1 : 0)
+        .scale(
+          begin: const Offset(1, 1),
+          end: const Offset(1.1, 1.1),
+          duration: 200.ms,
+        );
   }
 }
 
@@ -654,7 +828,7 @@ class _MatchingDialogState extends State<_MatchingDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Center(
       child: Container(
         width: 300,
@@ -671,7 +845,12 @@ class _MatchingDialogState extends State<_MatchingDialog> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(80),
-                  child: Image.file(widget.file, width: 160, height: 160, fit: BoxFit.cover),
+                  child: Image.file(
+                    widget.file,
+                    width: 160,
+                    height: 160,
+                    fit: BoxFit.cover,
+                  ),
                 ),
                 // Scanning beam
                 Positioned(
@@ -682,7 +861,11 @@ class _MatchingDialogState extends State<_MatchingDialog> {
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       boxShadow: [
-                        BoxShadow(color: AppColors.primary, blurRadius: 10, spreadRadius: 2),
+                        BoxShadow(
+                          color: AppColors.primary,
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
                       ],
                     ),
                   ),
@@ -706,7 +889,9 @@ class _MatchingDialogState extends State<_MatchingDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              'match_found'.trParams({'percent': (_progress * 100).toInt().toString()}),
+              'match_found'.trParams({
+                'percent': (_progress * 100).toInt().toString(),
+              }),
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.primary,

@@ -48,11 +48,13 @@ abstract class AppRoutes {
   // Settings Sub-screens
   static const String discoveryPreferences = '/settings/discovery-preferences';
   static const String profilePrivacy = '/settings/profile-privacy';
+  static const String verificationCenter = '/settings/verification-center';
   static const String accountSecurity = '/settings/account-security';
   static const String subscription = '/settings/subscription';
   static const String appAppearance = '/settings/app-appearance';
-  static const String dataAnalytics = '/settings/data-analytics';
   static const String helpSupport = '/settings/help-support';
+  static const String clearCacheInfo = '/settings/clear-cache-info';
+  static const String resetAppDataInfo = '/settings/reset-app-data-info';
   static const String notificationSettings = '/settings/notification-settings';
   static const String changeUsername = '/settings/change-username';
   static const String visibility = '/settings/visibility';

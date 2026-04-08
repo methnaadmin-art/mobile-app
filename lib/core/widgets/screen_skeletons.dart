@@ -90,8 +90,9 @@ class UsersSkeleton extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: 4,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, __) => ShimmerLoading(width: 150, height: 200, borderRadius: 18),
+            separatorBuilder: (context, index) => const SizedBox(width: 12),
+            itemBuilder: (context, index) =>
+                ShimmerLoading(width: 150, height: 200, borderRadius: 18),
           ),
         ),
         const SizedBox(height: 24),
@@ -99,10 +100,13 @@ class UsersSkeleton extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
-            children: List.generate(4, (_) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ShimmerLoading(width: 70, height: 34, borderRadius: 20),
-            )),
+            children: List.generate(
+              4,
+              (_) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ShimmerLoading(width: 70, height: 34, borderRadius: 20),
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -119,7 +123,7 @@ class UsersSkeleton extends StatelessWidget {
               mainAxisSpacing: 12,
             ),
             itemCount: 4,
-            itemBuilder: (_, __) => ShimmerLoading(borderRadius: 18),
+            itemBuilder: (context, index) => ShimmerLoading(borderRadius: 18),
           ),
         ),
       ],
@@ -136,7 +140,7 @@ class ChatSkeleton extends StatelessWidget {
     return ListView.builder(
       physics: const NeverScrollableScrollPhysics(),
       itemCount: 8,
-      itemBuilder: (_, __) => Padding(
+      itemBuilder: (context, index) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Row(
           children: [

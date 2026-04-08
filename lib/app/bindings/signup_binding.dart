@@ -4,6 +4,8 @@ import 'package:methna_app/app/controllers/signup_controller.dart';
 class SignupBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<SignupController>(() => SignupController());
+    if (!Get.isRegistered<SignupController>()) {
+      Get.put<SignupController>(SignupController());
+    }
   }
 }

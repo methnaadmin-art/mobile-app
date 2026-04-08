@@ -1,13 +1,43 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.methna.methna_app"
+    val keystoreProperties = Properties()
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    val hasReleaseKeystore = keystorePropertiesFile.exists()
+    if (hasReleaseKeystore) {
+        keystoreProperties.load(keystorePropertiesFile.inputStream())
+    }
+    fun requireKeystoreProperty(name: String): String {
+        val value = keystoreProperties.getProperty(name)
+            ?: keystoreProperties.getProperty("\uFEFF$name")
+        return value?.trim()?.takeIf { it.isNotEmpty() }
+            ?: throw GradleException("Missing '$name' in android/key.properties")
+    }
+    fun resolveKeystoreFile(path: String) =
+        rootProject.file(path).takeIf { it.exists() }
+            ?: file(path).takeIf { it.exists() }
+            ?: throw GradleException(
+                "Release keystore file not found. " +
+                    "Checked '${rootProject.file(path).absolutePath}' and '${file(path).absolutePath}'."
+            )
+
+    val googleWebClientId =
+        (project.findProperty("GOOGLE_WEB_CLIENT_ID") as String?)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: System.getenv("GOOGLE_WEB_CLIENT_ID")
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+            ?: "980830018700-cjjk2dk6g53j5a60bd2n0nec3kf4fpq1.apps.googleusercontent.com"
+
+    namespace = "com.methna.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,21 +52,37 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.methna.methna_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = "com.methna.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // google_sign_in Android fallback reads this resource when explicit
+        // serverClientId is not provided by native config tools.
+        resValue("string", "default_web_client_id", googleWebClientId)
+    }
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = requireKeystoreProperty("keyAlias")
+                keyPassword = requireKeystoreProperty("keyPassword")
+                storeFile = resolveKeystoreFile(requireKeystoreProperty("storeFile"))
+                storePassword = requireKeystoreProperty("storePassword")
+            }
+        }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (!hasReleaseKeystore) {
+                throw GradleException(
+                    "Missing android/key.properties for release signing. " +
+                        "Create it from android/key.properties.example before building AAB."
+                )
+            }
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -48,4 +94,5 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation("com.google.android.gms:play-services-base:18.7.2")
 }

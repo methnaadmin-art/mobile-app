@@ -1,542 +1,754 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:methna_app/app/controllers/login_controller.dart';
-import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/core/utils/validators.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/controllers/locale_controller.dart';
+import 'package:methna_app/app/data/services/storage_service.dart';
+import 'package:methna_app/app/controllers/login_controller.dart';
+import 'package:methna_app/core/constants/app_constants.dart';
+import 'package:methna_app/core/utils/validators.dart';
+import 'package:methna_app/core/widgets/login_security_avatar.dart';
 
-class LoginScreen extends GetView<LoginController> {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  static const Color _purple = Color(0xFF8A14FF);
+  static const Color _purpleLight = Color(0xFFA93CFF);
+
+  final LoginController controller = Get.find<LoginController>();
+  final LocaleController _localeController = Get.find<LocaleController>();
+  final StorageService _storage = Get.find<StorageService>();
+  bool _showEmailForm = false;
+
+  void _toggleTheme() {
+    final useLight = Get.isDarkMode;
+    _storage.setThemeMode(useLight ? 'light' : 'dark');
+    Get.changeThemeMode(useLight ? ThemeMode.light : ThemeMode.dark);
+    setState(() {});
+  }
+
+  void _changeLanguage(String langCode) {
+    if (langCode == 'ar') {
+      _localeController.switchToArabic();
+    } else {
+      _localeController.switchToEnglish();
+    }
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final size = MediaQuery.of(context).size;
+    final surface = isDark ? const Color(0xFF1E1A28) : const Color(0xFFF7F7FA);
+    final border = isDark ? const Color(0xFF3A3445) : const Color(0xFFEAEAF0);
+    final textPrimary = isDark
+        ? const Color(0xFFF0ECF6)
+        : const Color(0xFF222222);
+    final textSecondary = isDark
+        ? const Color(0xFFA8A0B8)
+        : const Color(0xFF91919A);
+    final bgColor = isDark ? const Color(0xFF14101E) : Colors.white;
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [const Color(0xFF1A1A2E), const Color(0xFF16213E)]
-                : [const Color(0xFFFFF5F7), Colors.white],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Form(
-                key: controller.formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SizedBox(height: size.height * 0.06),
+      backgroundColor: bgColor,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => FocusScope.of(context).unfocus(),
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeOutCubic,
+                  transitionBuilder: (child, animation) {
+                    final curved = CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    );
+                    final slide = Tween<Offset>(
+                      begin: const Offset(0.08, 0),
+                      end: Offset.zero,
+                    ).animate(curved);
 
-                    // ── Logo & Branding ──
-                    _buildLogo(isDark),
-
-                    const SizedBox(height: 32),
-
-                    // ── Welcome Text ──
-                    _buildWelcomeText(isDark),
-
-                    const SizedBox(height: 40),
-
-                    // ── Login Form Card ──
-                    _buildLoginCard(context, isDark),
-
-                    const SizedBox(height: 24),
-
-                    // ── Divider with "or" ──
-                    _buildDivider(isDark),
-
-                    const SizedBox(height: 24),
-
-                    // ── Social Login Buttons ──
-                    _buildSocialButtons(isDark),
-
-                    const SizedBox(height: 32),
-
-                    // ── Sign Up Link ──
-                    _buildSignUpLink(isDark),
-
-                    const SizedBox(height: 24),
-                  ],
+                    return FadeTransition(
+                      opacity: curved,
+                      child: SlideTransition(position: slide, child: child),
+                    );
+                  },
+                  child: _showEmailForm
+                      ? Form(
+                          key: controller.formKey,
+                          child: _EmailLoginView(
+                            key: const ValueKey('email-login'),
+                            controller: controller,
+                            onBack: () =>
+                                setState(() => _showEmailForm = false),
+                            purple: _purple,
+                            purpleLight: _purpleLight,
+                            surface: surface,
+                            border: border,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                          ),
+                        )
+                      : _EntryLoginView(
+                          key: const ValueKey('entry-login'),
+                          controller: controller,
+                          onEmailLogin: () =>
+                              setState(() => _showEmailForm = true),
+                          purple: _purple,
+                          purpleLight: _purpleLight,
+                          border: border,
+                          textPrimary: textPrimary,
+                          textSecondary: textSecondary,
+                        ),
                 ),
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLogo(bool isDark) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 800),
-      curve: Curves.easeOutBack,
-      builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: Opacity(opacity: value, child: child),
-        );
-      },
-      child: Column(
-        children: [
-          Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE8396B), Color(0xFFFF6B9D)],
+            Positioned(
+              top: 6,
+              right: 10,
+              child: Row(
+                children: [
+                  _LoginQuickActionButton(
+                    icon: isDark ? LucideIcons.sun : LucideIcons.moon,
+                    onTap: _toggleTheme,
+                    tooltip: isDark ? 'light'.tr : 'dark'.tr,
+                    border: border,
+                    foreground: textPrimary,
+                    background: surface,
+                  ),
+                  const SizedBox(width: 8),
+                  PopupMenuButton<String>(
+                    initialValue: _localeController
+                        .currentLocale
+                        .value
+                        .languageCode
+                        .toLowerCase(),
+                    onSelected: _changeLanguage,
+                    tooltip: 'language'.tr,
+                    itemBuilder: (context) {
+                      final currentLang = _localeController
+                          .currentLocale
+                          .value
+                          .languageCode
+                          .toLowerCase();
+                      return [
+                        CheckedPopupMenuItem<String>(
+                          value: 'en',
+                          checked: currentLang == 'en',
+                          child: Text('language_english'.tr),
+                        ),
+                        CheckedPopupMenuItem<String>(
+                          value: 'ar',
+                          checked: currentLang == 'ar',
+                          child: Text('language_arabic'.tr),
+                        ),
+                      ];
+                    },
+                    child: _LoginQuickActionButton(
+                      icon: LucideIcons.languages,
+                      onTap: null,
+                      tooltip: 'language'.tr,
+                      border: border,
+                      foreground: textPrimary,
+                      background: surface,
+                    ),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.4),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: const Center(
-              child: Icon(
-                LucideIcons.heart,
-                size: 44,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFFE8396B), Color(0xFFFF6B9D)],
-            ).createShader(bounds),
-            child: const Text(
-              'Methna',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWelcomeText(bool isDark) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.easeOut,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - value)),
-            child: child,
-          ),
-        );
-      },
-      child: Column(
-        children: [
-          Text(
-            'welcome_back'.tr,
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.textPrimaryLight,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'login_subtitle'.tr,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: isDark ? Colors.white60 : AppColors.textSecondaryLight,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoginCard(BuildContext context, bool isDark) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 700),
-      curve: Curves.easeOut,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 30 * (1 - value)),
-            child: child,
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E32) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: isDark
-                  ? Colors.black26
-                  : Colors.black.withValues(alpha: 0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Email Field
-            _buildInputField(
-              controller: controller.emailController,
-              label: 'email'.tr,
-              hint: 'email_hint'.tr,
-              icon: LucideIcons.mail,
-              isDark: isDark,
-              validator: Validators.loginIdentifier,
+      ),
+    );
+  }
+}
+
+class _LoginQuickActionButton extends StatelessWidget {
+  const _LoginQuickActionButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+    required this.border,
+    required this.foreground,
+    required this.background,
+  });
+
+  final IconData icon;
+  final VoidCallback? onTap;
+  final String tooltip;
+  final Color border;
+  final Color foreground;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: Ink(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: background,
+              shape: BoxShape.circle,
+              border: Border.all(color: border),
             ),
+            child: Icon(icon, size: 17, color: foreground),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-            const SizedBox(height: 20),
+class _EntryLoginView extends StatelessWidget {
+  final LoginController controller;
+  final VoidCallback onEmailLogin;
+  final Color purple;
+  final Color purpleLight;
+  final Color border;
+  final Color textPrimary;
+  final Color textSecondary;
 
-            // Password Field
-            Obx(() => _buildInputField(
+  const _EntryLoginView({
+    super.key,
+    required this.controller,
+    required this.onEmailLogin,
+    required this.purple,
+    required this.purpleLight,
+    required this.border,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 760;
+
+        return ListView(
+          physics: const ClampingScrollPhysics(),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(
+            22,
+            compact ? 14 : 26,
+            22,
+            safeBottom + 16,
+          ),
+          children: [
+            SizedBox(height: compact ? 4 : 14),
+            Center(
+              child: Container(
+                width: 84,
+                height: 84,
+                decoration: BoxDecoration(
+                  color: purple.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: ClipOval(
+                  child: Image.asset(
+                    AppConstants.appLogoAsset,
+                    width: 52,
+                    height: 52,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            Text(
+              AppConstants.appName,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+                letterSpacing: -0.7,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'app_tagline'.tr,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: textSecondary,
+              ),
+            ),
+            SizedBox(height: compact ? 22 : 34),
+            Obx(
+              () => _SocialButton(
+                label: 'continue_with_google'.tr,
+                icon: const _BrandIcon.google(),
+                onTap: controller.isGoogleLoading.value
+                    ? null
+                    : controller.signInWithGoogle,
+                isLoading: controller.isGoogleLoading.value,
+                border: border,
+                textPrimary: textPrimary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            _SocialButton(
+              label: 'continue_with_apple'.tr,
+              icon: const _BrandIcon.apple(),
+              onTap: null,
+              border: border,
+              textPrimary: textPrimary,
+              comingSoon: true,
+            ),
+            const SizedBox(height: 14),
+            _SocialButton(
+              label: 'continue_with_facebook'.tr,
+              icon: const _BrandIcon.facebook(),
+              onTap: null,
+              border: border,
+              textPrimary: textPrimary,
+              comingSoon: true,
+            ),
+            const SizedBox(height: 14),
+            _SocialButton(
+              label: 'continue_with_twitter'.tr,
+              icon: const _BrandIcon.twitter(),
+              onTap: null,
+              border: border,
+              textPrimary: textPrimary,
+              comingSoon: true,
+            ),
+            SizedBox(height: compact ? 22 : 34),
+            _PrimaryAuthButton(
+              label: 'login'.tr,
+              onTap: onEmailLogin,
+              purple: purple,
+              purpleLight: purpleLight,
+            ),
+            const SizedBox(height: 18),
+            _FooterSignupRow(
+              textSecondary: textSecondary,
+              purple: purple,
+              onTap: controller.goToSignUp,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _EmailLoginView extends StatelessWidget {
+  final LoginController controller;
+  final VoidCallback onBack;
+  final Color purple;
+  final Color purpleLight;
+  final Color surface;
+  final Color border;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  const _EmailLoginView({
+    super.key,
+    required this.controller,
+    required this.onBack,
+    required this.purple,
+    required this.purpleLight,
+    required this.surface,
+    required this.border,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return ListView(
+      physics: const ClampingScrollPhysics(),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.fromLTRB(22, 6, 22, bottomInset + 18),
+      children: [
+        _EmailLoginContent(
+          controller: controller,
+          onBack: onBack,
+          purple: purple,
+          purpleLight: purpleLight,
+          surface: surface,
+          border: border,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          keyboardVisible: bottomInset > 0,
+        ),
+      ],
+    );
+  }
+}
+
+class _EmailLoginContent extends StatefulWidget {
+  final LoginController controller;
+  final VoidCallback onBack;
+  final Color purple;
+  final Color purpleLight;
+  final Color surface;
+  final Color border;
+  final Color textPrimary;
+  final Color textSecondary;
+  final bool keyboardVisible;
+
+  const _EmailLoginContent({
+    required this.controller,
+    required this.onBack,
+    required this.purple,
+    required this.purpleLight,
+    required this.surface,
+    required this.border,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.keyboardVisible,
+  });
+
+  @override
+  State<_EmailLoginContent> createState() => _EmailLoginContentState();
+}
+
+class _EmailLoginContentState extends State<_EmailLoginContent>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _formRevealCtrl;
+  late final FocusNode _identifierFocusNode;
+  late final FocusNode _passwordFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _formRevealCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
+    );
+    _identifierFocusNode = FocusNode()..addListener(_handleStateChange);
+    _passwordFocusNode = FocusNode()..addListener(_handleStateChange);
+    widget.controller.passwordController.addListener(_handleStateChange);
+    widget.controller.emailController.addListener(_handleStateChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _formRevealCtrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _formRevealCtrl.dispose();
+    _identifierFocusNode
+      ..removeListener(_handleStateChange)
+      ..dispose();
+    _passwordFocusNode
+      ..removeListener(_handleStateChange)
+      ..dispose();
+    widget.controller.passwordController.removeListener(_handleStateChange);
+    widget.controller.emailController.removeListener(_handleStateChange);
+    super.dispose();
+  }
+
+  void _handleStateChange() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Widget _staggered({
+    required double begin,
+    required double end,
+    required Widget child,
+  }) {
+    final animation = CurvedAnimation(
+      parent: _formRevealCtrl,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    );
+
+    final slide = Tween<Offset>(
+      begin: const Offset(0, 0.08),
+      end: Offset.zero,
+    ).animate(animation);
+
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(position: slide, child: child),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final onBack = widget.onBack;
+    final purple = widget.purple;
+    final purpleLight = widget.purpleLight;
+    final surface = widget.surface;
+    final border = widget.border;
+    final textPrimary = widget.textPrimary;
+    final textSecondary = widget.textSecondary;
+    final keyboardVisible = widget.keyboardVisible;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: onBack,
+          borderRadius: BorderRadius.circular(999),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(LucideIcons.arrowLeft, size: 20, color: textPrimary),
+          ),
+        ),
+        SizedBox(height: keyboardVisible ? 20 : 34),
+        _staggered(
+          begin: 0.0,
+          end: 0.34,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'welcome_back'.tr,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                  letterSpacing: -1.0,
+                  height: 1.12,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'login_subtitle'.tr,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: textSecondary,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: keyboardVisible ? 18 : 22),
+        _staggered(
+          begin: 0.12,
+          end: 0.5,
+          child: Center(
+            child: Obx(
+              () => LoginSecurityAvatar(
+                isPasswordFocused: _passwordFocusNode.hasFocus,
+                isPasswordVisible: !controller.obscurePassword.value,
+                hasPasswordText: controller.passwordController.text
+                    .trim()
+                    .isNotEmpty,
+                isIdentifierFocused: _identifierFocusNode.hasFocus,
+                size: keyboardVisible ? 96 : 114,
+                accent: purple,
+                accentLight: purpleLight,
+                faceColor: surface,
+                strokeColor: border,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: keyboardVisible ? 14 : 18),
+        _staggered(
+          begin: 0.24,
+          end: 0.64,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _FieldLabel(text: 'email'.tr, textPrimary: textPrimary),
+              const SizedBox(height: 10),
+              _ExactInputField(
+                controller: controller.emailController,
+                hint: 'email_hint'.tr,
+                prefix: const Icon(
+                  LucideIcons.mail,
+                  size: 16,
+                  color: Colors.black54,
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: Validators.email,
+                fillColor: surface,
+                border: border,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+                focusNode: _identifierFocusNode,
+                onChanged: (_) => _handleStateChange(),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _staggered(
+          begin: 0.34,
+          end: 0.76,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _FieldLabel(text: 'password'.tr, textPrimary: textPrimary),
+              const SizedBox(height: 10),
+              Obx(
+                () => _ExactInputField(
                   controller: controller.passwordController,
-                  label: 'password'.tr,
                   hint: 'password_hint'.tr,
-                  icon: LucideIcons.lock,
-                  isDark: isDark,
-                  isPassword: true,
-                  obscureText: controller.obscurePassword.value,
-                  onToggleVisibility: controller.togglePasswordVisibility,
-                  validator: Validators.password,
-                )),
-
-            const SizedBox(height: 16),
-
-            // Remember Me & Forgot Password
-            Row(
-              children: [
-                Obx(() => GestureDetector(
-                      onTap: () => controller.rememberMe.toggle(),
-                      child: Row(
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              gradient: controller.rememberMe.value
-                                  ? const LinearGradient(
-                                      colors: [
-                                        Color(0xFFE8396B),
-                                        Color(0xFFFF6B9D)
-                                      ],
-                                    )
-                                  : null,
-                              color: controller.rememberMe.value
-                                  ? null
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: controller.rememberMe.value
-                                    ? Colors.transparent
-                                    : (isDark ? Colors.white30 : Colors.grey.shade400),
-                                width: 1.5,
-                              ),
-                            ),
-                            child: controller.rememberMe.value
-                                ? const Icon(
-                                    LucideIcons.check,
-                                    size: 14,
-                                    color: Colors.white,
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'remember_me'.tr,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark ? Colors.white70 : Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
+                  prefix: const Icon(
+                    LucideIcons.lock,
+                    size: 16,
+                    color: Colors.black54,
+                  ),
+                  suffix: InkWell(
+                    onTap: controller.togglePasswordVisibility,
+                    borderRadius: BorderRadius.circular(999),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        controller.obscurePassword.value
+                            ? LucideIcons.eyeOff
+                            : LucideIcons.eye,
+                        size: 16,
+                        color: Colors.black54,
                       ),
-                    )),
-                const Spacer(),
-                GestureDetector(
-                  onTap: controller.goToForgotPassword,
-                  child: Text(
-                    'forgot_password'.tr,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                    ),
+                  ),
+                  obscureText: controller.obscurePassword.value,
+                  validator: Validators.password,
+                  textInputAction: TextInputAction.done,
+                  fillColor: surface,
+                  border: border,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  focusNode: _passwordFocusNode,
+                  onChanged: (_) => _handleStateChange(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _staggered(
+          begin: 0.46,
+          end: 0.88,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 360;
+
+              final rememberMeWidget = Obx(
+                () => InkWell(
+                  onTap: controller.rememberMe.toggle,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: 17,
+                          height: 17,
+                          decoration: BoxDecoration(
+                            color: controller.rememberMe.value
+                                ? purple
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: purple, width: 1.4),
+                          ),
+                          child: controller.rememberMe.value
+                              ? const Icon(
+                                  LucideIcons.check,
+                                  size: 11,
+                                  color: Colors.white,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'remember_me'.tr,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: textPrimary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ),
+              );
 
-            const SizedBox(height: 28),
+              final forgotWidget = GestureDetector(
+                onTap: controller.goToForgotPassword,
+                child: Text(
+                  'forgot_password'.tr,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: purple,
+                  ),
+                ),
+              );
 
-            // Login Button
-            Obx(() => _buildGradientButton(
-                  onPressed: controller.isLoading.value ? null : controller.login,
-                  isLoading: controller.isLoading.value,
+              if (narrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    rememberMeWidget,
+                    const SizedBox(height: 10),
+                    forgotWidget,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: rememberMeWidget),
+                  forgotWidget,
+                ],
+              );
+            },
+          ),
+        ),
+        SizedBox(height: keyboardVisible ? 28 : 34),
+        _staggered(
+          begin: 0.58,
+          end: 1.0,
+          child: Column(
+            children: [
+              Obx(
+                () => _PrimaryAuthButton(
                   label: 'login'.tr,
-                )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    required bool isDark,
-    bool isPassword = false,
-    bool obscureText = false,
-    VoidCallback? onToggleVisibility,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white70 : Colors.grey.shade700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: obscureText,
-          validator: validator,
-          style: TextStyle(
-            fontSize: 15,
-            color: isDark ? Colors.white : AppColors.textPrimaryLight,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(
-              color: isDark ? Colors.white38 : Colors.grey.shade400,
-              fontSize: 14,
-            ),
-            prefixIcon: Container(
-              margin: const EdgeInsets.only(right: 12),
-              child: Icon(
-                icon,
-                size: 20,
-                color: isDark ? Colors.white54 : Colors.grey.shade500,
-              ),
-            ),
-            prefixIconConstraints: const BoxConstraints(minWidth: 44),
-            suffixIcon: isPassword
-                ? GestureDetector(
-                    onTap: onToggleVisibility,
-                    child: Icon(
-                      obscureText ? LucideIcons.eyeOff : LucideIcons.eye,
-                      size: 20,
-                      color: isDark ? Colors.white54 : Colors.grey.shade500,
-                    ),
-                  )
-                : null,
-            filled: true,
-            fillColor: isDark
-                ? Colors.white.withValues(alpha: 0.05)
-                : Colors.grey.shade50,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: isDark ? Colors.white12 : Colors.grey.shade200,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: AppColors.primary,
-                width: 1.5,
-              ),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.error),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGradientButton({
-    required VoidCallback? onPressed,
-    required bool isLoading,
-    required String label,
-  }) {
-    return Container(
-      width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFE8396B), Color(0xFFFF6B9D)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: isLoading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
-              )
-            : Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+                  onTap: controller.isLoading.value ? null : controller.login,
+                  purple: purple,
+                  purpleLight: purpleLight,
+                  isLoading: controller.isLoading.value,
                 ),
               ),
-      ),
-    );
-  }
-
-  Widget _buildDivider(bool isDark) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  isDark ? Colors.white24 : Colors.grey.shade300,
-                ],
+              const SizedBox(height: 18),
+              _FooterSignupRow(
+                textSecondary: textSecondary,
+                purple: purple,
+                onTap: controller.goToSignUp,
               ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'or'.tr,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.white54 : Colors.grey.shade500,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  isDark ? Colors.white24 : Colors.grey.shade300,
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSocialButtons(bool isDark) {
-    return Column(
-      children: [
-        // Google Sign In Button
-        Obx(() => _SocialButton(
-              onPressed: controller.isGoogleLoading.value
-                  ? null
-                  : controller.signInWithGoogle,
-              icon: 'G',
-              label: 'continue_with_google'.tr,
-              isDark: isDark,
-              isLoading: controller.isGoogleLoading.value,
-              isGoogle: true,
-            )),
-      ],
-    );
-  }
-
-  Widget _buildSignUpLink(bool isDark) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          'no_account'.tr,
-          style: TextStyle(
-            fontSize: 14,
-            color: isDark ? Colors.white60 : Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(width: 4),
-        GestureDetector(
-          onTap: controller.goToSignUp,
-          child: const Text(
-            'Sign Up',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
+              const SizedBox(height: 12),
+            ],
           ),
         ),
       ],
@@ -544,106 +756,390 @@ class LoginScreen extends GetView<LoginController> {
   }
 }
 
-// ─── Social Button Widget ─────────────────────────────────────────────────
 class _SocialButton extends StatelessWidget {
-  final VoidCallback? onPressed;
-  final String icon;
   final String label;
-  final bool isDark;
+  final Widget icon;
+  final VoidCallback? onTap;
   final bool isLoading;
-  final bool isGoogle;
+  final Color border;
+  final Color textPrimary;
+  final bool comingSoon;
 
   const _SocialButton({
-    required this.onPressed,
-    required this.icon,
     required this.label,
-    required this.isDark,
+    required this.icon,
+    required this.onTap,
+    required this.border,
+    required this.textPrimary,
     this.isLoading = false,
-    this.isGoogle = false,
+    this.comingSoon = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E32) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? Colors.white12 : Colors.grey.shade200,
+    final isDisabled = onTap == null && !isLoading;
+    final content = Row(
+      children: [
+        SizedBox(width: 22, height: 22, child: Center(child: icon)),
+        Expanded(
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  )
+                : Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+          ),
         ),
+        const SizedBox(width: 22),
+      ],
+    );
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: isLoading ? null : onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          height: 52,
+          decoration: BoxDecoration(
+            color: isDisabled
+                ? border.withValues(alpha: 0.3)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: border),
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Center(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 180),
+                      opacity: isDisabled ? 0.66 : 1,
+                      child: comingSoon
+                          ? ImageFiltered(
+                              imageFilter: ImageFilter.blur(
+                                sigmaX: 0.9,
+                                sigmaY: 0.9,
+                              ),
+                              child: content,
+                            )
+                          : content,
+                    ),
+                  ),
+                ),
+              ),
+              if (comingSoon)
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: border),
+                    ),
+                    child: Text(
+                      'coming_soon'.tr,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF7E7E88),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BrandIcon extends StatelessWidget {
+  final Widget child;
+
+  const _BrandIcon._({required this.child});
+
+  const _BrandIcon.google()
+    : this._(
+        child: const Text(
+          'G',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFFEA4335),
+          ),
+        ),
+      );
+
+  const _BrandIcon.apple()
+    : this._(child: const Icon(Icons.apple, size: 20, color: Colors.black));
+
+  const _BrandIcon.facebook()
+    : this._(
+        child: const Icon(Icons.facebook, size: 20, color: Color(0xFF1877F2)),
+      );
+
+  const _BrandIcon.twitter()
+    : this._(
+        child: const Text(
+          'X',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1DA1F2),
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) => child;
+}
+
+class _PrimaryAuthButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final bool isLoading;
+  final Color purple;
+  final Color purpleLight;
+
+  const _PrimaryAuthButton({
+    required this.label,
+    required this.onTap,
+    required this.purple,
+    required this.purpleLight,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [purple, purpleLight],
+        ),
+        borderRadius: BorderRadius.circular(999),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: purple.withValues(alpha: 0.24),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isLoading)
-                  SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: isDark ? Colors.white : AppColors.primary,
-                    ),
-                  )
-                else ...[
-                  if (isGoogle)
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: const BoxDecoration(
-                        image: DecorationImage(
-                          image: NetworkImage(
-                            'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                          ),
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                      child: const Text(
-                        'G',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF4285F4),
-                        ),
+          onTap: isLoading ? null : onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: SizedBox(
+            height: 54,
+            child: Center(
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
                       ),
                     )
-                  else
-                    Text(
-                      icon,
-                      style: TextStyle(
-                        fontSize: 20,
+                  : Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : Colors.black87,
+                        color: Colors.white,
                       ),
                     ),
-                  const SizedBox(width: 12),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.grey.shade800,
-                    ),
-                  ),
-                ],
-              ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FooterSignupRow extends StatelessWidget {
+  final Color textSecondary;
+  final Color purple;
+  final VoidCallback onTap;
+
+  const _FooterSignupRow({
+    required this.textSecondary,
+    required this.purple,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            'no_account'.tr,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: textSecondary,
+            ),
+          ),
+          GestureDetector(
+            onTap: onTap,
+            child: Text(
+              'sign_up'.tr,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: purple,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  final Color textPrimary;
+
+  const _FieldLabel({required this.text, required this.textPrimary});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: textPrimary,
+      ),
+    );
+  }
+}
+
+class _ExactInputField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final Widget? prefix;
+  final Widget? suffix;
+  final bool obscureText;
+  final TextInputType keyboardType;
+  final String? Function(String?)? validator;
+  final TextInputAction textInputAction;
+  final FocusNode? focusNode;
+  final ValueChanged<String>? onChanged;
+  final Color fillColor;
+  final Color border;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  const _ExactInputField({
+    required this.controller,
+    required this.hint,
+    required this.fillColor,
+    required this.border,
+    required this.textPrimary,
+    required this.textSecondary,
+    this.prefix,
+    this.suffix,
+    this.obscureText = false,
+    this.keyboardType = TextInputType.text,
+    this.validator,
+    this.textInputAction = TextInputAction.next,
+    this.focusNode,
+    this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      validator: validator,
+      textInputAction: textInputAction,
+      focusNode: focusNode,
+      onChanged: onChanged,
+      cursorColor: _LoginScreenState._purple,
+      autocorrect: false,
+      enableSuggestions: !obscureText,
+      scrollPadding: const EdgeInsets.only(bottom: 160),
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: textPrimary,
+      ),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: textSecondary,
+        ),
+        filled: true,
+        fillColor: fillColor,
+        prefixIcon: prefix == null
+            ? null
+            : Align(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 14),
+                  child: prefix,
+                ),
+              ),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 42,
+          maxWidth: 42,
+          minHeight: 20,
+        ),
+        suffixIcon: suffix,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: _LoginScreenState._purple,
+            width: 1.2,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.redAccent),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.redAccent),
         ),
       ),
     );

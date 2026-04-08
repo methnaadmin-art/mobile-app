@@ -16,15 +16,34 @@ class SocketService extends GetxService with WidgetsBindingObserver {
   final StorageService _storage = Get.find<StorageService>();
   final RxBool isConnected = false.obs;
   final RxBool isReconnecting = false.obs;
+  bool _initialized = false;
+  bool _isConnecting = false;
+  bool _isNotifConnecting = false;
+  bool _allowAutoReconnect = true;
+  bool _isDisposingSocket = false;
 
   // Exponential backoff state
   Timer? _reconnectTimer;
+  Timer? _resumeReconnectTimer;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 10;
   static const int _baseDelayMs = 1000;
   static const int _maxDelayMs = 32000;
 
+  io.OptionBuilder _socketOptions(String token) {
+    return io.OptionBuilder()
+        .setPath('/socket.io')
+        .setTransports(['websocket', 'polling'])
+        .setAuth({'token': token})
+        .setTimeout(20000)
+        .disableAutoConnect()
+        .disableReconnection()
+        .enableForceNew();
+  }
+
   Future<SocketService> init() async {
+    if (_initialized) return this;
+    _initialized = true;
     WidgetsBinding.instance.addObserver(this);
     return this;
   }
@@ -33,6 +52,7 @@ class SocketService extends GetxService with WidgetsBindingObserver {
   void onClose() {
     WidgetsBinding.instance.removeObserver(this);
     _reconnectTimer?.cancel();
+    _resumeReconnectTimer?.cancel();
     disconnect();
     super.onClose();
   }
@@ -41,83 +61,174 @@ class SocketService extends GetxService with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint('[Socket] App resumed - attempting reconnect');
-      _attemptReconnect();
+      if (isConnected.value || _isConnecting) return;
+      _resumeReconnectTimer?.cancel();
+      debugPrint('[Socket] App resumed - scheduling reconnect');
+      _resumeReconnectTimer = Timer(const Duration(milliseconds: 350), () {
+        if (isConnected.value || _isConnecting) return;
+        debugPrint('[Socket] App resumed - attempting reconnect');
+        _attemptReconnect();
+      });
+    } else if (state == AppLifecycleState.paused) {
+      _resumeReconnectTimer?.cancel();
     }
   }
 
   Future<void> connect() async {
-    final token = await _storage.getToken();
-    if (token == null) return;
+    if (_isConnecting || isConnected.value) return;
 
-    // Disconnect existing sockets before reconnecting
-    disconnect();
+    final token = await _storage.getToken();
+    if (token == null || token.isEmpty) return;
+
+    // Always reconnect with a fresh socket/auth payload to avoid stale-token loops.
+    _allowAutoReconnect = true;
+    _reconnectTimer?.cancel();
+    isReconnecting.value = false;
+    _disposeChatSocket();
+
+    _isConnecting = true;
 
     // ─── Chat Socket (default namespace) ─────────────────
     _chatSocket = io.io(
       ApiConstants.socketUrl,
-      io.OptionBuilder()
-          .setTransports(['websocket'])
-          .setAuth({'token': token})
-          .enableAutoConnect()
-          .enableReconnection()
-          .setReconnectionDelay(1000)
-          .setReconnectionAttempts(10)
-          .build(),
+      _socketOptions(token).build(),
     );
 
     _chatSocket!.onConnect((_) {
+      _isConnecting = false;
       isConnected.value = true;
       isReconnecting.value = false;
       _reconnectAttempts = 0;
       debugPrint('[Socket] Connected successfully');
+      _connectNotificationSocket(token);
       _flushMessageQueue();
     });
 
     _chatSocket!.onDisconnect((_) {
+      _isConnecting = false;
       isConnected.value = false;
+      _disposeNotificationSocket();
+
+      if (_isDisposingSocket) {
+        debugPrint('[Socket] Disconnected (socket reset)');
+        return;
+      }
+
       debugPrint('[Socket] Disconnected');
-      _scheduleReconnect();
+      if (_allowAutoReconnect) {
+        _scheduleReconnect();
+      }
     });
 
     _chatSocket!.onConnectError((error) {
+      _isConnecting = false;
       isConnected.value = false;
+
+      if (_isDisposingSocket) {
+        debugPrint('[Socket] Connection error during socket reset: $error');
+        return;
+      }
+
       debugPrint('[Socket] Connection error: $error');
-      _scheduleReconnect();
+      if (_allowAutoReconnect) {
+        _scheduleReconnect();
+      }
+    });
+    _chatSocket!.onError((error) {
+      debugPrint('[Socket] Error: $error');
+      final asText = '$error'.toLowerCase();
+      if (_allowAutoReconnect &&
+          !isConnected.value &&
+          !_isConnecting &&
+          asText.contains('timeout')) {
+        _scheduleReconnect();
+      }
     });
 
     // ─── Notification Socket (/notifications namespace) ──
-    _notifSocket = io.io(
-      '${ApiConstants.socketUrl}/notifications',
-      io.OptionBuilder()
-          .setTransports(['websocket'])
-          .setAuth({'token': token})
-          .enableAutoConnect()
-          .enableReconnection()
-          .setReconnectionDelay(1000)
-          .setReconnectionAttempts(10)
-          .build(),
-    );
-
-    _notifSocket!.on('notification', _handleRealtimeNotification);
-    _notifSocket!.on('pendingNotifications', _handlePendingNotifications);
+    _chatSocket!.connect();
   }
 
-  void disconnect() {
-    _reconnectTimer?.cancel();
-    try { _chatSocket?.disconnect(); } catch (_) {}
-    try { _chatSocket?.dispose(); } catch (_) {}
-    _chatSocket = null;
-    try { _notifSocket?.disconnect(); } catch (_) {}
-    try { _notifSocket?.dispose(); } catch (_) {}
+  void _connectNotificationSocket(String token) {
+    if (_notifSocket != null || _isNotifConnecting) return;
+
+    _isNotifConnecting = true;
+    _notifSocket = io.io(
+      '${ApiConstants.socketUrl}/notifications',
+      _socketOptions(token).build(),
+    );
+
+    _notifSocket!.onConnect((_) {
+      _isNotifConnecting = false;
+      debugPrint('[Socket] Notification socket connected');
+    });
+    _notifSocket!.onDisconnect((_) {
+      _isNotifConnecting = false;
+    });
+    _notifSocket!.onConnectError((error) {
+      _isNotifConnecting = false;
+      debugPrint('[Socket] Notification connection error: $error');
+    });
+    _notifSocket!.onError((error) {
+      debugPrint('[Socket] Notification error: $error');
+    });
+    _notifSocket!.on('notification', _handleRealtimeNotification);
+    _notifSocket!.on('pendingNotifications', _handlePendingNotifications);
+    _notifSocket!.connect();
+  }
+
+  void _disposeNotificationSocket() {
+    _isNotifConnecting = false;
+    try {
+      _notifSocket?.disconnect();
+    } catch (_) {}
+    try {
+      _notifSocket?.dispose();
+    } catch (_) {}
     _notifSocket = null;
+  }
+
+  void _disposeChatSocket() {
+    if (_chatSocket == null) return;
+
+    _isDisposingSocket = true;
+    _isConnecting = false;
+    try {
+      _chatSocket?.off('connect');
+      _chatSocket?.off('disconnect');
+      _chatSocket?.off('connect_error');
+      _chatSocket?.off('error');
+    } catch (_) {}
+    try {
+      _chatSocket?.disconnect();
+    } catch (_) {}
+    try {
+      _chatSocket?.dispose();
+    } catch (_) {}
+    _chatSocket = null;
+    _isDisposingSocket = false;
+  }
+
+  void disconnect({bool manual = true}) {
+    if (manual) {
+      _allowAutoReconnect = false;
+    }
+    _reconnectTimer?.cancel();
+    _disposeChatSocket();
+    _disposeNotificationSocket();
     isConnected.value = false;
     isReconnecting.value = false;
+    _isConnecting = false;
   }
 
   // ─── Exponential Backoff Reconnect ─────────────────────────
 
   void _scheduleReconnect() {
+    if (!_allowAutoReconnect) {
+      isReconnecting.value = false;
+      return;
+    }
+
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       debugPrint('[Socket] Max reconnect attempts reached');
       isReconnecting.value = false;
@@ -128,8 +239,13 @@ class SocketService extends GetxService with WidgetsBindingObserver {
     isReconnecting.value = true;
 
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s (capped)
-    final delayMs = (_baseDelayMs * (1 << _reconnectAttempts)).clamp(_baseDelayMs, _maxDelayMs);
-    debugPrint('[Socket] Scheduling reconnect in ${delayMs}ms (attempt ${_reconnectAttempts + 1})');
+    final delayMs = (_baseDelayMs * (1 << _reconnectAttempts)).clamp(
+      _baseDelayMs,
+      _maxDelayMs,
+    );
+    debugPrint(
+      '[Socket] Scheduling reconnect in ${delayMs}ms (attempt ${_reconnectAttempts + 1})',
+    );
 
     _reconnectTimer = Timer(Duration(milliseconds: delayMs), () {
       _reconnectAttempts++;
@@ -138,11 +254,12 @@ class SocketService extends GetxService with WidgetsBindingObserver {
   }
 
   void _attemptReconnect() async {
-    if (isConnected.value) return;
-    
+    if (!_allowAutoReconnect || isConnected.value || _isConnecting) return;
+
     final token = await _storage.getToken();
     if (token == null) {
       debugPrint('[Socket] No token - cannot reconnect');
+      isReconnecting.value = false;
       return;
     }
 
@@ -167,7 +284,8 @@ class SocketService extends GetxService with WidgetsBindingObserver {
   /// Force reconnect (public API)
   void forceReconnect() {
     _reconnectAttempts = 0;
-    disconnect();
+    _allowAutoReconnect = true;
+    disconnect(manual: false);
     _attemptReconnect();
   }
 
@@ -175,12 +293,21 @@ class SocketService extends GetxService with WidgetsBindingObserver {
   void _handleRealtimeNotification(dynamic data) {
     if (data == null) return;
     try {
-      final notif = NotificationModel.fromJson(data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data));
+      final notif = NotificationModel.fromJson(
+        data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data),
+      );
       // Update service list
       if (Get.isRegistered<NotificationService>()) {
         final service = Get.find<NotificationService>();
+        if (notif.id.isNotEmpty &&
+            service.notifications.any((existing) => existing.id == notif.id)) {
+          return;
+        }
         service.notifications.insert(0, notif);
-        service.unreadCount.value++;
+        service.unreadCount.value = service.notifications
+            .where((n) => !n.isRead)
+            .length;
+        service.hasUnreadNotifications.value = service.unreadCount.value > 0;
       }
       // Show in-app toast
       _showNotificationToast(notif);
@@ -192,17 +319,25 @@ class SocketService extends GetxService with WidgetsBindingObserver {
     try {
       if (Get.isRegistered<NotificationService>()) {
         final service = Get.find<NotificationService>();
-        final pending = data.map((n) => NotificationModel.fromJson(
-          n is Map<String, dynamic> ? n : Map<String, dynamic>.from(n),
-        )).toList();
+        final pending = data
+            .map(
+              (n) => NotificationModel.fromJson(
+                n is Map<String, dynamic> ? n : Map<String, dynamic>.from(n),
+              ),
+            )
+            .toList();
         // Merge: add any we don't already have
         for (final n in pending) {
           if (!service.notifications.any((e) => e.id == n.id)) {
             service.notifications.add(n);
           }
         }
-        service.notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        service.unreadCount.value = service.notifications.where((n) => !n.isRead).length;
+        service.notifications.sort(
+          (a, b) => b.createdAt.compareTo(a.createdAt),
+        );
+        service.unreadCount.value = service.notifications
+            .where((n) => !n.isRead)
+            .length;
       }
     } catch (_) {}
   }
@@ -241,13 +376,20 @@ class SocketService extends GetxService with WidgetsBindingObserver {
 
   IconData _notifIcon(String type) {
     switch (type) {
-      case 'match': return LucideIcons.heart;
-      case 'like': return LucideIcons.heartHandshake;
-      case 'message': return LucideIcons.messageSquare;
-      case 'subscription': return LucideIcons.crown;
-      case 'profile_view': return LucideIcons.eye;
-      case 'verification': return LucideIcons.shieldCheck;
-      default: return LucideIcons.bell;
+      case 'match':
+        return LucideIcons.heart;
+      case 'like':
+        return LucideIcons.heartHandshake;
+      case 'message':
+        return LucideIcons.messageSquare;
+      case 'subscription':
+        return LucideIcons.crown;
+      case 'profile_view':
+        return LucideIcons.eye;
+      case 'verification':
+        return LucideIcons.shieldCheck;
+      default:
+        return LucideIcons.bell;
     }
   }
 
@@ -261,14 +403,15 @@ class SocketService extends GetxService with WidgetsBindingObserver {
   }
 
   void sendMessage(String conversationId, String content) {
-    emit('sendMessage', {
-      'conversationId': conversationId,
-      'content': content,
-    });
+    emit('sendMessage', {'conversationId': conversationId, 'content': content});
   }
 
   /// Send message with client-generated ID for duplicate prevention and tracking
-  void sendMessageWithId(String conversationId, String content, String clientMsgId) {
+  void sendMessageWithId(
+    String conversationId,
+    String content,
+    String clientMsgId,
+  ) {
     emit('sendMessage', {
       'conversationId': conversationId,
       'content': content,
@@ -306,5 +449,6 @@ class SocketService extends GetxService with WidgetsBindingObserver {
   void onUserOnline(Function(dynamic) callback) => on('userOnline', callback);
   void onUserOffline(Function(dynamic) callback) => on('userOffline', callback);
   void onNewMatch(Function(dynamic) callback) => on('newMatch', callback);
-  void onNewNotification(Function(dynamic) callback) => on('notification', callback);
+  void onNewNotification(Function(dynamic) callback) =>
+      on('notification', callback);
 }

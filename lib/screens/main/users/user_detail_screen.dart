@@ -1,231 +1,68 @@
-// AGENTIC_STABILIZATION_V2
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:methna_app/app/data/models/user_model.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/home_controller.dart';
 import 'package:methna_app/app/controllers/settings_controller.dart';
+import 'package:methna_app/app/controllers/users_controller.dart';
+import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/monetization_service.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/core/utils/cloudinary_url.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-import 'package:methna_app/core/widgets/islamic_pattern_painter.dart';
-import 'package:methna_app/core/widgets/mihrab_clipper.dart';
+import 'package:methna_app/screens/main/profile/profile_screen.dart';
 
-class UserDetailScreen extends StatelessWidget {
+class UserDetailScreen extends StatefulWidget {
   const UserDetailScreen({super.key});
+
+  @override
+  State<UserDetailScreen> createState() => _UserDetailScreenState();
+}
+
+class _UserDetailScreenState extends State<UserDetailScreen> {
+  bool _didRecordView = false;
 
   @override
   Widget build(BuildContext context) {
     final args = Get.arguments as Map<String, dynamic>?;
-    final UserModel? userModel = args?['user'];
+    final user = args?['user'] as UserModel?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final home = Get.find<HomeController>();
 
-    if (userModel == null) {
+    if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('User Profile')),
-        body: const Center(child: Text('User not found')),
+        appBar: AppBar(title: Text('profile'.tr)),
+        body: Center(child: Text('user_not_found'.tr)),
       );
     }
 
-    // Explicit non-nullable promotion for closures
-    final UserModel user = userModel;
+    if (!_didRecordView) {
+      _didRecordView = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Get.find<MonetizationService>().recordProfileView(user.id);
+        }
+      });
+    }
 
-    // Record profile view
-    Get.find<MonetizationService>().recordProfileView(user.id);
+    final usersController = Get.isRegistered<UsersController>()
+        ? Get.find<UsersController>()
+        : null;
+    final hideActions =
+        home.hasInteractedWith(user.id) ||
+        (usersController?.hasInteractedWith(user.id) ?? false);
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF9F6F2),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: IslamicPatternWidget(
-              opacity: isDark ? 0.03 : 0.05,
-              color: isDark ? Colors.white : AppColors.emerald,
-            ),
-          ),
-          
-          CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 400,
-                pinned: true,
-                leading: IconButton(
-                  icon: _buildMihrabIconButton(LucideIcons.chevronLeft),
-                  onPressed: () => Get.back(),
-                ),
-                actions: [
-                  IconButton(
-                    icon: _buildMihrabIconButton(LucideIcons.moreVertical),
-                    onPressed: () => _showUserActions(context, user),
-                  ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: _GalleryHeader(user: user),
-                ),
-              ),
-
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (user.profile?.bio != null) ...[
-                        Text('About', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 8),
-                        Text(user.profile!.bio!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.6)),
-                        const SizedBox(height: 24),
-                      ],
-
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          if (user.profile?.gender != null)
-                            _InfoChip(icon: LucideIcons.user, label: user.profile!.gender!.capitalize!),
-                          if (user.profile?.maritalStatus != null)
-                            _InfoChip(icon: LucideIcons.heart, label: user.profile!.maritalStatus!.capitalize!),
-                          if (user.profile?.height != null)
-                            _InfoChip(icon: LucideIcons.ruler, label: '${user.profile!.height} cm'),
-                          if (user.profile?.education != null)
-                            _InfoChip(icon: LucideIcons.graduationCap, label: user.profile!.education!),
-                          if (user.profile?.jobTitle != null)
-                            _InfoChip(icon: LucideIcons.briefcase, label: user.profile!.jobTitle!),
-                          if (user.profile?.religiousLevel != null)
-                            _InfoChip(icon: LucideIcons.moon, label: user.profile!.religiousLevel!),
-                        ],
-                      ),
-
-                      if (user.profile?.interests != null && user.profile!.interests!.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        Text('Interests', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: user.profile!.interests!.map((i) => _buildInterestTag(i)).toList(),
-                        ),
-                      ],
-
-                      const SizedBox(height: 180),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      bottomNavigationBar: _buildBottomBar(context, user, isDark),
-    );
-  }
-
-  Widget _buildMihrabIconButton(IconData icon) {
-    return Container(
-      width: 44, height: 48,
-      padding: const EdgeInsets.all(2),
-      child: ClipPath(
-        clipper: MihrabClipper(),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black38,
-            border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
+      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+      body: SafeArea(
+        bottom: false,
+        child: ProfileShowcaseContent(
+          user: user,
+          onBack: () => Get.back(),
+          onMore: () => _showUserActions(context, user),
+          extraBottomPadding: 160,
         ),
       ),
-    );
-  }
-
-  Widget _buildInterestTag(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.gold.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.gold.withValues(alpha: 0.2)),
-      ),
-      child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.gold)),
-    );
-  }
-
-  Widget _buildBottomBar(BuildContext context, UserModel user, bool isDark) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundDark : Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))],
-      ),
-      child: Row(
-        children: [
-          _CircleActionBtn(
-            icon: LucideIcons.x,
-            color: AppColors.textHintLight,
-            onTap: () {
-              Get.find<HomeController>().passUser(user.id);
-              Get.back();
-            },
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Container(
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: AppColors.goldPremiumGradient,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: InkWell(
-                onTap: () {
-                  Get.find<HomeController>().likeUser(user.id);
-                  Get.back();
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: const Center(
-                  child: Text('Interested', style: TextStyle(color: AppColors.secondary, fontSize: 18, fontWeight: FontWeight.w800)),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          _CircleActionBtn(
-            icon: LucideIcons.award,
-            color: AppColors.gold,
-            onTap: () => _showComplimentDialog(context, user.id),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showComplimentDialog(BuildContext context, String userId) {
-    final controller = Get.find<HomeController>();
-    final tc = TextEditingController();
-    Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Send Compliment', style: TextStyle(fontWeight: FontWeight.w700)),
-        content: TextField(
-          controller: tc,
-          maxLength: 200,
-          autofocus: true,
-          decoration: InputDecoration(hintText: 'Write something nice...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-          maxLines: 3,
-        ),
-        actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              if (tc.text.trim().isNotEmpty) {
-                controller.complimentUser(userId, tc.text.trim());
-                Get.back();
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            child: const Text('Send'),
-          ),
-        ],
-      ),
+      bottomNavigationBar: hideActions
+          ? null
+          : _BottomActionBar(isDark: isDark, user: user),
     );
   }
 
@@ -246,7 +83,7 @@ class UserDetailScreen extends StatelessWidget {
               title: Text('block_user'.tr),
               onTap: () {
                 Get.back();
-                _confirmBlock(user);
+                Get.find<SettingsController>().blockUser(user.id);
               },
             ),
             ListTile(
@@ -254,7 +91,7 @@ class UserDetailScreen extends StatelessWidget {
               title: Text('report_user'.tr),
               onTap: () {
                 Get.back();
-                _showReportDialog(user);
+                _showReportDialog(context, user);
               },
             ),
           ],
@@ -263,93 +100,352 @@ class UserDetailScreen extends StatelessWidget {
     );
   }
 
-  void _confirmBlock(UserModel user) {
-    Get.find<SettingsController>().blockUser(user.id);
-  }
+  void _showReportDialog(BuildContext context, UserModel user) {
+    final noteController = TextEditingController();
+    var selectedReason = 'spam';
+    var isSubmitting = false;
 
-  void _showReportDialog(UserModel user) {
-    Get.find<SettingsController>().submitReport(user.id, 'Spam');
-  }
-}
+    const reasons = <String>[
+      'spam',
+      'fake_profile',
+      'inappropriate_content',
+      'harassment',
+      'underage',
+      'other',
+    ];
 
-class _GalleryHeader extends StatelessWidget {
-  final UserModel user;
-  const _GalleryHeader({required this.user});
+    Get.dialog<void>(
+      StatefulBuilder(
+        builder: (context, setModalState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
 
-  @override
-  Widget build(BuildContext context) {
-    final photos = user.photos ?? [];
-    final displayPhotos = photos.isNotEmpty 
-        ? photos.map((p) => p.url).toList() 
-        : (user.mainPhotoUrl != null ? [user.mainPhotoUrl!] : []);
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        PageView.builder(
-          itemCount: displayPhotos.length,
-          itemBuilder: (context, index) {
-            return CachedNetworkImage(imageUrl: CloudinaryUrl.large(displayPhotos[index]), fit: BoxFit.cover);
-          },
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
+          return AlertDialog(
+            backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Text(
+              'report_user'.tr,
+              style: TextStyle(
+                color: isDark ? AppColors.textPrimaryDark : Colors.black,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-        ),
-        Positioned(
-          bottom: 20, left: 20, right: 20,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Text(
-                      '${user.firstName ?? user.username ?? 'User'}, ${user.profile?.age ?? ''}',
-                      style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey<String>(selectedReason),
+                    initialValue: selectedReason,
+                    decoration: InputDecoration(
+                      labelText: 'reason'.tr,
+                      labelStyle: TextStyle(
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondaryLight,
+                      ),
+                      filled: true,
+                      fillColor: isDark ? AppColors.cardDark : Colors.white,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.borderDark
+                              : AppColors.borderLight,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.primary),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    dropdownColor: isDark ? AppColors.cardDark : Colors.white,
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.textPrimaryLight,
+                    ),
+                    items: reasons
+                        .map(
+                          (reason) => DropdownMenuItem<String>(
+                            value: reason,
+                            child: Text(reason.tr),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: isSubmitting
+                        ? null
+                        : (value) {
+                            setModalState(() {
+                              selectedReason = value ?? 'spam';
+                            });
+                          },
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: noteController,
+                    enabled: !isSubmitting,
+                    maxLines: 4,
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.textPrimaryLight,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'add_extra_details_optional'.tr,
+                      hintStyle: TextStyle(
+                        color: isDark
+                            ? AppColors.textHintDark
+                            : AppColors.textHintLight,
+                      ),
+                      filled: true,
+                      fillColor: isDark ? AppColors.cardDark : Colors.white,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.borderDark
+                              : AppColors.borderLight,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.primary),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                   ),
-                  if (user.selfieVerified)
-                    const Icon(LucideIcons.shieldCheck, color: AppColors.gold, size: 24),
                 ],
               ),
-              if (user.profile?.city != null)
-                Text(user.profile!.city!, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Get.back(),
+                child: Text(
+                  'cancel'.tr,
+                  style: TextStyle(
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondaryLight,
+                  ),
+                ),
+              ),
+              FilledButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        setModalState(() => isSubmitting = true);
+                        final success = await Get.find<SettingsController>()
+                            .submitReport(
+                              user.id,
+                              selectedReason,
+                              details: noteController.text.trim(),
+                            );
+                        if (success && (Get.isDialogOpen ?? false)) {
+                          Get.back();
+                          return;
+                        }
+                        setModalState(() => isSubmitting = false);
+                      },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : Text('submit'.tr),
+              ),
             ],
-          ),
-        ),
-      ],
-    );
+          );
+        },
+      ),
+    ).whenComplete(noteController.dispose);
   }
 }
 
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _InfoChip({required this.icon, required this.label});
+class _BottomActionBar extends StatelessWidget {
+  const _BottomActionBar({required this.isDark, required this.user});
+
+  final bool isDark;
+  final UserModel user;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        MediaQuery.of(context).padding.bottom + 12,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.gold.withValues(alpha: 0.1)),
+        color: isDark ? AppColors.backgroundDark : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.26 : 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: AppColors.gold),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          _CircleActionBtn(
+            icon: LucideIcons.x,
+            color: isDark
+                ? AppColors.textSecondaryDark
+                : AppColors.textHintLight,
+            onTap: () async {
+              final success = await Get.find<HomeController>().passUser(
+                user.id,
+              );
+              if (success) {
+                Get.back();
+              }
+            },
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: InkWell(
+                onTap: () async {
+                  final success = await Get.find<HomeController>().likeUser(
+                    user.id,
+                  );
+                  if (success) {
+                    Get.back();
+                  }
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Center(
+                  child: Text(
+                    'interested'.tr,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          _CircleActionBtn(
+            icon: LucideIcons.award,
+            color: AppColors.primary,
+            onTap: () => _showComplimentDialog(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showComplimentDialog(BuildContext context) {
+    final controller = Get.find<HomeController>();
+    final tc = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'send_compliment'.tr,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimaryLight,
+          ),
+        ),
+        content: TextField(
+          controller: tc,
+          maxLength: 200,
+          autofocus: true,
+          style: TextStyle(
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimaryLight,
+          ),
+          decoration: InputDecoration(
+            hintText: 'write_something_nice'.tr,
+            hintStyle: TextStyle(
+              color: isDark ? AppColors.textHintDark : AppColors.textHintLight,
+            ),
+            filled: true,
+            fillColor: isDark ? AppColors.cardDark : Colors.white,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: isDark ? AppColors.borderDark : AppColors.borderLight,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primary),
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'cancel'.tr,
+              style: TextStyle(
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondaryLight,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (tc.text.trim().isNotEmpty) {
+                final success = await controller.complimentUser(
+                  user.id,
+                  tc.text.trim(),
+                );
+                if (success) {
+                  if (Get.isDialogOpen ?? false) {
+                    Get.back();
+                  }
+                  Get.back();
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text('send'.tr),
+          ),
         ],
       ),
     );
@@ -357,18 +453,28 @@ class _InfoChip extends StatelessWidget {
 }
 
 class _CircleActionBtn extends StatelessWidget {
+  const _CircleActionBtn({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  const _CircleActionBtn({required this.icon, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 56, height: 56,
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle, border: Border.all(color: color.withValues(alpha: 0.4))),
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
         child: Icon(icon, color: color, size: 24),
       ),
     );

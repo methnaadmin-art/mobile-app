@@ -3,14 +3,15 @@ import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:methna_app/app/controllers/profile_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
+import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 /// Photos Tab with photo grid, upload, and management
 class ProfilePhotosTab extends GetView<ProfileController> {
   final UserModel user;
-  
-  const ProfilePhotosTab({required this.user});
+
+  const ProfilePhotosTab({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -28,16 +29,18 @@ class ProfilePhotosTab extends GetView<ProfileController> {
             child: ElevatedButton.icon(
               onPressed: _pickImage,
               icon: const Icon(LucideIcons.plus, size: 20),
-              label: const Text('Add Photos'),
+              label: Text('add_photos'.tr),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
-          
+
           // Photos grid
           Expanded(
             child: GridView.builder(
@@ -66,7 +69,7 @@ class ProfilePhotosTab extends GetView<ProfileController> {
 
   Future<void> _pickImage() async {
     // Navigate to the comprehensive photo editing screen
-    Get.toNamed('/profile/edit-photos');
+    Get.toNamed(AppRoutes.editProfilePhotos);
   }
 }
 
@@ -75,7 +78,7 @@ class _PhotoSlot extends StatelessWidget {
   final UserModel user;
   final Color cardBg;
   final Color borderColor;
-  
+
   const _PhotoSlot({
     required this.index,
     required this.user,
@@ -86,15 +89,23 @@ class _PhotoSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Mock photo URLs - in real app, these would come from user.photos
-    final photoUrl = index < 2 ? user.mainPhotoUrl : null;
+
+    final photos =
+        user.photos
+            ?.map((photo) => photo.url)
+            .where((url) => url.trim().isNotEmpty)
+            .toList() ??
+        const <String>[];
+    final photoPool = photos.isNotEmpty
+        ? photos
+        : (user.mainPhotoUrl?.isNotEmpty == true ? [user.mainPhotoUrl!] : []);
+    final photoUrl = index < photoPool.length ? photoPool[index] : null;
     final hasPhoto = photoUrl != null;
-    
+
     return GestureDetector(
       onTap: () {
         // Always navigate to edit screen for better UX
-        Get.toNamed('/profile/edit-photos');
+        Get.toNamed(AppRoutes.editProfilePhotos);
       },
       child: Container(
         decoration: BoxDecoration(
@@ -118,8 +129,8 @@ class _PhotoSlot extends StatelessWidget {
                     CachedNetworkImage(
                       imageUrl: photoUrl,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => _LoadingPlaceholder(),
-                      errorWidget: (_, __, ___) => _ErrorPlaceholder(),
+                      placeholder: (context, url) => _LoadingPlaceholder(),
+                      errorWidget: (context, url, error) => _ErrorPlaceholder(),
                     ),
                     // Verified badge for main photo
                     if (index == 0 && user.selfieVerified)
@@ -147,6 +158,7 @@ class _PhotoSlot extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   void _showPhotoOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -161,7 +173,7 @@ class _PhotoSlot extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Photo Options',
+              'photo_options'.tr,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -171,24 +183,27 @@ class _PhotoSlot extends StatelessWidget {
             const SizedBox(height: 20),
             ListTile(
               leading: const Icon(LucideIcons.eye),
-              title: const Text('View Fullscreen'),
+              title: Text('view_fullscreen'.tr),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement fullscreen view
+                Get.toNamed(AppRoutes.editProfilePhotos);
               },
             ),
             ListTile(
               leading: const Icon(LucideIcons.star),
-              title: const Text('Set as Main Photo'),
+              title: Text('set_as_main_photo'.tr),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement set as main
+                Get.toNamed(AppRoutes.editProfilePhotos);
               },
             ),
             if (index > 0)
               ListTile(
                 leading: const Icon(LucideIcons.trash2, color: Colors.red),
-                title: const Text('Delete Photo', style: TextStyle(color: Colors.red)),
+                title: Text(
+                  'delete_photo'.tr,
+                  style: TextStyle(color: Colors.red),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _confirmDelete(context);
@@ -205,21 +220,20 @@ class _PhotoSlot extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Photo'),
-        content: const Text('Are you sure you want to delete this photo?'),
+        title: Text('delete_photo'.tr),
+        content: Text('delete_photo_confirm'.tr),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('cancel'.tr),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Implement delete
-              Get.snackbar('Coming Soon', 'Photo deletion will be implemented');
+              Get.toNamed(AppRoutes.editProfilePhotos);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text('delete'.tr),
           ),
         ],
       ),
@@ -229,14 +243,14 @@ class _PhotoSlot extends StatelessWidget {
 
 class _EmptySlot extends StatelessWidget {
   final int index;
-  
+
   const _EmptySlot({required this.index});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hintColor = isDark ? AppColors.textHintDark : AppColors.textHintLight;
-    
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -247,7 +261,7 @@ class _EmptySlot extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          index == 0 ? 'Main' : 'Add',
+          index == 0 ? 'main'.tr : 'add'.tr,
           style: TextStyle(
             fontSize: 12,
             color: hintColor.withValues(alpha: 0.7),
@@ -264,9 +278,7 @@ class _LoadingPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.grey.withValues(alpha: 0.2),
-      child: const Center(
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
+      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
     );
   }
 }

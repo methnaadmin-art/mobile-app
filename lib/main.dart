@@ -1,74 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:methna_app/app/bindings/initial_binding.dart';
 import 'package:methna_app/app/controllers/locale_controller.dart';
-import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
-import 'package:methna_app/app/data/services/socket_service.dart';
-import 'package:methna_app/app/data/services/location_service.dart';
-import 'package:methna_app/app/data/services/notification_service.dart';
-import 'package:methna_app/app/data/services/message_queue_service.dart';
-import 'package:methna_app/app/data/services/permission_service.dart';
 import 'package:methna_app/app/data/services/connectivity_service.dart';
 import 'package:methna_app/app/data/services/content_service.dart';
+import 'package:methna_app/app/data/services/location_service.dart';
+import 'package:methna_app/app/data/services/message_queue_service.dart';
+import 'package:methna_app/app/data/services/notification_service.dart';
+import 'package:methna_app/app/data/services/permission_service.dart';
+import 'package:methna_app/app/data/services/socket_service.dart';
+import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/routes/app_pages.dart';
 import 'package:methna_app/app/theme/app_theme.dart';
 import 'package:methna_app/app/translations/app_translations.dart';
 import 'package:methna_app/core/constants/app_constants.dart';
-import 'package:methna_app/core/constants/api_constants.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:methna_app/core/services/trial_manager.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize GetStorage
   await GetStorage.init();
 
-  // Lock orientation to portrait
-  await SystemChrome.setPreferredOrientations([
+  await SystemChrome.setPreferredOrientations(const [
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Set status bar style
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-    statusBarBrightness: Brightness.light,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ),
+  );
 
-  // Initialize core services before app starts
-  await _initServices();
-
-  // Initialize Stripe
-  Stripe.publishableKey = ApiConstants.stripePublishableKey;
+  await _registerCriticalServicesOnly();
 
   runApp(const MethnaApp());
 }
 
-Future<void> _initServices() async {
-  await Get.putAsync(() => StorageService().init(), permanent: true);
-  await Get.putAsync(() => ApiService().init(), permanent: true);
-  await Get.putAsync(() => SocketService().init(), permanent: true);
-  await Get.putAsync(() => LocationService().init(), permanent: true);
-  await Get.putAsync(() => NotificationService().init(), permanent: true);
-  await Get.putAsync(() => MessageQueueService().init(), permanent: true);
-  await Get.putAsync(() => PermissionService().init(), permanent: true);
-  await Get.putAsync(() => ConnectivityService().init(), permanent: true);
-  await Get.putAsync(() => ContentService().init(), permanent: true);
+Future<void> _registerCriticalServicesOnly() async {
+  // Only services needed for first paint + initial route decision.
+  await Get.putAsync<StorageService>(
+    () => StorageService().init(),
+    permanent: true,
+  );
 
-  // Initialize locale controller (depends on StorageService)
-  Get.put(LocaleController(), permanent: true);
+  await Get.putAsync<ApiService>(
+    () => ApiService().init(),
+    permanent: true,
+  );
+
+  // Locale depends on storage and is needed immediately for app rendering.
+  Get.put<LocaleController>(LocaleController(), permanent: true);
+
+  // Everything else is lazy and should not block startup.
+  Get.lazyPut<SocketService>(() => SocketService(), fenix: true);
+  Get.lazyPut<LocationService>(() => LocationService(), fenix: true);
+  Get.lazyPut<NotificationService>(() => NotificationService(), fenix: true);
+  Get.lazyPut<MessageQueueService>(() => MessageQueueService(), fenix: true);
+  Get.lazyPut<PermissionService>(() => PermissionService(), fenix: true);
+  Get.lazyPut<ConnectivityService>(() => ConnectivityService(), fenix: true);
+  Get.lazyPut<ContentService>(() => ContentService(), fenix: true);
+  Get.lazyPut<TrialManager>(() => TrialManager(), fenix: true);
 }
- 
+
 Locale _getSavedLocale(StorageService storage) {
   final code = storage.getString('app_language');
+
   if (code != null && code.contains('_')) {
     final parts = code.split('_');
-    return Locale(parts[0].toLowerCase(), parts[1]);
+    if (parts.length == 2) {
+      return Locale(parts[0].toLowerCase(), parts[1].toUpperCase());
+    }
   }
+
   return const Locale('en', 'US');
 }
 
@@ -78,8 +88,10 @@ ThemeMode _getSavedThemeMode(StorageService storage) {
       return ThemeMode.light;
     case 'dark':
       return ThemeMode.dark;
-    default:
+    case 'system':
       return ThemeMode.system;
+    default:
+      return ThemeMode.dark;
   }
 }
 
@@ -89,31 +101,38 @@ class MethnaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final storage = Get.find<StorageService>();
-    final savedLocale = _getSavedLocale(storage);
 
     return GetMaterialApp(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
-
-      // Theme
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: const TextScaler.linear(1.08),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: _getSavedThemeMode(storage),
-
-      // Routes
       initialRoute: AppPages.initial,
       getPages: AppPages.pages,
-
-      // Bindings
       initialBinding: InitialBinding(),
-
-      // Default transitions
       defaultTransition: Transition.cupertino,
       transitionDuration: const Duration(milliseconds: 300),
-
-      // Translations
       translations: AppTranslations(),
-      locale: savedLocale,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en', 'US'),
+        Locale('ar', 'DZ'),
+      ],
+      locale: _getSavedLocale(storage),
       fallbackLocale: const Locale('en', 'US'),
     );
   }

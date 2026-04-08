@@ -1,191 +1,305 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/settings_controller.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/core/widgets/animated_empty_state.dart';
+import 'package:methna_app/core/widgets/custom_button.dart';
+import 'package:methna_app/core/widgets/custom_text_field.dart';
+import 'package:methna_app/core/widgets/settings_flow.dart';
 
-class ReportRequestScreen extends GetView<SettingsController> {
+class ReportRequestScreen extends StatefulWidget {
   const ReportRequestScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.backgroundDark : const Color(0xFFF8F5FA);
-    final cardBg = isDark ? AppColors.cardDark : Colors.white;
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final secondaryColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+  State<ReportRequestScreen> createState() => _ReportRequestScreenState();
+}
 
-    final selectedType = 'feedback'.obs;
-    final textController = TextEditingController();
-    final isSubmitting = false.obs;
+class _ReportRequestScreenState extends State<ReportRequestScreen> {
+  final SettingsController controller = Get.find<SettingsController>();
+  final TextEditingController _textController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-    final types = [
-      {'id': 'feedback', 'title': 'General Feedback', 'icon': LucideIcons.messageSquare},
-      {'id': 'bug', 'title': 'Report a Bug', 'icon': LucideIcons.bug},
-      {'id': 'suggestion', 'title': 'Feature Suggestion', 'icon': LucideIcons.lightbulb},
-    ];
+  String _selectedType = 'feedback';
+  bool _isSubmitting = false;
 
-    void submit() async {
-      if (textController.text.trim().isEmpty) {
-        Helpers.showSnackbar(message: 'Please enter a description', isError: true);
-        return;
-      }
-      isSubmitting.value = true;
-      final success = await controller.submitFeedback(
-        selectedType.value,
-        textController.text.trim(),
-      );
-      isSubmitting.value = false;
-      if (success) {
-        Get.back();
-      }
+  @override
+  void initState() {
+    super.initState();
+    controller.fetchMyReports(silent: true);
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
 
-    return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Get.back(),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: borderColor),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(LucideIcons.chevronLeft, size: 16, color: textColor),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Report / Request',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  const SizedBox(width: 40),
-                ],
-              ),
-            ),
-            
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  Text(
-                    'How can we help?',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: textColor),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Select a category and describe your issue or suggestion below.',
-                    style: TextStyle(fontSize: 14, color: secondaryColor),
-                  ),
-                  const SizedBox(height: 24),
+    setState(() => _isSubmitting = true);
+    final success = await controller.submitFeedback(
+      _selectedType,
+      _textController.text.trim(),
+    );
+    if (!mounted) {
+      return;
+    }
 
-                  // Category Selector
-                  Container(
-                    decoration: BoxDecoration(
-                      color: cardBg,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Column(
-                      children: List.generate(types.length, (index) {
-                        final type = types[index];
-                        return Obx(() => InkWell(
-                          onTap: () => selectedType.value = type['id'] as String,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            decoration: BoxDecoration(
-                              border: index < types.length - 1
-                                  ? Border(bottom: BorderSide(color: borderColor))
-                                  : null,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(type['icon'] as IconData, size: 20, color: selectedType.value == type['id'] ? AppColors.primary : secondaryColor),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    type['title'] as String,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: selectedType.value == type['id'] ? FontWeight.w700 : FontWeight.w500,
-                                      color: selectedType.value == type['id'] ? textColor : secondaryColor,
-                                    ),
-                                  ),
-                                ),
-                                if (selectedType.value == type['id'])
-                                  const Icon(LucideIcons.checkCircle2, color: AppColors.primary, size: 20),
-                              ],
-                            ),
+    setState(() => _isSubmitting = false);
+    if (success) {
+      Get.back();
+    }
+  }
+
+  String _reportReasonLabel(dynamic rawReason) {
+    final reason = rawReason?.toString().trim().toLowerCase() ?? '';
+    switch (reason) {
+      case 'fake':
+      case 'fake_user':
+      case 'fake_profile':
+        return 'fake_profile'.tr;
+      case 'inappropriate':
+      case 'inappropriate_content':
+        return 'inappropriate_content'.tr;
+      case 'harassment':
+      case 'abuse':
+        return 'harassment'.tr;
+      case 'spam':
+        return 'spam'.tr;
+      case 'underage':
+        return 'underage'.tr;
+      case 'feedback':
+        return 'general_feedback'.tr;
+      case 'bug':
+        return 'report_bug'.tr;
+      case 'suggestion':
+        return 'feature_suggestion'.tr;
+      default:
+        return 'other'.tr;
+    }
+  }
+
+  String _reportStatusKey(dynamic rawStatus) {
+    final status = rawStatus?.toString().trim().toLowerCase() ?? '';
+    switch (status) {
+      case 'open':
+      case 'new':
+      case 'submitted':
+      case 'created':
+        return 'submitted';
+      case 'in_progress':
+      case 'in-review':
+      case 'in_review':
+      case 'pending':
+      case 'under_review':
+      case 'investigating':
+        return 'in_review';
+      case 'resolved':
+      case 'closed':
+      case 'done':
+        return 'resolved';
+      case 'rejected':
+      case 'declined':
+      case 'dismissed':
+        return 'rejected';
+      default:
+        return 'submitted';
+    }
+  }
+
+  String _reportStatusLabel(String statusKey) {
+    final key = 'report_status_$statusKey';
+    final translated = key.tr;
+    if (translated == key) {
+      return statusKey.replaceAll('_', ' ');
+    }
+    return translated;
+  }
+
+  Color _reportStatusColor(String statusKey) {
+    switch (statusKey) {
+      case 'resolved':
+        return AppColors.success;
+      case 'rejected':
+        return AppColors.error;
+      case 'in_review':
+        return AppColors.warning;
+      default:
+        return AppColors.info;
+    }
+  }
+
+  String _reportDateLabel(Map<String, dynamic> report) {
+    final rawDate =
+        report['createdAt'] ??
+        report['created_at'] ??
+        report['submittedAt'] ??
+        report['submitted_at'];
+    if (rawDate is! String || rawDate.trim().isEmpty) {
+      return '';
+    }
+
+    final parsed = DateTime.tryParse(rawDate);
+    if (parsed == null) {
+      return '';
+    }
+
+    final localDate = parsed.toLocal();
+    return MaterialLocalizations.of(context).formatShortDate(localDate);
+  }
+
+  Widget _buildReportHistorySection() {
+    final theme = Theme.of(context);
+
+    return Obx(() {
+      final reports = controller.myReports.take(5).toList(growable: false);
+      final isLoading = controller.isLoadingMyReports.value;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'report_history'.tr,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (isLoading)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                TextButton(
+                  onPressed: () => controller.fetchMyReports(),
+                  child: Text('refresh'.tr),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (reports.isEmpty)
+            AnimatedEmptyState(
+              lottieAsset: 'assets/animations/no_support_tickets.json',
+              title: 'no_reports_yet'.tr,
+              subtitle: 'report_request_desc'.tr,
+              fallbackIcon: Icons.report_gmailerrorred_rounded,
+              fallbackColor: AppColors.primary,
+              primaryActionLabel: 'refresh'.tr,
+              onPrimaryAction: controller.fetchMyReports,
+              width: 166,
+            )
+          else
+            SettingsPlainListCard(
+              children: reports
+                  .map((report) {
+                    final statusKey = _reportStatusKey(report['status']);
+                    final statusColor = _reportStatusColor(statusKey);
+                    final dateLabel = _reportDateLabel(report);
+
+                    return SettingsPlainTile(
+                      title: _reportReasonLabel(report['reason']),
+                      subtitle: dateLabel.isEmpty ? null : dateLabel,
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.xs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          _reportStatusLabel(statusKey),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w700,
                           ),
-                        ));
-                      }),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Description
-                  Text(
-                    'Description',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textColor),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: cardBg,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: TextField(
-                      controller: textController,
-                      maxLines: 6,
-                      style: TextStyle(color: textColor, fontSize: 15),
-                      decoration: InputDecoration(
-                        hintText: 'Please provide detailed information...',
-                        hintStyle: TextStyle(color: secondaryColor.withValues(alpha: 0.5)),
-                        contentPadding: const EdgeInsets.all(16),
-                        border: InputBorder.none,
+                        ),
                       ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 48),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+        ],
+      );
+    });
+  }
 
-                  Obx(() => SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: isSubmitting.value ? null : submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                      ),
-                      child: isSubmitting.value
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Submit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                    ),
-                  )),
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: SettingsSimplePageScaffold(
+        title: 'report_request'.tr,
+        subtitle: 'report_request_desc'.tr,
+        footer: CustomButton(
+          text: 'submit'.tr,
+          isLoading: _isSubmitting,
+          onPressed: _isSubmitting ? null : _submit,
+        ),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.xl,
+            ),
+            children: [
+              SettingsPlainListCard(
+                children: [
+                  SettingsRadioTile(
+                    title: 'general_feedback'.tr,
+                    subtitle: 'general_feedback_desc'.tr,
+                    selected: _selectedType == 'feedback',
+                    onTap: () => setState(() => _selectedType = 'feedback'),
+                  ),
+                  SettingsRadioTile(
+                    title: 'report_bug'.tr,
+                    subtitle: 'report_bug_desc'.tr,
+                    selected: _selectedType == 'bug',
+                    onTap: () => setState(() => _selectedType = 'bug'),
+                  ),
+                  SettingsRadioTile(
+                    title: 'feature_suggestion'.tr,
+                    subtitle: 'feature_suggestion_desc'.tr,
+                    selected: _selectedType == 'suggestion',
+                    onTap: () => setState(() => _selectedType = 'suggestion'),
+                  ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.md),
+              CustomTextField(
+                controller: _textController,
+                label: 'description'.tr,
+                hint: 'report_hint'.tr,
+                maxLines: 7,
+                textInputAction: TextInputAction.newline,
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (text.length < 10) {
+                    return 'feedback_min_chars'.tr;
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _buildReportHistorySection(),
+            ],
+          ),
         ),
       ),
     );

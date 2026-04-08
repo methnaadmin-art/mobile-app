@@ -4,9 +4,8 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
-import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-
+import 'package:methna_app/core/widgets/datify_shell.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 /// ML Kit Selfie Verification Screen
@@ -15,10 +14,12 @@ class MLSelfieVerificationScreen extends StatefulWidget {
   const MLSelfieVerificationScreen({super.key});
 
   @override
-  State<MLSelfieVerificationScreen> createState() => _MLSelfieVerificationScreenState();
+  State<MLSelfieVerificationScreen> createState() =>
+      _MLSelfieVerificationScreenState();
 }
 
-class _MLSelfieVerificationScreenState extends State<MLSelfieVerificationScreen> {
+class _MLSelfieVerificationScreenState
+    extends State<MLSelfieVerificationScreen> {
   final SignupController controller = Get.find<SignupController>();
   final ImagePicker _imagePicker = ImagePicker();
   final FaceDetector _faceDetector = FaceDetector(
@@ -47,18 +48,23 @@ class _MLSelfieVerificationScreenState extends State<MLSelfieVerificationScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.backgroundDark : const Color(0xFFFFF8F0);
+    final bgColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
     final cardBg = isDark ? AppColors.cardDark : Colors.white;
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
+    final textColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimaryLight;
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: bgColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(LucideIcons.chevronLeft, color: textColor),
-          onPressed: () => Get.back(),
+        leadingWidth: 76,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16, top: 6, bottom: 6),
+          child: DatifyBackButton(onTap: () => Get.back()),
         ),
         title: Text(
           'verify_identity'.tr,
@@ -70,66 +76,68 @@ class _MLSelfieVerificationScreenState extends State<MLSelfieVerificationScreen>
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Instructions
-            _InstructionCard(
-              title: 'selfie_verification'.tr,
-              description: 'selfie_desc'.tr,
-              icon: LucideIcons.shieldCheck,
-              textColor: textColor,
-              cardBg: cardBg,
-            ),
-
-            const SizedBox(height: 24),
-
-            // Current photos preview
-            if (controller.selectedPhotos.isNotEmpty)
-              _PhotosPreview(controller.selectedPhotos.take(3).toList()),
-
-            const SizedBox(height: 24),
-
-            // Selfie capture area
-            _SelfieCaptureArea(
-              selfieImage: _selfieImage,
-              onCapture: _captureSelfie,
-              isProcessing: _isProcessing,
-              textColor: textColor,
-              cardBg: cardBg,
-            ),
-
-            const SizedBox(height: 24),
-
-            // Verification results
-            if (_verificationComplete)
-              _VerificationResults(
-                similarityScore: _similarityScore,
-                status: _verificationStatus,
+      body: DatifyBackground(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Instructions
+              _InstructionCard(
+                title: 'selfie_verification'.tr,
+                description: 'selfie_desc'.tr,
+                icon: LucideIcons.shieldCheck,
                 textColor: textColor,
                 cardBg: cardBg,
               ),
 
-            const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
-            // Action buttons
-            if (!_verificationComplete)
-              _ActionButtons(
-                canContinue: _verificationComplete && _similarityScore > 0.7,
-                onSkip: () => _skipVerification(),
-                onContinue: () => _continueSignup(),
+              // Current photos preview
+              if (controller.selectedPhotos.isNotEmpty)
+                _PhotosPreview(controller.selectedPhotos.take(3).toList()),
+
+              const SizedBox(height: 24),
+
+              // Selfie capture area
+              _SelfieCaptureArea(
+                selfieImage: _selfieImage,
+                onCapture: _captureSelfie,
+                isProcessing: _isProcessing,
                 textColor: textColor,
-              )
-            else
-              _CompletionActions(
-                similarityScore: _similarityScore,
-                onRetry: () => _retryVerification(),
-                onContinue: () => _continueSignup(),
-                textColor: textColor,
+                cardBg: cardBg,
               ),
-          ],
+
+              const SizedBox(height: 24),
+
+              // Verification results
+              if (_verificationComplete)
+                _VerificationResults(
+                  similarityScore: _similarityScore,
+                  status: _verificationStatus,
+                  textColor: textColor,
+                  cardBg: cardBg,
+                ),
+
+              const SizedBox(height: 32),
+
+              // Action buttons
+              if (!_verificationComplete)
+                _ActionButtons(
+                  canContinue: _verificationComplete && _similarityScore > 0.7,
+                  onSkip: () => _skipVerification(),
+                  onContinue: () => _continueSignup(),
+                  textColor: textColor,
+                )
+              else
+                _CompletionActions(
+                  similarityScore: _similarityScore,
+                  onRetry: () => _retryVerification(),
+                  onContinue: () => _continueSignup(),
+                  textColor: textColor,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -143,17 +151,17 @@ class _MLSelfieVerificationScreenState extends State<MLSelfieVerificationScreen>
         source: ImageSource.camera,
         maxWidth: 800,
         maxHeight: 800,
-        imageQuality: 85,
+        imageQuality: 72,
         preferredCameraDevice: CameraDevice.front,
       );
 
       if (picked != null) {
         final selfieFile = File(picked.path);
-        
+
         // Detect faces in selfie
         final inputImage = InputImage.fromFilePath(picked.path);
         final faces = await _faceDetector.processImage(inputImage);
-        
+
         if (faces.isEmpty) {
           Get.snackbar('no_face_detected'.tr, 'no_face_desc'.tr);
           setState(() => _isProcessing = false);
@@ -168,7 +176,7 @@ class _MLSelfieVerificationScreenState extends State<MLSelfieVerificationScreen>
 
         // Perform verification with existing photos
         final score = await _performFaceVerification(selfieFile, faces.first);
-        
+
         setState(() {
           _selfieImage = selfieFile;
           _detectedFaces = faces;
@@ -183,27 +191,35 @@ class _MLSelfieVerificationScreenState extends State<MLSelfieVerificationScreen>
       }
     } catch (e) {
       debugPrint('[MLSelfie] Error: $e');
-      Get.snackbar('error'.tr, 'capture_failed'.trParams({'error': e.toString()}));
+      Get.snackbar(
+        'error'.tr,
+        'capture_failed'.trParams({'error': e.toString()}),
+      );
       setState(() => _isProcessing = false);
     }
   }
 
-  Future<double> _performFaceVerification(File selfieFile, Face selfieFace) async {
+  Future<double> _performFaceVerification(
+    File selfieFile,
+    Face selfieFace,
+  ) async {
     if (controller.selectedPhotos.isEmpty) return 0.0;
 
     double maxSimilarity = 0.0;
-    
+
     // Compare selfie with each uploaded photo
     for (int i = 0; i < controller.selectedPhotos.length && i < 3; i++) {
       try {
         final photoFile = controller.selectedPhotos[i];
         final inputImage = InputImage.fromFilePath(photoFile.path);
         final faces = await _faceDetector.processImage(inputImage);
-        
+
         if (faces.isNotEmpty) {
           final photoFace = faces.first;
           final similarity = _calculateFaceSimilarity(selfieFace, photoFace);
-          maxSimilarity = maxSimilarity > similarity ? maxSimilarity : similarity;
+          maxSimilarity = maxSimilarity > similarity
+              ? maxSimilarity
+              : similarity;
         }
       } catch (e) {
         debugPrint('[MLSelfie] Error processing photo $i: $e');
@@ -363,14 +379,16 @@ class _PhotosPreview extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: photos.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               return Container(
                 width: 60,
                 height: 80,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(11),
@@ -454,11 +472,16 @@ class _SelfieCaptureArea extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(LucideIcons.camera),
-                  label: Text(isProcessing ? 'processing'.tr : 'capture_selfie'.tr),
+                  label: Text(
+                    isProcessing ? 'processing'.tr : 'capture_selfie'.tr,
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ],
@@ -482,11 +505,11 @@ class _VerificationResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scoreColor = similarityScore >= 0.7 
-        ? AppColors.success 
-        : similarityScore >= 0.4 
-            ? AppColors.warning 
-            : AppColors.error;
+    final scoreColor = similarityScore >= 0.7
+        ? AppColors.success
+        : similarityScore >= 0.4
+        ? AppColors.warning
+        : AppColors.error;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -500,7 +523,9 @@ class _VerificationResults extends StatelessWidget {
           Row(
             children: [
               Icon(
-                similarityScore >= 0.7 ? LucideIcons.checkCircle : LucideIcons.alertCircle,
+                similarityScore >= 0.7
+                    ? LucideIcons.checkCircle
+                    : LucideIcons.alertCircle,
                 color: scoreColor,
                 size: 24,
               ),
@@ -523,7 +548,7 @@ class _VerificationResults extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Match Score',
+                    'match_score'.tr,
                     style: TextStyle(
                       fontSize: 14,
                       color: textColor.withValues(alpha: 0.7),
@@ -550,11 +575,7 @@ class _VerificationResults extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             status,
-            style: TextStyle(
-              fontSize: 14,
-              color: textColor,
-              height: 1.4,
-            ),
+            style: TextStyle(fontSize: 14, color: textColor, height: 1.4),
             textAlign: TextAlign.center,
           ),
         ],
@@ -602,9 +623,11 @@ class _ActionButtons extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
             ),
-            child:  Text(
+            child: Text(
               'continue_text'.tr,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
@@ -656,10 +679,14 @@ class _CompletionActions extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
             ),
             child: Text(
-              similarityScore >= 0.7 ? 'complete_verification'.tr : 'continue_anyway'.tr,
+              similarityScore >= 0.7
+                  ? 'complete_verification'.tr
+                  : 'continue_anyway'.tr,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),

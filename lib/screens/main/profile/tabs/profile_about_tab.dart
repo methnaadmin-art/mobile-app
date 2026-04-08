@@ -9,8 +9,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 /// About Tab with detailed profile information
 class ProfileAboutTab extends StatelessWidget {
   final UserModel user;
-  
-  const ProfileAboutTab({required this.user});
+
+  const ProfileAboutTab({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +27,7 @@ class ProfileAboutTab extends StatelessWidget {
         children: [
           // Basic Info Section
           _SectionCard(
-            title: 'Basic Information',
+            title: 'basic_information'.tr,
             icon: LucideIcons.user,
             cardBg: cardBg,
             borderColor: borderColor,
@@ -35,27 +35,34 @@ class ProfileAboutTab extends StatelessWidget {
             children: [
               _InfoRow(
                 icon: LucideIcons.calendar,
-                label: 'Age',
-                value: profile != null ? (profile.age?.toString() ?? 'Not specified') : 'Not specified',
+                label: 'age'.tr,
+                value: profile != null
+                    ? profile.age.toString()
+                    : 'not_specified'.tr,
                 textColor: textColor,
               ),
               _InfoRow(
                 icon: LucideIcons.mapPin,
-                label: 'Location',
-                value: '${profile?.city ?? ''}, ${profile?.country ?? ''}'.isEmpty 
-                    ? 'Not specified' 
-                    : '${profile!.city}, ${profile.country}',
+                label: 'location'.tr,
+                value: (() {
+                  final city = profile?.city?.trim() ?? '';
+                  final country = profile?.country?.trim() ?? '';
+                  final location = [city, country]
+                      .where((part) => part.isNotEmpty)
+                      .join(', ');
+                  return location.isEmpty ? 'not_specified'.tr : location;
+                })(),
                 textColor: textColor,
               ),
               _InfoRow(
                 icon: LucideIcons.heart,
-                label: 'Marital Status',
+                label: 'marital_status'.tr,
                 value: _formatMaritalStatus(profile?.maritalStatus),
                 textColor: textColor,
               ),
               _InfoRow(
                 icon: LucideIcons.graduationCap,
-                label: 'Education',
+                label: 'education'.tr,
                 value: _formatEducation(profile?.education),
                 textColor: textColor,
               ),
@@ -66,7 +73,7 @@ class ProfileAboutTab extends StatelessWidget {
 
           // Professional Info Section
           _SectionCard(
-            title: 'Professional Information',
+            title: 'professional_information'.tr,
             icon: LucideIcons.briefcase,
             cardBg: cardBg,
             borderColor: borderColor,
@@ -74,20 +81,22 @@ class ProfileAboutTab extends StatelessWidget {
             children: [
               _InfoRow(
                 icon: LucideIcons.user,
-                label: 'Job Title',
-                value: profile?.jobTitle ?? 'Not specified',
+                label: 'job_title'.tr,
+                value: profile?.jobTitle ?? 'not_specified'.tr,
                 textColor: textColor,
               ),
               _InfoRow(
                 icon: LucideIcons.building,
-                label: 'Company',
-                value: profile?.company ?? 'Not specified',
+                label: 'company'.tr,
+                value: profile?.company ?? 'not_specified'.tr,
                 textColor: textColor,
               ),
               _InfoRow(
                 icon: LucideIcons.ruler,
-                label: 'Height',
-                value: profile?.height != null ? '${profile!.height} cm' : 'Not specified',
+                label: 'height'.tr,
+                value: profile?.height != null
+                    ? '${profile!.height} cm'
+                    : 'not_specified'.tr,
                 textColor: textColor,
               ),
             ],
@@ -97,7 +106,7 @@ class ProfileAboutTab extends StatelessWidget {
 
           // Faith & Religion Section
           _SectionCard(
-            title: 'Faith & Religion',
+            title: 'faith_and_religion'.tr,
             icon: LucideIcons.moon,
             cardBg: cardBg,
             borderColor: borderColor,
@@ -105,19 +114,19 @@ class ProfileAboutTab extends StatelessWidget {
             children: [
               _InfoRow(
                 icon: LucideIcons.users,
-                label: 'Sect',
+                label: 'sect'.tr,
                 value: _formatSect(profile?.sect),
                 textColor: textColor,
               ),
               _InfoRow(
                 icon: LucideIcons.star,
-                label: 'Religious Level',
+                label: 'religious_level'.tr,
                 value: _formatReligiousLevel(profile?.religiousLevel),
                 textColor: textColor,
               ),
               _InfoRow(
                 icon: LucideIcons.clock,
-                label: 'Prayer Frequency',
+                label: 'prayer_frequency'.tr,
                 value: _formatPrayerFrequency(profile?.prayerFrequency),
                 textColor: textColor,
               ),
@@ -129,7 +138,7 @@ class ProfileAboutTab extends StatelessWidget {
           // Bio Section
           if (profile?.bio?.isNotEmpty == true)
             _SectionCard(
-              title: 'About Me',
+              title: 'about_me'.tr,
               icon: LucideIcons.fileText,
               cardBg: cardBg,
               borderColor: borderColor,
@@ -159,7 +168,7 @@ class ProfileAboutTab extends StatelessWidget {
           // Interests Section
           if (profile?.interests?.isNotEmpty == true)
             _SectionCard(
-              title: 'Interests',
+              title: 'interests'.tr,
               icon: LucideIcons.heart,
               cardBg: cardBg,
               borderColor: borderColor,
@@ -198,7 +207,7 @@ class ProfileAboutTab extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: () => Get.toNamed(AppRoutes.editProfile),
               icon: const Icon(LucideIcons.edit, size: 18),
-              label: const Text('Edit Profile'),
+              label: Text('edit_profile'.tr),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -215,75 +224,75 @@ class ProfileAboutTab extends StatelessWidget {
   String _formatMaritalStatus(String? status) {
     switch (status) {
       case 'never_married':
-        return 'Never Married';
+        return 'never_married'.tr;
       case 'divorced':
-        return 'Divorced';
+        return 'divorced'.tr;
       case 'widowed':
-        return 'Widowed';
+        return 'widowed'.tr;
       case 'married':
-        return 'Married';
+        return 'married'.tr;
       default:
-        return 'Not specified';
+        return 'not_specified'.tr;
     }
   }
 
   String _formatEducation(String? education) {
     switch (education) {
       case 'high_school':
-        return 'High School';
+        return 'high_school'.tr;
       case 'bachelors':
-        return "Bachelor's";
+        return 'bachelors'.tr;
       case 'masters':
-        return "Master's";
+        return 'masters'.tr;
       case 'phd':
-        return 'PhD';
+        return 'phd'.tr;
       case 'other':
-        return 'Other';
+        return 'other'.tr;
       default:
-        return 'Not specified';
+        return 'not_specified'.tr;
     }
   }
 
   String _formatSect(String? sect) {
     switch (sect) {
       case 'sunni':
-        return 'Sunni';
+        return 'sunni'.tr;
       case 'shia':
-        return 'Shia';
+        return 'shia'.tr;
       case 'ibadi':
-        return 'Ibadi';
+        return 'ibadi'.tr;
       case 'other':
-        return 'Other';
+        return 'other'.tr;
       default:
-        return 'Not specified';
+        return 'not_specified'.tr;
     }
   }
 
   String _formatReligiousLevel(String? level) {
     switch (level) {
       case 'very_practicing':
-        return 'Very Practicing';
+        return 'very_practicing'.tr;
       case 'practicing':
-        return 'Practicing';
+        return 'practicing'.tr;
       case 'moderate':
-        return 'Moderate';
+        return 'moderate'.tr;
       case 'liberal':
-        return 'Liberal';
+        return 'liberal'.tr;
       default:
-        return 'Not specified';
+        return 'not_specified'.tr;
     }
   }
 
   String _formatPrayerFrequency(String? frequency) {
     switch (frequency) {
       case 'actively_practicing':
-        return 'Actively Practicing';
+        return 'actively_practicing'.tr;
       case 'occasionally':
-        return 'Occasionally';
+        return 'occasionally'.tr;
       case 'not_practicing':
-        return 'Not Practicing';
+        return 'not_practicing'.tr;
       default:
-        return 'Not specified';
+        return 'not_specified'.tr;
     }
   }
 }

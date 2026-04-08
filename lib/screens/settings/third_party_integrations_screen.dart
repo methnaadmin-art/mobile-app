@@ -1,244 +1,249 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:methna_app/app/data/services/monetization_service.dart';
+import 'package:methna_app/app/data/services/storage_service.dart';
+import 'package:methna_app/app/data/services/subscription_service.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
+import 'package:methna_app/core/widgets/settings_flow.dart';
 
-class ThirdPartyIntegrationsScreen extends StatelessWidget {
+class ThirdPartyIntegrationsScreen extends StatefulWidget {
   const ThirdPartyIntegrationsScreen({super.key});
+
+  @override
+  State<ThirdPartyIntegrationsScreen> createState() =>
+      _ThirdPartyIntegrationsScreenState();
+}
+
+class _ThirdPartyIntegrationsScreenState
+    extends State<ThirdPartyIntegrationsScreen> {
+  final RxInt _selectedTab = 0.obs;
+  late final StorageService _storage;
+  late final MonetizationService _monetization;
+  late final SubscriptionService _subscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _storage = Get.find<StorageService>();
+    _monetization = Get.find<MonetizationService>();
+    _subscription = Get.find<SubscriptionService>();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.wait([
+        _monetization.fetchStatus(),
+        _subscription.fetchMySubscription(),
+      ]);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsSimplePageScaffold(
+      title: 'integrations'.tr,
+      subtitle: 'integrations_desc'.tr,
+      body: Obx(
+        () => ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.xl,
+          ),
+          children: [
+            SettingsSegmentedControl(
+              labels: ['account_access'.tr, 'billing'.tr],
+              selectedIndex: _selectedTab.value,
+              onSelected: (index) => _selectedTab.value = index,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (_selectedTab.value == 0) ...[
+              _buildAccountAccessCard(),
+              const SizedBox(height: AppSpacing.md),
+              _InfoCard(
+                title: 'supported_today'.tr,
+                body:
+                    'supported_today_desc'.tr,
+              ),
+            ] else ...[
+              _buildBillingCard(),
+              const SizedBox(height: AppSpacing.md),
+              _InfoCard(
+                title: 'billing_privacy'.tr,
+                body:
+                    'billing_privacy_desc'.tr,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountAccessCard() {
+    final provider = (_storage.getAuthProvider() ?? 'email').toLowerCase();
+    final usingGoogle = provider == 'google';
+
+    return SettingsPlainListCard(
+      children: [
+        _IntegrationRow(
+          label: usingGoogle ? 'google_sign_in'.tr : 'email_password'.tr,
+          accent: usingGoogle ? const Color(0xFF4285F4) : AppColors.primary,
+          initials: usingGoogle ? 'G' : 'E',
+          statusLabel: 'active'.tr,
+          statusTint: AppColors.primary,
+          subtitle: usingGoogle
+              ? 'auth_with_google'.tr
+              : 'auth_with_methna'.tr,
+        ),
+        _IntegrationRow(
+          label: usingGoogle ? 'email_password'.tr : 'google_sign_in'.tr,
+          accent: usingGoogle ? AppColors.primary : const Color(0xFF4285F4),
+          initials: usingGoogle ? 'E' : 'G',
+          statusLabel: 'available'.tr,
+          subtitle: usingGoogle
+              ? 'methna_password_available'.tr
+              : 'google_signin_available'.tr,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBillingCard() {
+    final hasPremium = _subscription.isPremium;
+    final likesStatus = _monetization.isUnlimitedLikes.value
+        ? 'unlimited_likes_active'.tr
+        : '${_monetization.remainingLikes.value} ${'likes_left_today'.tr}';
+    final isAppleDevice =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+    final isAndroidDevice =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+    return SettingsPlainListCard(
+      children: [
+        _IntegrationRow(
+          label: 'stripe_billing'.tr,
+          accent: const Color(0xFF635BFF),
+          initials: 'S',
+          statusLabel: hasPremium ? 'active'.tr : 'ready'.tr,
+          statusTint: hasPremium ? AppColors.primary : null,
+          subtitle: hasPremium
+              ? 'stripe_active_desc'.tr
+              : 'stripe_ready_desc'.tr,
+        ),
+        _IntegrationRow(
+          label: 'google_pay'.tr,
+          accent: const Color(0xFF34A853),
+          initials: 'G',
+          statusLabel: isAndroidDevice ? 'supported'.tr : 'device_dependent'.tr,
+          subtitle:
+              'google_pay_desc'.tr,
+        ),
+        _IntegrationRow(
+          label: 'apple_pay'.tr,
+          accent: const Color(0xFF111111),
+          initials: 'A',
+          statusLabel: isAppleDevice ? 'supported'.tr : 'device_dependent'.tr,
+          subtitle:
+              'apple_pay_desc'.tr,
+        ),
+        _IntegrationRow(
+          label: 'premium_access'.tr,
+          accent: const Color(0xFFE2559C),
+          initials: 'P',
+          statusLabel: hasPremium ? 'unlocked'.tr : 'free_plan'.tr,
+          statusTint: hasPremium ? AppColors.primary : null,
+          subtitle: likesStatus,
+        ),
+      ],
+    );
+  }
+}
+
+class _IntegrationRow extends StatelessWidget {
+  final String label;
+  final Color accent;
+  final String initials;
+  final String subtitle;
+  final String statusLabel;
+  final Color? statusTint;
+
+  const _IntegrationRow({
+    required this.label,
+    required this.accent,
+    required this.initials,
+    required this.subtitle,
+    required this.statusLabel,
+    this.statusTint,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tint = statusTint;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft, size: 20),
-          onPressed: () => Get.back(),
+    return SettingsPlainTile(
+      title: label,
+      subtitle: subtitle,
+      leading: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
         ),
-        title: Text('integrations'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
+        alignment: Alignment.center,
+        child: Text(
+          initials,
+          style: AppTextStyles.titleMedium.copyWith(
+            color: accent,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          // Header info
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.info.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.info.withValues(alpha: 0.2)),
-            ),
-            child: const Row(
-              children: [
-                Icon(LucideIcons.info, color: AppColors.info, size: 22),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Connect your social accounts to enhance your profile and make it easier for others to know you.',
-                    style: TextStyle(fontSize: 13, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: tint != null
+              ? tint.withValues(alpha: 0.12)
+              : (isDark
+                    ? AppColors.surfaceMutedDark
+                    : AppColors.surfaceMutedLight),
+          borderRadius: BorderRadius.circular(AppRadii.pill),
+        ),
+        child: Text(
+          statusLabel,
+          style: AppTextStyles.labelSmall.copyWith(
+            color:
+                tint ??
+                (isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondaryLight),
+            fontWeight: FontWeight.w700,
           ),
-
-          const SizedBox(height: 24),
-          const Text('SOCIAL ACCOUNTS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.grey)),
-          const SizedBox(height: 12),
-
-          // Instagram
-          _IntegrationTile(
-            icon: LucideIcons.camera,
-            title: 'Instagram',
-            subtitle: 'Show your Instagram photos on your profile',
-            color: const Color(0xFFE1306C),
-            isConnected: false,
-            isDark: isDark,
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-
-          // Snapchat
-          _IntegrationTile(
-            icon: LucideIcons.camera,
-            title: 'Snapchat',
-            subtitle: 'Share your Snapchat for easy connection',
-            color: const Color(0xFFFFFC00),
-            iconColor: Colors.black,
-            isConnected: false,
-            isDark: isDark,
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-
-          // Twitter/X
-          _IntegrationTile(
-            icon: LucideIcons.tag,
-            title: 'X (Twitter)',
-            subtitle: 'Display your latest posts on your profile',
-            color: const Color(0xFF1DA1F2),
-            isConnected: false,
-            isDark: isDark,
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-
-          // Spotify
-          _IntegrationTile(
-            icon: LucideIcons.music,
-            title: 'Spotify',
-            subtitle: 'Show your top artists and what you listen to',
-            color: const Color(0xFF1DB954),
-            isConnected: true,
-            connectedAs: '@ahmed_music',
-            isDark: isDark,
-            onTap: () {},
-          ),
-
-          const SizedBox(height: 24),
-          const Text('VERIFICATION SERVICES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.grey)),
-          const SizedBox(height: 12),
-
-          // Google
-          _IntegrationTile(
-            icon: LucideIcons.signal,
-            title: 'Google Account',
-            subtitle: 'Quick login and identity verification',
-            color: const Color(0xFF4285F4),
-            isConnected: true,
-            connectedAs: 'ahmed@gmail.com',
-            isDark: isDark,
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-
-          // Apple
-          _IntegrationTile(
-            icon: LucideIcons.apple,
-            title: 'Apple ID',
-            subtitle: 'Sign in with Apple for enhanced security',
-            color: isDark ? Colors.white : Colors.black,
-            isConnected: false,
-            isDark: isDark,
-            onTap: () {},
-          ),
-
-          const SizedBox(height: 24),
-          const Text('MESSAGING', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.grey)),
-          const SizedBox(height: 12),
-
-          // WhatsApp
-          _IntegrationTile(
-            icon: LucideIcons.messageCircle,
-            title: 'WhatsApp',
-            subtitle: 'Allow matched users to reach you on WhatsApp',
-            color: const Color(0xFF25D366),
-            isConnected: false,
-            isDark: isDark,
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-
-          // Telegram
-          _IntegrationTile(
-            icon: LucideIcons.send,
-            title: 'Telegram',
-            subtitle: 'Share your Telegram for direct messaging',
-            color: const Color(0xFF0088CC),
-            isConnected: false,
-            isDark: isDark,
-            onTap: () {},
-          ),
-
-          const SizedBox(height: 24),
-
-          // Disconnect all
-          Center(
-            child: TextButton.icon(
-              onPressed: () {},
-              icon: const Icon(LucideIcons.link2Off, size: 18, color: AppColors.error),
-              label: Text('disconnect_all'.tr, style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
-            ),
-          ),
-
-          const SizedBox(height: 32),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _IntegrationTile extends StatelessWidget {
-  final IconData icon;
+class _InfoCard extends StatelessWidget {
   final String title;
-  final String subtitle;
-  final Color color;
-  final Color? iconColor;
-  final bool isConnected;
-  final String? connectedAs;
-  final bool isDark;
-  final VoidCallback onTap;
+  final String body;
 
-  const _IntegrationTile({
-    required this.icon, required this.title, required this.subtitle,
-    required this.color, this.iconColor, required this.isConnected,
-    this.connectedAs, required this.isDark, required this.onTap,
-  });
+  const _InfoCard({required this.title, required this.body});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(16),
-        border: isConnected ? Border.all(color: color.withValues(alpha: 0.3), width: 1) : null,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.04), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: iconColor ?? color, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(
-                  isConnected ? 'Connected${connectedAs != null ? ' as $connectedAs' : ''}' : subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isConnected ? AppColors.success : (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
-                    fontWeight: isConnected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isConnected ? AppColors.error.withValues(alpha: 0.1) : color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                isConnected ? 'Disconnect' : 'Connect',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: isConnected ? AppColors.error : color),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return SettingsPlainListCard(
+      children: [SettingsPlainTile(title: title, subtitle: body)],
     );
   }
 }

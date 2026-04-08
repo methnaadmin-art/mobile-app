@@ -5,6 +5,7 @@ import 'package:methna_app/core/constants/api_constants.dart';
 
 class SearchRadarController extends GetxController with GetTickerProviderStateMixin {
   final ApiService _api = Get.find<ApiService>();
+  bool _searchInFlight = false;
 
   final RxList<UserModel> foundUsers = <UserModel>[].obs;
   final RxBool isSearching = true.obs;
@@ -25,6 +26,8 @@ class SearchRadarController extends GetxController with GetTickerProviderStateMi
   }
 
   Future<void> startRadarSearch() async {
+    if (_searchInFlight) return;
+    _searchInFlight = true;
     isSearching.value = true;
     foundUsers.clear();
     usersFoundCount.value = 0;
@@ -42,7 +45,12 @@ class SearchRadarController extends GetxController with GetTickerProviderStateMi
         if (verifiedOnlyFilter.value) 'verifiedOnly': true,
       });
       final list = response.data is List ? response.data : response.data['users'] ?? [];
-      final users = (list as List).map((u) => UserModel.fromJson(u)).toList();
+        final seenUserIds = <String>{};
+        final users = (list as List)
+          .whereType<Map<String, dynamic>>()
+          .map((u) => UserModel.fromJson(u))
+          .where((u) => u.id.isNotEmpty && seenUserIds.add(u.id))
+          .toList();
 
       // Reveal users one by one with delay for radar effect
       for (final user in users) {
@@ -50,10 +58,13 @@ class SearchRadarController extends GetxController with GetTickerProviderStateMi
         foundUsers.add(user);
         usersFoundCount.value = foundUsers.length;
       }
-    } catch (_) {}
-
-    await Future.delayed(const Duration(seconds: 1));
-    isSearching.value = false;
+    } catch (_) {
+      // keep UI graceful in failure; search will complete with empty state
+    } finally {
+      await Future.delayed(const Duration(seconds: 1));
+      isSearching.value = false;
+      _searchInFlight = false;
+    }
   }
 
   void _animateRadar() async {

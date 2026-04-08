@@ -43,3 +43,19 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Release secrets and signing material
+android/key.properties
+keystore/*.jks
+keystore/*.keystore
+keystore/*.p12
+keystore/*.pem
+*.mobileprovision
+
+# Service config secrets (keep example files only)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Local release define files (keep example files only)
+env/release.json
+env/release.local.json

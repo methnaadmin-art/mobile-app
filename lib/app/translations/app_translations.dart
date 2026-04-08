@@ -5,7 +5,10 @@ import 'ar_dz.dart';
 class AppTranslations extends Translations {
   @override
   Map<String, Map<String, String>> get keys => {
-        'en_US': enUS,
-        'ar_DZ': arDZ,
+        'en_US': Map<String, String>.from(enUS),
+        'ar_DZ': {
+          ...enUS,
+          ...arDZ,
+        },
       };
 }

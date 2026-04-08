@@ -4,8 +4,6 @@
 	<dict>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Methna needs your location to find matches near you.</string>
-		<key>NSLocationAlwaysUsageDescription</key>
-		<string>Methna needs your location to find matches near you.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>Methna needs camera access for profile photos and verification.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
@@ -59,6 +57,10 @@
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>remote-notification</string>
+		</array>
 		<!-- Google Sign-In URL Schemes -->
 		<key>CFBundleURLTypes</key>
 		<array>
@@ -67,13 +69,21 @@
 				<string>Editor</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<!-- Replace with your REVERSED_CLIENT_ID from GoogleService-Info.plist -->
-					<string>com.googleusercontent.apps.YOUR_IOS_CLIENT_ID</string>
+					<string>com.googleusercontent.apps.980830018700-06on5f7bccfu2a2l8t7n7cklq9dtqqot</string>
+				</array>
+			</dict>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.methna.app</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>methna</string>
 				</array>
 			</dict>
 		</array>
 		<key>GIDClientID</key>
-		<!-- Replace with your iOS Client ID from Google Cloud Console -->
-		<string>YOUR_IOS_CLIENT_ID.apps.googleusercontent.com</string>
+		<string>980830018700-06on5f7bccfu2a2l8t7n7cklq9dtqqot.apps.googleusercontent.com</string>
 	</dict>
 </plist>

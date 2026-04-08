@@ -1,0 +1,10 @@
+{
+  "API_BASE_URL": "https://web-production-afbe4.up.railway.app/api/v1",
+  "SOCKET_URL": "https://web-production-afbe4.up.railway.app:443",
+  "STRIPE_PUBLISHABLE_KEY": "pk_live_replace_me",
+  "STRIPE_MERCHANT_IDENTIFIER": "merchant.com.methna.app",
+  "STRIPE_MERCHANT_COUNTRY_CODE": "US",
+  "STRIPE_CURRENCY_CODE": "USD",
+  "STRIPE_TEST_MODE": "false",
+  "STRIPE_RETURN_URL": "methna://stripe-redirect"
+}

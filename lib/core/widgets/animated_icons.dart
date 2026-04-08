@@ -42,7 +42,7 @@ class _AnimatedHeartIconState extends State<AnimatedHeartIcon>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (_, __) {
+      builder: (context, child) {
         final t = _ctrl.value;
         final scale = 1.0 + 0.12 * sin(t * pi);
         final glowOpacity = 0.15 + 0.15 * t;
@@ -133,7 +133,7 @@ class _AnimatedSearchIconState extends State<AnimatedSearchIcon>
       height: widget.size,
       child: AnimatedBuilder(
         animation: Listenable.merge([_rotateCtrl, _pulseCtrl]),
-        builder: (_, __) {
+        builder: (context, child) {
           return CustomPaint(
             size: Size(widget.size, widget.size),
             painter: _SearchPainter(
@@ -197,7 +197,7 @@ class _AnimatedLocationIconState extends State<AnimatedLocationIcon>
       height: widget.size,
       child: AnimatedBuilder(
         animation: Listenable.merge([_bounceCtrl, _rippleCtrl]),
-        builder: (_, __) {
+        builder: (context, child) {
           return CustomPaint(
             size: Size(widget.size, widget.size),
             painter: _LocationPainter(
@@ -255,7 +255,7 @@ class _AnimatedChatIconState extends State<AnimatedChatIcon>
       height: widget.size,
       child: AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, __) {
+        builder: (context, child) {
           return CustomPaint(
             size: Size(widget.size, widget.size),
             painter: _ChatBubblePainter(
@@ -319,13 +319,10 @@ class _AnimatedCheckIconState extends State<AnimatedCheckIcon>
       height: widget.size,
       child: AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, __) {
+        builder: (context, child) {
           return CustomPaint(
             size: Size(widget.size, widget.size),
-            painter: _CheckPainter(
-              color: widget.color,
-              progress: _ctrl.value,
-            ),
+            painter: _BellPainter(color: widget.color, progress: _ctrl.value),
           );
         },
       ),
@@ -376,13 +373,10 @@ class _AnimatedSparkleIconState extends State<AnimatedSparkleIcon>
       height: widget.size,
       child: AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, __) {
+        builder: (context, child) {
           return CustomPaint(
             size: Size(widget.size, widget.size),
-            painter: _SparklePainter(
-              color: widget.color,
-              progress: _ctrl.value,
-            ),
+            painter: _CheckPainter(color: widget.color, progress: _ctrl.value),
           );
         },
       ),
@@ -433,10 +427,10 @@ class _AnimatedBellIconState extends State<AnimatedBellIcon>
       height: widget.size,
       child: AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, __) {
+        builder: (context, child) {
           return CustomPaint(
             size: Size(widget.size, widget.size),
-            painter: _BellPainter(
+            painter: _SparklePainter(
               color: widget.color,
               progress: _ctrl.value,
             ),
@@ -490,13 +484,10 @@ class _AnimatedErrorIconState extends State<AnimatedErrorIcon>
       height: widget.size,
       child: AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, __) {
+        builder: (context, child) {
           return CustomPaint(
             size: Size(widget.size, widget.size),
-            painter: _ErrorPainter(
-              color: widget.color,
-              progress: _ctrl.value,
-            ),
+            painter: _ErrorPainter(color: widget.color, progress: _ctrl.value),
           );
         },
       ),
@@ -535,11 +526,7 @@ class _HeartPainter extends CustomPainter {
     final highlight = Paint()
       ..color = Colors.white.withValues(alpha: 0.35)
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(
-      Offset(w * 0.32, h * 0.28),
-      w * 0.08,
-      highlight,
-    );
+    canvas.drawCircle(Offset(w * 0.32, h * 0.28), w * 0.08, highlight);
   }
 
   @override
@@ -575,10 +562,7 @@ class _SearchPainter extends CustomPainter {
     }
 
     // Glass circle
-    final glassCenter = Offset(
-      center.dx - r * 0.12,
-      center.dy - r * 0.12,
-    );
+    final glassCenter = Offset(center.dx - r * 0.12, center.dy - r * 0.12);
     final glassPaint = Paint()
       ..color = color.withValues(alpha: 0.15)
       ..style = PaintingStyle.fill;
@@ -619,7 +603,8 @@ class _SearchPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SearchPainter old) =>
-      old.rotateProgress != rotateProgress || old.pulseProgress != pulseProgress;
+      old.rotateProgress != rotateProgress ||
+      old.pulseProgress != pulseProgress;
 }
 
 class _LocationPainter extends CustomPainter {
@@ -642,9 +627,15 @@ class _LocationPainter extends CustomPainter {
     final shadowW = size.width * 0.25;
     final shadowH = 6.0;
     final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.12 + 0.08 * (1 - _bounceY(bounceProgress).abs()));
+      ..color = Colors.black.withValues(
+        alpha: 0.12 + 0.08 * (1 - _bounceY(bounceProgress).abs()),
+      );
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, baseY + 4), width: shadowW, height: shadowH),
+      Rect.fromCenter(
+        center: Offset(cx, baseY + 4),
+        width: shadowW,
+        height: shadowH,
+      ),
       shadowPaint,
     );
 
@@ -658,7 +649,11 @@ class _LocationPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
       canvas.drawOval(
-        Rect.fromCenter(center: Offset(cx, baseY), width: rippleR * 2, height: rippleR * 0.5),
+        Rect.fromCenter(
+          center: Offset(cx, baseY),
+          width: rippleR * 2,
+          height: rippleR * 0.5,
+        ),
         ripplePaint,
       );
     }
@@ -695,7 +690,8 @@ class _LocationPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LocationPainter old) =>
-      old.bounceProgress != bounceProgress || old.rippleProgress != rippleProgress;
+      old.bounceProgress != bounceProgress ||
+      old.rippleProgress != rippleProgress;
 }
 
 class _ChatBubblePainter extends CustomPainter {
@@ -758,7 +754,8 @@ class _ChatBubblePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ChatBubblePainter old) => old.progress != progress;
+  bool shouldRepaint(covariant _ChatBubblePainter old) =>
+      old.progress != progress;
 }
 
 class _CheckPainter extends CustomPainter {
@@ -849,7 +846,13 @@ class _SparklePainter extends CustomPainter {
 
     // Main 4-point star
     final mainScale = 0.8 + 0.2 * sin(progress * 2 * pi);
-    _drawStar(canvas, Offset(cx, cy), size.width * 0.22 * mainScale, color, progress);
+    _drawStar(
+      canvas,
+      Offset(cx, cy),
+      size.width * 0.22 * mainScale,
+      color,
+      progress,
+    );
 
     // Smaller orbiting sparkles
     final sparkles = [
@@ -865,8 +868,15 @@ class _SparklePainter extends CustomPainter {
       final sparkleSize = size.width * s.size;
       final sx = cx + cos(angle) * dist;
       final sy = cy + sin(angle) * dist;
-      final opacity = (0.4 + 0.6 * sin((progress + s.angleOffset) * 4 * pi)).clamp(0.0, 1.0);
-      _drawStar(canvas, Offset(sx, sy), sparkleSize, color.withValues(alpha: opacity), progress + s.angleOffset);
+      final opacity = (0.4 + 0.6 * sin((progress + s.angleOffset) * 4 * pi))
+          .clamp(0.0, 1.0);
+      _drawStar(
+        canvas,
+        Offset(sx, sy),
+        sparkleSize,
+        color.withValues(alpha: opacity),
+        progress + s.angleOffset,
+      );
     }
   }
 
@@ -941,17 +951,28 @@ class _BellPainter extends CustomPainter {
     // Bell body
     final bellPath = Path();
     bellPath.moveTo(cx - bellW * 0.15, cy - bellH * 0.7);
-    bellPath.quadraticBezierTo(cx, cy - bellH * 0.85, cx + bellW * 0.15, cy - bellH * 0.7);
+    bellPath.quadraticBezierTo(
+      cx,
+      cy - bellH * 0.85,
+      cx + bellW * 0.15,
+      cy - bellH * 0.7,
+    );
     bellPath.cubicTo(
-      cx + bellW * 0.5, cy - bellH * 0.5,
-      cx + bellW * 0.55, cy + bellH * 0.1,
-      cx + bellW * 0.6, cy + bellH * 0.3,
+      cx + bellW * 0.5,
+      cy - bellH * 0.5,
+      cx + bellW * 0.55,
+      cy + bellH * 0.1,
+      cx + bellW * 0.6,
+      cy + bellH * 0.3,
     );
     bellPath.lineTo(cx - bellW * 0.6, cy + bellH * 0.3);
     bellPath.cubicTo(
-      cx - bellW * 0.55, cy + bellH * 0.1,
-      cx - bellW * 0.5, cy - bellH * 0.5,
-      cx - bellW * 0.15, cy - bellH * 0.7,
+      cx - bellW * 0.55,
+      cy + bellH * 0.1,
+      cx - bellW * 0.5,
+      cy - bellH * 0.5,
+      cx - bellW * 0.15,
+      cy - bellH * 0.7,
     );
     bellPath.close();
 
@@ -960,18 +981,18 @@ class _BellPainter extends CustomPainter {
     // Bell bottom rim
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(cx, cy + bellH * 0.3), width: bellW * 1.3, height: 6),
+        Rect.fromCenter(
+          center: Offset(cx, cy + bellH * 0.3),
+          width: bellW * 1.3,
+          height: 6,
+        ),
         const Radius.circular(3),
       ),
       Paint()..color = color,
     );
 
     // Clapper
-    canvas.drawCircle(
-      Offset(cx, cy + bellH * 0.42),
-      4,
-      Paint()..color = color,
-    );
+    canvas.drawCircle(Offset(cx, cy + bellH * 0.42), 4, Paint()..color = color);
 
     // Top knob
     canvas.drawCircle(
@@ -1065,7 +1086,10 @@ class _ErrorPainter extends CustomPainter {
         final to = Offset(center.dx + arm, center.dy + arm);
         canvas.drawLine(
           from,
-          Offset(from.dx + (to.dx - from.dx) * t, from.dy + (to.dy - from.dy) * t),
+          Offset(
+            from.dx + (to.dx - from.dx) * t,
+            from.dy + (to.dy - from.dy) * t,
+          ),
           xPaint,
         );
       } else {
@@ -1081,7 +1105,10 @@ class _ErrorPainter extends CustomPainter {
         final to = Offset(center.dx - arm, center.dy + arm);
         canvas.drawLine(
           from,
-          Offset(from.dx + (to.dx - from.dx) * t, from.dy + (to.dy - from.dy) * t),
+          Offset(
+            from.dx + (to.dx - from.dx) * t,
+            from.dy + (to.dy - from.dy) * t,
+          ),
           xPaint,
         );
       }

@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_gradients.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_shadows.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
+
+enum CustomButtonVariant { primary, secondary, outline, ghost }
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -13,6 +20,7 @@ class CustomButton extends StatelessWidget {
   final Color? textColor;
   final IconData? icon;
   final Gradient? gradient;
+  final CustomButtonVariant variant;
 
   const CustomButton({
     super.key,
@@ -22,81 +30,91 @@ class CustomButton extends StatelessWidget {
     this.isOutlined = false,
     this.isFullWidth = true,
     this.height = 56,
-    this.borderRadius = 14,
+    this.borderRadius = 20,
     this.backgroundColor,
     this.textColor,
     this.icon,
     this.gradient,
+    this.variant = CustomButtonVariant.primary,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (gradient != null && !isOutlined) {
-      return SizedBox(
-        width: isFullWidth ? double.infinity : null,
-        height: height,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: onPressed != null ? gradient : null,
-            color: onPressed == null ? Colors.grey.shade300 : null,
-            borderRadius: BorderRadius.circular(borderRadius),
-            boxShadow: onPressed != null
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: isLoading ? null : onPressed,
-              borderRadius: BorderRadius.circular(borderRadius),
-              child: Center(child: _buildChild(Colors.white)),
-            ),
-          ),
-        ),
-      );
-    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final enabled = onPressed != null && !isLoading;
+    final effectiveVariant = isOutlined ? CustomButtonVariant.outline : variant;
+    final radiusValue = borderRadius == 20 ? AppRadii.lg : borderRadius;
 
-    if (isOutlined) {
-      return SizedBox(
-        width: isFullWidth ? double.infinity : null,
-        height: height,
-        child: OutlinedButton(
-          onPressed: isLoading ? null : onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: textColor ?? AppColors.primary,
-            side: BorderSide(
-              color: textColor ?? AppColors.primary,
-              width: 1.5,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(borderRadius),
-            ),
-          ),
-          child: _buildChild(textColor ?? AppColors.primary),
-        ),
-      );
+    Color foreground;
+    Color fillColor;
+    BorderSide borderSide;
+    Gradient? fillGradient;
+    List<BoxShadow> shadows;
+
+    switch (effectiveVariant) {
+      case CustomButtonVariant.primary:
+        foreground = textColor ?? Colors.white;
+        fillColor = enabled
+            ? (backgroundColor ?? AppColors.primary)
+            : Colors.grey.shade300;
+        borderSide = BorderSide.none;
+        fillGradient = enabled ? (gradient ?? AppGradients.primary) : null;
+        shadows = enabled ? AppShadows.buttonGlow() : const [];
+        break;
+      case CustomButtonVariant.secondary:
+        foreground =
+            textColor ??
+            (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight);
+        fillColor = enabled
+            ? (backgroundColor ??
+                  (isDark
+                      ? AppColors.surfaceMutedDark
+                      : AppColors.surfaceMutedLight))
+            : Colors.grey.shade200;
+        borderSide = BorderSide(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        );
+        fillGradient = gradient;
+        shadows = enabled ? AppShadows.surface(isDark) : const [];
+        break;
+      case CustomButtonVariant.outline:
+        foreground = textColor ?? AppColors.primary;
+        fillColor = Colors.transparent;
+        borderSide = BorderSide(
+          color: (textColor ?? AppColors.primary).withValues(alpha: 0.32),
+          width: 1.2,
+        );
+        fillGradient = null;
+        shadows = const [];
+        break;
+      case CustomButtonVariant.ghost:
+        foreground = textColor ?? AppColors.primary;
+        fillColor = Colors.transparent;
+        borderSide = BorderSide.none;
+        fillGradient = null;
+        shadows = const [];
+        break;
     }
 
     return SizedBox(
       width: isFullWidth ? double.infinity : null,
-      height: height,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? AppColors.primary,
-          foregroundColor: textColor ?? Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
+      height: height == 56 ? AppSpacing.buttonHeight : height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: fillGradient,
+          color: fillGradient == null ? fillColor : null,
+          borderRadius: BorderRadius.circular(radiusValue),
+          border: Border.fromBorderSide(borderSide),
+          boxShadow: shadows,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: enabled ? onPressed : null,
+            borderRadius: BorderRadius.circular(radiusValue),
+            child: Center(child: _buildChild(foreground)),
           ),
         ),
-        child: _buildChild(textColor ?? Colors.white),
       ),
     );
   }
@@ -108,7 +126,7 @@ class CustomButton extends StatelessWidget {
         width: 22,
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          valueColor: AlwaysStoppedAnimation(color),
+          valueColor: AlwaysStoppedAnimation<Color>(color),
         ),
       );
     }
@@ -117,29 +135,13 @@ class CustomButton extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20, color: color),
+          Icon(icon, size: 18, color: color),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: color,
-              letterSpacing: 0.5,
-            ),
-          ),
+          Text(text, style: AppTextStyles.button.copyWith(color: color)),
         ],
       );
     }
 
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: color,
-        letterSpacing: 0.5,
-      ),
-    );
+    return Text(text, style: AppTextStyles.button.copyWith(color: color));
   }
 }

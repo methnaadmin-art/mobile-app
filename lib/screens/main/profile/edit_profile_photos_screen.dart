@@ -1,32 +1,41 @@
 import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/profile_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/app/theme/app_gradients.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/utils/cloudinary_url.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/core/widgets/app_card.dart';
+import 'package:methna_app/core/widgets/app_modal_sheet.dart';
+import 'package:methna_app/core/widgets/custom_button.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
+import 'package:methna_app/core/widgets/discovery_flow.dart';
+import 'package:methna_app/core/widgets/profile_flow.dart';
 
-/// Profile Photos Editing Screen
-/// Comprehensive photo management with drag-and-drop reordering, cropping, and verification
 class EditProfilePhotosScreen extends StatefulWidget {
   const EditProfilePhotosScreen({super.key});
 
   @override
-  State<EditProfilePhotosScreen> createState() => _EditProfilePhotosScreenState();
+  State<EditProfilePhotosScreen> createState() =>
+      _EditProfilePhotosScreenState();
 }
 
 class _EditProfilePhotosScreenState extends State<EditProfilePhotosScreen> {
   final ProfileController controller = Get.find<ProfileController>();
   final ImagePicker _imagePicker = ImagePicker();
-  
-  // Mix of PhotoModel (from backend) and File (newly picked)
+
   List<dynamic> _photos = [];
   bool _isUploading = false;
-  
+
   @override
   void initState() {
     super.initState();
@@ -35,227 +44,468 @@ class _EditProfilePhotosScreenState extends State<EditProfilePhotosScreen> {
 
   void _loadExistingPhotos() {
     final user = controller.user.value;
-    if (user?.photos != null) {
-      // Sort by order and set to state
-      final existingPhotos = List<dynamic>.from(user!.photos!);
-      existingPhotos.sort((a, b) => (a as PhotoModel).order.compareTo((b as PhotoModel).order));
-      setState(() {
-        _photos = existingPhotos;
-      });
-    }
+    if (user?.photos == null) return;
+
+    final existingPhotos = List<dynamic>.from(user!.photos!);
+    existingPhotos.sort(
+      (a, b) => (a as PhotoModel).order.compareTo((b as PhotoModel).order),
+    );
+
+    setState(() => _photos = existingPhotos);
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.backgroundDark : const Color(0xFFF8F5FA);
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final cardBg = isDark ? AppColors.cardDark : Colors.white;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
 
     return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: bgColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(LucideIcons.chevronLeft, color: textColor),
-          onPressed: () => Get.back(),
-        ),
-        title: Text(
-          'Edit Photos',
-          style: TextStyle(
-            color: textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          if (_isUploading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.only(right: 16.0),
-                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-              ),
-            )
-          else
-            TextButton(
-              onPressed: _saveChanges,
-              child: Text(
-                'Save',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : AppColors.backgroundLight,
+      body: DatifyBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.sm,
+                        AppSpacing.lg,
+                        0,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          DiscoveryIconButton(
+                            icon: LucideIcons.chevronLeft,
+                            onTap: () => Get.back(),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: DiscoveryHeroHeader(
+                              eyebrow: 'PHOTOS',
+                              title: 'Shape your first impression',
+                              subtitle:
+                                  'Choose the photos you want people to notice first.',
+                              padding: EdgeInsets.zero,
+                              trailing: _isUploading
+                                  ? const SizedBox(
+                                      width: 44,
+                                      height: 44,
+                                      child: Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.4,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  AppColors.primary,
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : DiscoveryIconButton(
+                                      icon: LucideIcons.check,
+                                      highlighted: true,
+                                      onTap: _saveChanges,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        0,
+                      ),
+                      child: ProfileHighlightBanner(
+                        title: _photos.isEmpty
+                            ? 'Add photos to unlock your visual profile'
+                            : 'Your first photo remains the main profile image',
+                        subtitle: _photos.isEmpty
+                            ? 'Aim for a clear portrait first, then build variety with lifestyle and full-length shots.'
+                            : 'Tap any slot to preview, reorder, or replace a photo.',
+                        icon: LucideIcons.image,
+                        accent: AppColors.primary,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        0,
+                      ),
+                      child: Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: [
+                          ProfileMetricPill(
+                            label: 'Slots used',
+                            value: '${_photos.length}/6',
+                            icon: LucideIcons.layoutGrid,
+                            accent: AppColors.primary,
+                          ),
+                          ProfileMetricPill(
+                            label: 'Main photo',
+                            value: _photos.isEmpty ? 'Missing' : 'Ready',
+                            icon: LucideIcons.star,
+                            accent: _photos.isEmpty
+                                ? AppColors.gold
+                                : AppColors.online,
+                          ),
+                          ProfileMetricPill(
+                            label: 'Sync status',
+                            value: _isUploading ? 'Saving' : 'Local edits',
+                            icon: _isUploading
+                                ? LucideIcons.loader
+                                : LucideIcons.cloud,
+                            accent: _isUploading
+                                ? AppColors.gold
+                                : AppColors.like,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        0,
+                      ),
+                      child: _PrimaryPhotoPreview(
+                        item: _photos.isEmpty ? null : _photos.first,
+                        title: _photos.isEmpty
+                            ? 'Main photo preview'
+                            : 'Primary photo',
+                        subtitle: _photos.isEmpty
+                            ? 'Your first uploaded photo will appear here.'
+                            : 'This is the image shown first across the app.',
+                        onTap: _photos.isEmpty
+                            ? _addPhoto
+                            : () => _showPhotoOptions(0),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        0,
+                      ),
+                      child: ProfileSectionCard(
+                        title: 'Your photo lineup',
+                        subtitle:
+                            'Keep your strongest images first and fill each slot with variety.',
+                        icon: LucideIcons.layoutGrid,
+                        accent: AppColors.like,
+                        trailing: Text(
+                          '${_photos.length}/6',
+                          style: AppTextStyles.titleMedium.copyWith(
+                            color: AppColors.like,
+                          ),
+                        ),
+                        child: _PhotoGrid(
+                          photos: _photos,
+                          onTapSlot: _showPhotoOptions,
+                          onAddPhoto: _addPhoto,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        0,
+                      ),
+                      child: ProfileSectionCard(
+                        title: 'Photo guidance',
+                        subtitle:
+                            'A few simple tips to help your profile look its best.',
+                        icon: LucideIcons.info,
+                        accent: AppColors.gold,
+                        child: const Column(
+                          children: [
+                            ProfileDetailRow(
+                              label: 'Lead with clarity',
+                              value:
+                                  'Use a bright, front-facing photo in slot one for your main profile image.',
+                              icon: LucideIcons.star,
+                              accent: AppColors.primary,
+                            ),
+                            ProfileDetailRow(
+                              label: 'Show variety',
+                              value:
+                                  'Mix portraits and lifestyle shots so the grid feels complete and trustworthy.',
+                              icon: LucideIcons.image,
+                              accent: AppColors.like,
+                            ),
+                            ProfileDetailRow(
+                              label: 'Keep it respectful',
+                              value:
+                                  'Clear, high-quality photos help the review and matching experience stay smooth.',
+                              icon: LucideIcons.shield,
+                              accent: AppColors.gold,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Instructions
-          _InstructionsCard(textColor: textColor, cardBg: cardBg),
-          
-          const SizedBox(height: 20),
-          
-          // Photos grid
-          Expanded(
-            child: _PhotosGrid(
-              photos: _photos,
-              onPhotoTap: _showPhotoOptions,
-              onAddPhoto: _addPhoto,
-              onReorder: _reorderPhotos,
-              textColor: textColor,
-              cardBg: cardBg,
-              borderColor: borderColor,
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Add photo',
+                        icon: LucideIcons.plus,
+                        variant: CustomButtonVariant.secondary,
+                        onPressed: _photos.length >= 6 ? null : _addPhoto,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Save changes',
+                        icon: LucideIcons.check,
+                        isLoading: _isUploading,
+                        onPressed: _isUploading ? null : _saveChanges,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          
-          // Bottom actions
-          _BottomActions(
-            onAddMore: _addPhoto,
-            isDark: isDark,
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Future<void> _addPhoto() async {
+    if (_photos.length >= 6) {
+      Helpers.showSnackbar(
+        message: 'You can only have up to 6 photos',
+        isError: true,
+      );
+      return;
+    }
+
     try {
       final picked = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1080,
-        imageQuality: 85,
+        maxHeight: 1080,
+        imageQuality: 72,
       );
-      
-      if (picked != null) {
-        final file = File(picked.path);
-        setState(() {
-          if (_photos.length < 6) {
-            _photos.add(file);
-          } else {
-            Get.snackbar('Limit Reached', 'You can only have up to 6 photos');
-          }
-        });
-      }
+
+      if (picked == null) return;
+
+      setState(() => _photos.add(File(picked.path)));
     } catch (e) {
       debugPrint('[EditPhotos] Error adding photo: $e');
-      Get.snackbar('Error', 'Failed to add photo');
+      Helpers.showSnackbar(message: 'Failed to add photo', isError: true);
     }
   }
 
-  void _showPhotoOptions(int index) {
-    if (index >= _photos.length) return;
-    
-    showModalBottomSheet(
+  Future<void> _showPhotoOptions(int index) async {
+    if (index < 0 || index >= _photos.length) return;
+
+    await showMethnaModalSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _PhotoOptionsBottomSheet(
-        photoIndex: index,
-        isMainPhoto: index == 0,
-        onSetAsMain: () => _setAsMainPhoto(index),
-        onDelete: () => _deletePhoto(index),
-        onView: () => _viewPhoto(index),
-        onEdit: () {}, // Temporary empty callback
+      title: 'Photo actions',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SheetAction(
+            icon: LucideIcons.eye,
+            label: 'Preview photo',
+            onTap: () {
+              Navigator.of(context).pop();
+              _viewPhoto(index);
+            },
+          ),
+          if (index > 0)
+            _SheetAction(
+              icon: LucideIcons.star,
+              label: 'Set as main photo',
+              onTap: () {
+                Navigator.of(context).pop();
+                _setAsMainPhoto(index);
+              },
+            ),
+          if (index > 0)
+            _SheetAction(
+              icon: LucideIcons.arrowUp,
+              label: 'Move earlier',
+              onTap: () {
+                Navigator.of(context).pop();
+                _reorderPhotos(index, index - 1);
+              },
+            ),
+          if (index < _photos.length - 1)
+            _SheetAction(
+              icon: LucideIcons.arrowDown,
+              label: 'Move later',
+              onTap: () {
+                Navigator.of(context).pop();
+                _reorderPhotos(index, index + 1);
+              },
+            ),
+          if (index > 0)
+            _SheetAction(
+              icon: LucideIcons.trash2,
+              label: 'Delete photo',
+              destructive: true,
+              onTap: () {
+                Navigator.of(context).pop();
+                _deletePhoto(index);
+              },
+            ),
+        ],
       ),
     );
   }
 
   void _setAsMainPhoto(int index) {
-    if (index < _photos.length) {
-      setState(() {
-        final photo = _photos.removeAt(index);
-        _photos.insert(0, photo);
-      });
-      Get.back();
-    }
+    if (index <= 0 || index >= _photos.length) return;
+
+    setState(() {
+      final photo = _photos.removeAt(index);
+      _photos.insert(0, photo);
+    });
   }
 
   void _deletePhoto(int index) {
-    if (index < _photos.length) {
-      setState(() {
-        _photos.removeAt(index);
-      });
-      Get.back();
-    }
+    if (index <= 0 || index >= _photos.length) return;
+    setState(() => _photos.removeAt(index));
   }
 
   void _viewPhoto(int index) {
-    // Basic view logic
-    Get.back();
+    if (index < 0 || index >= _photos.length) return;
+
+    final item = _photos[index];
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.all(AppSpacing.lg),
+        backgroundColor: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadii.hero),
+          child: Stack(
+            children: [
+              AspectRatio(
+                aspectRatio: 0.72,
+                child: item is File
+                    ? Image.file(item, fit: BoxFit.cover)
+                    : CachedNetworkImage(
+                        imageUrl: CloudinaryUrl.full((item as PhotoModel).url),
+                        fit: BoxFit.cover,
+                      ),
+              ),
+              Positioned(
+                top: AppSpacing.md,
+                right: AppSpacing.md,
+                child: DiscoveryIconButton(
+                  icon: LucideIcons.x,
+                  onTap: () => Navigator.of(dialogContext).pop(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _reorderPhotos(int oldIndex, int newIndex) {
-    if (oldIndex < _photos.length && newIndex < _photos.length) {
-      setState(() {
-        final photo = _photos.removeAt(oldIndex);
-        _photos.insert(newIndex, photo);
-      });
+    if (oldIndex < 0 ||
+        oldIndex >= _photos.length ||
+        newIndex < 0 ||
+        newIndex >= _photos.length ||
+        oldIndex == newIndex) {
+      return;
     }
+
+    setState(() {
+      final photo = _photos.removeAt(oldIndex);
+      _photos.insert(newIndex, photo);
+    });
   }
 
   Future<void> _saveChanges() async {
     if (_isUploading) return;
-    
+
     setState(() => _isUploading = true);
-    
+
     try {
       final initialPhotos = controller.user.value?.photos ?? [];
       final currentPhotos = _photos;
-      
-      // 1. Identify deleted photos
-      for (var initial in initialPhotos) {
-        bool stillExists = currentPhotos.any((p) => p is PhotoModel && p.id == initial.id);
+
+      for (final initial in initialPhotos) {
+        final stillExists = currentPhotos.any(
+          (photo) => photo is PhotoModel && photo.id == initial.id,
+        );
         if (!stillExists) {
           await controller.deletePhoto(initial.id, refresh: false);
         }
       }
-      
-      // 2. Identify and upload new photos
-      for (int i = 0; i < currentPhotos.length; i++) {
-        final item = currentPhotos[i];
+
+      for (final item in currentPhotos) {
         if (item is File) {
           await controller.uploadPhoto(item, refresh: false);
         }
       }
-      
-      // 3. Refresh profile to get new PhotoModels from backend
+
       await controller.refreshProfile();
       final updatedUser = controller.user.value;
-      
-      // 4. Determine which photo ID should be main (the one at index 0 of our requested order)
+
       if (currentPhotos.isNotEmpty) {
-        final firstItem = currentPhotos[0];
+        final firstItem = currentPhotos.first;
         String? targetMainId;
-        
+
         if (firstItem is PhotoModel) {
           targetMainId = firstItem.id;
         } else if (firstItem is File) {
-          // If the first item was a new file, find its new ID from the refreshed user photos
-          // We assume the most recently added photo with this index/order matches
-          // (Actually, the most reliable way is comparing URLs or checking the last photo added)
           final newPhotos = updatedUser?.photos ?? [];
-          if (newPhotos.isNotEmpty) {
-            // Find the photo that was just uploaded. 
-            // Since we upload sequentially, we can try to find the one that isn't in initialPhotos
-            final newlyUploaded = newPhotos.where((p) => !initialPhotos.any((ip) => ip.id == p.id)).toList();
-            if (newlyUploaded.isNotEmpty) {
-               targetMainId = newlyUploaded.first.id; // Simplification: first newly uploaded
-            }
+          final newlyUploaded = newPhotos
+              .where(
+                (photo) => !initialPhotos.any((item) => item.id == photo.id),
+              )
+              .toList();
+          if (newlyUploaded.isNotEmpty) {
+            targetMainId = newlyUploaded.first.id;
           }
         }
-        
+
         if (targetMainId != null) {
           await controller.setMainPhoto(targetMainId, refresh: false);
         }
       }
-      
-      // 5. Final single refresh
+
       await controller.refreshProfile();
-      
+
+      if (!mounted) return;
       Get.back();
       Helpers.showSnackbar(message: 'Profile photos updated successfully!');
     } catch (e, stackTrace) {
@@ -263,456 +513,312 @@ class _EditProfilePhotosScreenState extends State<EditProfilePhotosScreen> {
       debugPrint('[EditPhotos] Stack: $stackTrace');
       Helpers.showSnackbar(message: 'Failed to update photos', isError: true);
     } finally {
-      if (mounted) setState(() => _isUploading = false);
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
 }
 
-class _InstructionsCard extends StatelessWidget {
-  final Color textColor;
-  final Color cardBg;
+class _PrimaryPhotoPreview extends StatelessWidget {
+  final dynamic item;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
-  const _InstructionsCard({
-    required this.textColor,
-    required this.cardBg,
+  const _PrimaryPhotoPreview({
+    required this.item,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.info, color: AppColors.primary, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Photo Guidelines',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
+    return AppCard(
+      padding: EdgeInsets.zero,
+      radius: AppRadii.hero,
+      onTap: onTap,
+      child: AspectRatio(
+        aspectRatio: 1.02,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (item == null)
+              Container(
+                decoration: const BoxDecoration(gradient: AppGradients.primary),
+                alignment: Alignment.center,
+                child: const Icon(
+                  LucideIcons.imagePlus,
+                  size: 44,
+                  color: Colors.white,
+                ),
+              )
+            else
+              _PhotoVisual(item: item),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.08),
+                      Colors.black.withValues(alpha: 0.18),
+                      Colors.black.withValues(alpha: 0.72),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _GuidelineItem(icon: LucideIcons.star, text: 'First photo will be your main profile picture'),
-          _GuidelineItem(icon: LucideIcons.users, text: 'Show your face clearly in all photos'),
-          _GuidelineItem(icon: LucideIcons.image, text: 'High-quality photos get more matches'),
-        ],
-      ),
-    );
-  }
-}
-
-class _GuidelineItem extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _GuidelineItem({
-    required this.icon,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppColors.primary.withValues(alpha: 0.7)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 14,
-                color: textColor.withValues(alpha: 0.8),
+            ),
+            Positioned(
+              top: AppSpacing.md,
+              left: AppSpacing.md,
+              child: const DiscoveryInfoPill(
+                icon: LucideIcons.star,
+                label: 'Main photo',
+                color: AppColors.gold,
+                filled: true,
               ),
             ),
-          ),
-        ],
+            Positioned(
+              right: AppSpacing.md,
+              top: AppSpacing.md,
+              child: const DiscoveryIconButton(
+                icon: LucideIcons.expand,
+                highlighted: true,
+              ),
+            ),
+            Positioned(
+              left: AppSpacing.lg,
+              right: AppSpacing.lg,
+              bottom: AppSpacing.lg,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.headlineMedium.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: Colors.white.withValues(alpha: 0.82),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PhotosGrid extends StatefulWidget {
+class _PhotoGrid extends StatelessWidget {
   final List<dynamic> photos;
-  final Function(int) onPhotoTap;
+  final ValueChanged<int> onTapSlot;
   final VoidCallback onAddPhoto;
-  final Function(int, int) onReorder;
-  final Color textColor;
-  final Color cardBg;
-  final Color borderColor;
 
-  const _PhotosGrid({
+  const _PhotoGrid({
     required this.photos,
-    required this.onPhotoTap,
+    required this.onTapSlot,
     required this.onAddPhoto,
-    required this.onReorder,
-    required this.textColor,
-    required this.cardBg,
-    required this.borderColor,
   });
 
-  @override
-  State<_PhotosGrid> createState() => _PhotosGridState();
-}
-
-class _PhotosGridState extends State<_PhotosGrid> {
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      padding: const EdgeInsets.all(20),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 6,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1,
+        crossAxisSpacing: AppSpacing.sm,
+        mainAxisSpacing: AppSpacing.sm,
+        childAspectRatio: 0.68,
       ),
-      itemCount: 6, // Always show 6 slots
       itemBuilder: (context, index) {
-        if (index < widget.photos.length) {
-          return _PhotoSlot(
-            item: widget.photos[index],
-            index: index,
-            isMainPhoto: index == 0,
-            onTap: () => widget.onPhotoTap(index),
-            textColor: widget.textColor,
-            cardBg: widget.cardBg,
-            borderColor: widget.borderColor,
-          );
-        } else {
-          return _EmptySlot(
-            onTap: widget.onAddPhoto,
-            cardBg: widget.cardBg,
-            borderColor: widget.borderColor,
+        if (index < photos.length) {
+          return ProfilePhotoSlot(
+            isPrimary: index == 0,
+            badge: index == 0 ? 'MAIN' : '${index + 1}',
+            onTap: () => onTapSlot(index),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _PhotoVisual(item: photos[index]),
+                Positioned(
+                  right: AppSpacing.xs,
+                  bottom: AppSpacing.xs,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.48),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      LucideIcons.edit3,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           );
         }
+
+        return AppCard(
+          variant: AppCardVariant.outlined,
+          radius: AppRadii.xl,
+          onTap: onAddPhoto,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: AppGradients.primary,
+                      borderRadius: BorderRadius.circular(AppRadii.lg),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      LucideIcons.plus,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Add',
+                    style: AppTextStyles.titleSmall.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text('Slot ${index + 1}', style: AppTextStyles.bodySmall),
+                ],
+              ),
+            ),
+          ),
+        );
       },
     );
   }
 }
 
-class _PhotoSlot extends StatelessWidget {
+class _PhotoVisual extends StatelessWidget {
   final dynamic item;
-  final int index;
-  final bool isMainPhoto;
+
+  const _PhotoVisual({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    if (item is File) {
+      return Image.file(
+        item as File,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const _PhotoFallback(),
+      );
+    }
+
+    if (item is PhotoModel) {
+      return CachedNetworkImage(
+        imageUrl: CloudinaryUrl.large((item as PhotoModel).url),
+        fit: BoxFit.cover,
+        placeholder: (_, _) => Container(
+          color: Colors.black.withValues(alpha: 0.04),
+          alignment: Alignment.center,
+          child: const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+        ),
+        errorWidget: (_, _, _) => const _PhotoFallback(),
+      );
+    }
+
+    return const _PhotoFallback();
+  }
+}
+
+class _PhotoFallback extends StatelessWidget {
+  const _PhotoFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(gradient: AppGradients.primary),
+      alignment: Alignment.center,
+      child: const Icon(LucideIcons.imageOff, color: Colors.white, size: 28),
+    );
+  }
+}
+
+class _SheetAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
-  final Color textColor;
-  final Color cardBg;
-  final Color borderColor;
+  final bool destructive;
 
-  const _PhotoSlot({
-    required this.item,
-    required this.index,
-    required this.isMainPhoto,
+  const _SheetAction({
+    required this.icon,
+    required this.label,
     required this.onTap,
-    required this.textColor,
-    required this.cardBg,
-    required this.borderColor,
+    this.destructive = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isMainPhoto ? AppColors.primary : borderColor,
-            width: isMainPhoto ? 3 : 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Stack(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: AppCard(
+        onTap: onTap,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
           children: [
-            // Photo
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: item is File
-                  ? Image.file(
-                      item,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _ErrorPlaceholder(),
-                    )
-                  : CachedNetworkImage(
-                      imageUrl: CloudinaryUrl.getResizedUrl((item as PhotoModel).url, width: 400),
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                      ),
-                      errorWidget: (context, url, error) => _ErrorPlaceholder(),
-                    ),
-            ),
-            
-            // Main photo badge
-            if (isMainPhoto)
-              Positioned(
-                top: 8,
-                left: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'MAIN',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: (destructive ? AppColors.error : AppColors.primary)
+                    .withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppRadii.lg),
               ),
-            
-            // Edit indicator
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  LucideIcons.edit3,
-                  color: Colors.white,
-                  size: 12,
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                size: 18,
+                color: destructive ? AppColors.error : AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTextStyles.bodyLarge.copyWith(
+                  color: destructive ? AppColors.error : null,
                 ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _EmptySlot extends StatelessWidget {
-  final VoidCallback onTap;
-  final Color cardBg;
-  final Color borderColor;
-
-  const _EmptySlot({
-    required this.onTap,
-    required this.cardBg,
-    required this.borderColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hintColor = isDark ? AppColors.textHintDark : AppColors.textHintLight;
-    
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: borderColor,
-            width: 2,
-            style: BorderStyle.solid,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              LucideIcons.plus,
-              size: 32,
-              color: hintColor.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Add Photo',
-              style: TextStyle(
-                fontSize: 12,
-                color: hintColor.withValues(alpha: 0.7),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorPlaceholder extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.grey.withValues(alpha: 0.2),
-      child: const Center(
-        child: Icon(
-          LucideIcons.imageOff,
-          size: 32,
-          color: Colors.grey,
-        ),
-      ),
-    );
-  }
-}
-
-class _BottomActions extends StatelessWidget {
-  final VoidCallback onAddMore;
-  final bool isDark;
-
-  const _BottomActions({
-    required this.onAddMore,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? AppColors.borderDark : AppColors.borderLight,
-          ),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Add more photos button
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: onAddMore,
-              icon: const Icon(LucideIcons.plus, size: 20),
-              label: const Text('Add More Photos'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PhotoOptionsBottomSheet extends StatelessWidget {
-  final int photoIndex;
-  final bool isMainPhoto;
-  final VoidCallback onSetAsMain;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final VoidCallback onView;
-
-  const _PhotoOptionsBottomSheet({
-    required this.photoIndex,
-    required this.isMainPhoto,
-    required this.onSetAsMain,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onView,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(top: 8),
-            decoration: BoxDecoration(
-              color: textColor.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          
-          // Title
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
-              'Photo Options',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: textColor,
-              ),
-            ),
-          ),
-          
-          // Options
-          ListTile(
-            leading: const Icon(LucideIcons.eye),
-            title: const Text('View Fullscreen'),
-            onTap: onView,
-          ),
-          
-          if (!isMainPhoto)
-            ListTile(
-              leading: const Icon(LucideIcons.star),
-              title: const Text('Set as Main Photo'),
-              onTap: onSetAsMain,
-            ),
-          
-          ListTile(
-            leading: const Icon(LucideIcons.edit3),
-            title: const Text('Edit Photo'),
-            onTap: onEdit,
-          ),
-          
-          if (!isMainPhoto)
-            ListTile(
-              leading: Icon(LucideIcons.trash2, color: Colors.red),
-              title: const Text('Delete Photo', style: TextStyle(color: Colors.red)),
-              onTap: onDelete,
-            ),
-          
-          const SizedBox(height: 20),
-        ],
       ),
     );
   }

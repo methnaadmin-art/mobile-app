@@ -14,6 +14,17 @@ class LocationService extends GetxService {
     return this;
   }
 
+  /// Silent readiness check used during startup/home gating.
+  /// This does not trigger the permission prompt.
+  Future<bool> isLocationReady() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return false;
+
+    final permission = await Geolocator.checkPermission();
+    return permission != LocationPermission.denied &&
+        permission != LocationPermission.deniedForever;
+  }
+
   /// Check and request permission — returns true only if fully granted.
   Future<bool> checkPermission() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();

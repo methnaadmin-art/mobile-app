@@ -43,7 +43,7 @@ class OtpController extends GetxController {
   Future<void> verifyOtp() async {
     final otp = otpController.text.trim();
     if (otp.length != 6) {
-      Helpers.showSnackbar(message: 'Please enter the 6-digit code', isError: true);
+      Helpers.showSnackbar(message: 'otp_length'.tr, isError: true);
       return;
     }
 
@@ -51,19 +51,19 @@ class OtpController extends GetxController {
     try {
       if (purpose == 'verify_email') {
         await _auth.verifyOtp(email, otp);
-        Helpers.showSnackbar(message: 'Email verified successfully!');
+        Helpers.showSnackbar(message: 'email_verified_continue'.tr);
         // Continue signup flow
         Get.offNamed(AppRoutes.signupFaithReligion);
       } else {
         await _auth.verifyResetOtp(email, otp);
-        Helpers.showSnackbar(message: 'Code verified!');
+        Helpers.showSnackbar(message: 'success'.tr);
         Get.offNamed(AppRoutes.resetPassword, arguments: {
           'email': email,
           'otpCode': otp,
         });
       }
     } catch (e) {
-      Helpers.showSnackbar(message: 'Invalid or expired code', isError: true);
+      Helpers.showSnackbar(message: 'verification_failed'.tr, isError: true);
     } finally {
       isLoading.value = false;
     }
@@ -77,10 +77,10 @@ class OtpController extends GetxController {
       } else {
         await _auth.forgotPassword(email);
       }
-      Helpers.showSnackbar(message: 'New code sent!');
+      Helpers.showSnackbar(message: 'new_otp_sent'.tr);
       _startCountdown();
     } catch (e) {
-      Helpers.showSnackbar(message: 'Failed to resend code', isError: true);
+      Helpers.showSnackbar(message: 'wait_before_retry'.tr, isError: true);
     }
   }
 

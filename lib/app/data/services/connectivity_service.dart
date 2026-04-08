@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/data/services/socket_service.dart';
@@ -17,14 +16,21 @@ class ConnectivityService extends GetxService with WidgetsBindingObserver {
 
   Timer? _checkTimer;
   Timer? _reconnectTimer;
+  Timer? _resumeCheckTimer;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 10;
   static const Duration _checkInterval = Duration(seconds: 30);
+  bool _initialized = false;
+  bool _hasResolvedInitialState = false;
 
   Future<ConnectivityService> init() async {
+    if (_initialized) return this;
+    _initialized = true;
     WidgetsBinding.instance.addObserver(this);
-    await _checkConnectivity();
     _startPeriodicCheck();
+    Future.delayed(const Duration(milliseconds: 900), () {
+      _checkConnectivity();
+    });
     return this;
   }
 
@@ -33,6 +39,7 @@ class ConnectivityService extends GetxService with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _checkTimer?.cancel();
     _reconnectTimer?.cancel();
+    _resumeCheckTimer?.cancel();
     super.onClose();
   }
 
@@ -41,9 +48,14 @@ class ConnectivityService extends GetxService with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint('[Connectivity] App resumed - checking connectivity');
-      _onAppResumed();
+      _resumeCheckTimer?.cancel();
+      debugPrint('[Connectivity] App resumed - scheduling connectivity check');
+      _resumeCheckTimer = Timer(const Duration(milliseconds: 600), () {
+        debugPrint('[Connectivity] App resumed - checking connectivity');
+        _onAppResumed();
+      });
     } else if (state == AppLifecycleState.paused) {
+      _resumeCheckTimer?.cancel();
       debugPrint('[Connectivity] App paused');
     }
   }
@@ -62,9 +74,10 @@ class ConnectivityService extends GetxService with WidgetsBindingObserver {
     status.value = ConnectivityStatus.checking;
     try {
       // Try DNS lookup to verify actual internet connectivity
-      final result = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(seconds: 5));
-      
+      final result = await InternetAddress.lookup(
+        'google.com',
+      ).timeout(const Duration(seconds: 5));
+
       final connected = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
       _updateStatus(connected);
       return connected;
@@ -82,9 +95,17 @@ class ConnectivityService extends GetxService with WidgetsBindingObserver {
   }
 
   void _updateStatus(bool connected) {
+    final isFirstResolution = !_hasResolvedInitialState;
     final wasOnline = isOnline.value;
     isOnline.value = connected;
-    status.value = connected ? ConnectivityStatus.online : ConnectivityStatus.offline;
+    status.value = connected
+        ? ConnectivityStatus.online
+        : ConnectivityStatus.offline;
+
+    if (isFirstResolution) {
+      _hasResolvedInitialState = true;
+      return;
+    }
 
     if (connected && !wasOnline) {
       debugPrint('[Connectivity] Network restored');
@@ -129,7 +150,9 @@ class ConnectivityService extends GetxService with WidgetsBindingObserver {
     try {
       final queue = Get.find<MessageQueueService>();
       if (queue.pendingCount > 0) {
-        debugPrint('[Connectivity] Flushing ${queue.pendingCount} queued messages');
+        debugPrint(
+          '[Connectivity] Flushing ${queue.pendingCount} queued messages',
+        );
         queue.flushQueue();
       }
     } catch (e) {
@@ -146,10 +169,12 @@ class ConnectivityService extends GetxService with WidgetsBindingObserver {
     }
 
     _reconnectTimer?.cancel();
-    
+
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s (max 32s)
     final delay = Duration(seconds: _calculateBackoffDelay());
-    debugPrint('[Connectivity] Scheduling reconnect in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
+    debugPrint(
+      '[Connectivity] Scheduling reconnect in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})',
+    );
 
     _reconnectTimer = Timer(delay, () async {
       _reconnectAttempts++;

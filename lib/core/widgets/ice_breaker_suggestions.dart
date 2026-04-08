@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
 
 /// Smart Ice Breaker Suggestions — shown in chat after a match.
 /// Displays respectful conversation starters based on shared interests.
@@ -26,14 +27,14 @@ class IceBreakerSuggestions extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.auto_awesome,
-                    color: Color(0xFF2E7D32),
+                    color: Colors.white,
                     size: 14,
                   ),
                 ),
@@ -43,7 +44,7 @@ class IceBreakerSuggestions extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
+                    color: AppColors.textSecondaryLight,
                     letterSpacing: 0.3,
                   ),
                 ),
@@ -57,7 +58,7 @@ class IceBreakerSuggestions extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: suggestions.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 return _IceBreakerChip(
                   text: suggestions[index],
@@ -84,18 +85,23 @@ class _IceBreakerChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFF2E7D32).withValues(alpha: 0.2),
-          ),
+          color: AppColors.primarySurface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Text(
           text,
           style: const TextStyle(
             fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF2E7D32),
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

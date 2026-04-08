@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/home_controller.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
+import 'package:methna_app/core/widgets/custom_button.dart';
+import 'package:methna_app/core/widgets/settings_flow.dart';
 
 class DiscoveryPreferencesScreen extends StatelessWidget {
   const DiscoveryPreferencesScreen({super.key});
@@ -10,271 +15,250 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<HomeController>();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft, size: 20),
-          onPressed: () => Get.back(),
-        ),
-        title: Text('discovery_preferences'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
+    return SettingsSimplePageScaffold(
+      title: 'discovery_preferences'.tr,
+      footer: CustomButton(
+        text: 'apply_preferences'.tr,
+        icon: LucideIcons.check,
+        onPressed: () {
+          controller.saveFilters();
+          controller.fetchDiscoverUsers();
+          Get.back();
+        },
       ),
-      body: Obx(() => ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              // Interested In
-              _SectionTitle(title: 'interested_in'.tr, isDark: isDark),
-              const SizedBox(height: 12),
-              _SelectionGroup(
-                options: ['everyone'.tr, 'men'.tr, 'women'.tr],
-                selected: controller.genderFilter.value == 'all'
-                    ? 'everyone'.tr
-                    : controller.genderFilter.value == 'male'
-                        ? 'men'.tr
-                        : 'women'.tr,
-                onSelect: (v) {
-                  controller.genderFilter.value = v == 'everyone'.tr ? 'all' : v == 'men'.tr ? 'male' : 'female';
-                },
-                isDark: isDark,
-              ),
-
-              const SizedBox(height: 28),
-
-              // Age Range
-              _SectionTitle(
-                title: 'age_range'.tr,
-                subtitle: '${controller.minAge.value} - ${controller.maxAge.value} years',
-                isDark: isDark,
-              ),
-              const SizedBox(height: 8),
-              RangeSlider(
-                values: RangeValues(controller.minAge.value.toDouble(), controller.maxAge.value.toDouble()),
-                min: 18,
-                max: 70,
-                divisions: 52,
-                activeColor: AppColors.primary,
-                inactiveColor: AppColors.primary.withValues(alpha: 0.15),
-                labels: RangeLabels('${controller.minAge.value}', '${controller.maxAge.value}'),
-                onChanged: (v) {
-                  controller.minAge.value = v.start.round();
-                  controller.maxAge.value = v.end.round();
-                },
-              ),
-
-              const SizedBox(height: 28),
-
-              // Maximum Distance
-              _SectionTitle(
-                title: 'max_distance'.tr,
-                subtitle: '${controller.maxDistance.value.round()} km',
-                isDark: isDark,
-              ),
-              const SizedBox(height: 8),
-              Slider(
+      body: Obx(
+        () => ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.xl,
+          ),
+          children: [
+            SettingsPlainListCard(
+              children: [
+                SettingsPlainTile(
+                  title: 'location'.tr,
+                  subtitle: controller.locationGranted.value
+                      ? 'location_on_desc'.tr
+                      : 'location_off_desc'.tr,
+                  value: controller.locationGranted.value ? 'on'.tr : 'off'.tr,
+                  onTap: controller.requestLocationAndFetch,
+                ),
+                SettingsPlainSwitchTile(
+                  title: 'go_global'.tr,
+                  subtitle: 'go_global_desc'.tr,
+                  value: controller.goGlobalFilter.value,
+                  onChanged: (value) => controller.goGlobalFilter.value = value,
+                ),
+                SettingsPlainTile(
+                  title: 'show_me'.tr,
+                  value: _genderLabel(controller.genderFilter.value),
+                  onTap: () => _showGenderSheet(context, controller),
+                ),
+                SettingsPlainTile(
+                  title: 'show_distance_in'.tr,
+                  value: controller.useKm.value ? 'km'.tr : 'miles'.tr,
+                  onTap: () => _showDistanceUnitSheet(context, controller),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _SliderCard(
+              title: 'distance_radius'.tr,
+              value:
+                  '${controller.maxDistance.value.round()} ${controller.useKm.value ? 'km' : 'mi'}',
+              slider: Slider(
                 value: controller.maxDistance.value,
                 min: 1,
                 max: 200,
                 divisions: 199,
                 activeColor: AppColors.primary,
-                inactiveColor: AppColors.primary.withValues(alpha: 0.15),
-                label: '${controller.maxDistance.value.round()} km',
-                onChanged: (v) => controller.maxDistance.value = v,
+                inactiveColor: AppColors.primary.withValues(alpha: 0.14),
+                onChanged: controller.goGlobalFilter.value
+                    ? null
+                    : (value) => controller.maxDistance.value = value,
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('1 km', style: TextStyle(fontSize: 12, color: isDark ? AppColors.textHintDark : AppColors.textHintLight)),
-                  Text('200 km', style: TextStyle(fontSize: 12, color: isDark ? AppColors.textHintDark : AppColors.textHintLight)),
-                ],
-              ),
-
-              const SizedBox(height: 28),
-
-              // Religion Preference
-              _SectionTitle(title: 'religion_preference'.tr, isDark: isDark),
-              const SizedBox(height: 12),
-              _SelectionGroup(
-                options: ['any'.tr, 'sunni'.tr, 'shia'.tr, 'ibadi'.tr],
-                selected: 'any'.tr,
-                onSelect: (_) {},
-                isDark: isDark,
-              ),
-
-              const SizedBox(height: 28),
-
-              // Marital Status Preference
-              _SectionTitle(title: 'marital_status'.tr, isDark: isDark),
-              const SizedBox(height: 12),
-              _SelectionGroup(
-                options: ['any'.tr, 'single'.tr, 'divorced'.tr, 'widowed'.tr],
-                selected: 'any'.tr,
-                onSelect: (_) {},
-                isDark: isDark,
-              ),
-
-              const SizedBox(height: 28),
-
-              // Education Preference
-              _SectionTitle(title: 'education'.tr, isDark: isDark),
-              const SizedBox(height: 12),
-              _SelectionGroup(
-                options: ['any'.tr, 'High School', 'Bachelor', 'Master', 'PhD'],
-                selected: 'any'.tr,
-                onSelect: (_) {},
-                isDark: isDark,
-              ),
-
-              const SizedBox(height: 28),
-
-              // Only show verified profiles
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.cardDark : AppColors.dividerLight,
-                  borderRadius: BorderRadius.circular(14),
+              helper: controller.goGlobalFilter.value
+                  ? 'distance_ignored_global'.tr
+                  : 'distance_helper'.tr,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _SliderCard(
+              title: 'age_range'.tr,
+              value: '${controller.minAge.value} - ${controller.maxAge.value}',
+              slider: RangeSlider(
+                values: RangeValues(
+                  controller.minAge.value.toDouble(),
+                  controller.maxAge.value.toDouble(),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.verified.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(LucideIcons.badgeCheck, color: AppColors.verified, size: 20),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('verified_profiles_only'.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Text('only_verified_desc'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                    Switch.adaptive(
-                      value: false,
-                      onChanged: (_) {},
-                      activeTrackColor: AppColors.primary,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Only show online
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.cardDark : AppColors.dividerLight,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.online.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(LucideIcons.circle, color: AppColors.online, size: 20),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('online_users_only'.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Text('only_online_desc'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                    Switch.adaptive(
-                      value: false,
-                      onChanged: (_) {},
-                      activeTrackColor: AppColors.primary,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Apply
-              ElevatedButton(
-                onPressed: () {
-                  controller.saveFilters();
-                  controller.fetchDiscoverUsers();
-                  Get.back();
+                min: 18,
+                max: 70,
+                divisions: 52,
+                activeColor: AppColors.primary,
+                inactiveColor: AppColors.primary.withValues(alpha: 0.14),
+                onChanged: (values) {
+                  controller.minAge.value = values.start.round();
+                  controller.maxAge.value = values.end.round();
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: Text('apply_preferences'.tr, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
               ),
-
-              const SizedBox(height: 20),
-            ],
-          )),
+              helper: 'age_range_helper'.tr,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SettingsPlainListCard(
+              children: [
+                SettingsPlainSwitchTile(
+                  title: 'verified_only'.tr,
+                  subtitle: 'verified_only_desc'.tr,
+                  value: controller.verifiedOnlyFilter.value,
+                  onChanged: (value) =>
+                      controller.verifiedOnlyFilter.value = value,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
-}
 
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-  final bool isDark;
-  const _SectionTitle({required this.title, this.subtitle, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-        if (subtitle != null)
-          Text(subtitle!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+  Future<void> _showGenderSheet(
+    BuildContext context,
+    HomeController controller,
+  ) async {
+    final selection = await showSettingsChoiceSheet<String>(
+      context: context,
+      title: 'show_me'.tr,
+      options: [
+        SettingsSheetOption(
+          value: 'all',
+          title: 'everyone'.tr,
+          selected: controller.genderFilter.value == 'all',
+        ),
+        SettingsSheetOption(
+          value: 'male',
+          title: 'men'.tr,
+          selected: controller.genderFilter.value == 'male',
+        ),
+        SettingsSheetOption(
+          value: 'female',
+          title: 'women'.tr,
+          selected: controller.genderFilter.value == 'female',
+        ),
       ],
     );
+
+    if (selection != null) {
+      controller.genderFilter.value = selection;
+    }
+  }
+
+  Future<void> _showDistanceUnitSheet(
+    BuildContext context,
+    HomeController controller,
+  ) async {
+    final selection = await showSettingsChoiceSheet<bool>(
+      context: context,
+      title: 'show_distance_in'.tr,
+      options: [
+        SettingsSheetOption(
+          value: true,
+          title: 'km'.tr,
+          selected: controller.useKm.value,
+        ),
+        SettingsSheetOption(
+          value: false,
+          title: 'miles'.tr,
+          selected: !controller.useKm.value,
+        ),
+      ],
+    );
+
+    if (selection != null) {
+      controller.useKm.value = selection;
+    }
+  }
+
+  String _genderLabel(String value) {
+    switch (value) {
+      case 'male':
+        return 'men'.tr;
+      case 'female':
+        return 'women'.tr;
+      default:
+        return 'everyone'.tr;
+    }
   }
 }
 
-class _SelectionGroup extends StatelessWidget {
-  final List<String> options;
-  final String selected;
-  final ValueChanged<String> onSelect;
-  final bool isDark;
-  const _SelectionGroup({required this.options, required this.selected, required this.onSelect, required this.isDark});
+class _SliderCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final Widget slider;
+  final String helper;
+
+  const _SliderCard({
+    required this.title,
+    required this.value,
+    required this.slider,
+    required this.helper,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: options.map((o) {
-        final isSelected = o == selected;
-        return GestureDetector(
-          onTap: () => onSelect(o),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : (isDark ? AppColors.cardDark : AppColors.dividerLight),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent, width: 1.5),
-            ),
-            child: Text(o, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isSelected ? AppColors.primary : null)),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceGlassDark : Colors.white,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    color: isDark
+                        ? AppColors.textPrimaryDark
+                        : AppColors.textPrimaryLight,
+                  ),
+                ),
+              ),
+              Text(
+                value,
+                style: AppTextStyles.titleSmall.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
-        );
-      }).toList(),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            helper,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: isDark
+                  ? AppColors.textSecondaryDark
+                  : AppColors.textSecondaryLight,
+            ),
+          ),
+          slider,
+        ],
+      ),
     );
   }
 }

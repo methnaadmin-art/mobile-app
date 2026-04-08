@@ -1,269 +1,159 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/reset_password_controller.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
+import 'package:methna_app/core/widgets/auth_flow.dart';
+import 'package:methna_app/core/widgets/custom_text_field.dart';
 
 class ResetPasswordScreen extends GetView<ResetPasswordController> {
   const ResetPasswordScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final hintColor = isDark ? AppColors.textHintDark : AppColors.textHintLight;
-    final secondaryColor =
-        isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Scrollable content ──
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Form(
-                  key: controller.formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 16),
-
-                      // Back arrow
-                      _BackArrow(isDark: isDark),
-
-                      const SizedBox(height: 32),
-
-                      // Title
-                      Text(
-                        'create_new_password'.tr,
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          color: isDark
-                              ? AppColors.textPrimaryDark
-                              : AppColors.textPrimaryLight,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'create_password_body'.tr,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: secondaryColor,
-                          height: 1.5,
-                        ),
-                      ),
-
-                      const SizedBox(height: 36),
-
-                      // ── New Password ──
-                      Text(
-                        'new_password'.tr,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.textPrimaryDark
-                              : AppColors.textPrimaryLight,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Obx(() => TextFormField(
-                            controller: controller.newPasswordController,
-                            obscureText: controller.obscureNew.value,
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'please_enter_password'.tr;
-                              }
-                              if (v.length < 8) {
-                                return 'password_min_length'.tr;
-                              }
-                              return null;
-                            },
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: isDark
-                                  ? AppColors.textPrimaryDark
-                                  : AppColors.textPrimaryLight,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'new_password'.tr,
-                              hintStyle:
-                                  TextStyle(color: hintColor, fontSize: 15),
-                              prefixIcon: Icon(LucideIcons.lock,
-                                  size: 20, color: hintColor),
-                              suffixIcon: IconButton(
+    return AuthPageScaffold(
+      compact: true,
+      child: Column(
+        children: [
+          AuthHeader(onBack: Get.back),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              child: Form(
+                key: controller.formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: AppSpacing.lg),
+                    const _PasswordHero(),
+                    const SizedBox(height: AppSpacing.xl),
+                    AuthTitleBlock(
+                      title: 'create_new_password'.tr,
+                      subtitle: 'create_password_body'.tr,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    AuthSurfacePanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Obx(
+                            () => CustomTextField(
+                              controller: controller.newPasswordController,
+                              label: 'new_password'.tr,
+                              hint: 'new_password'.tr,
+                              prefixIcon: LucideIcons.lock,
+                              obscureText: controller.obscureNew.value,
+                              validator: (v) {
+                                if (v == null || v.isEmpty) {
+                                  return 'please_enter_password'.tr;
+                                }
+                                if (v.length < 8) {
+                                  return 'password_min_length'.tr;
+                                }
+                                return null;
+                              },
+                              suffix: IconButton(
+                                onPressed: controller.toggleNewVisibility,
                                 icon: Icon(
                                   controller.obscureNew.value
                                       ? LucideIcons.eyeOff
                                       : LucideIcons.eye,
-                                  size: 20,
-                                  color: hintColor,
+                                  size: 18,
+                                  color: AppColors.textHintLight,
                                 ),
-                                onPressed: controller.toggleNewVisibility,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 16),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(color: borderColor),
-                              ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                    color: AppColors.primary, width: 2),
-                              ),
-                              errorBorder: const UnderlineInputBorder(
-                                borderSide:
-                                    BorderSide(color: AppColors.error),
-                              ),
-                              focusedErrorBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                    color: AppColors.error, width: 2),
                               ),
                             ),
-                          )),
-
-                      const SizedBox(height: 24),
-
-                      // ── Confirm New Password ──
-                      Text(
-                        'confirm_new_password'.tr,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.textPrimaryDark
-                              : AppColors.textPrimaryLight,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Obx(() => TextFormField(
-                            controller: controller.confirmPasswordController,
-                            obscureText: controller.obscureConfirm.value,
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'confirm_password_required'.tr;
-                              }
-                              if (v != controller.newPasswordController.text) {
-                                return 'passwords_no_match'.tr;
-                              }
-                              return null;
-                            },
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: isDark
-                                  ? AppColors.textPrimaryDark
-                                  : AppColors.textPrimaryLight,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'confirm_new_password'.tr,
-                              hintStyle:
-                                  TextStyle(color: hintColor, fontSize: 15),
-                              prefixIcon: Icon(LucideIcons.lock,
-                                  size: 20, color: hintColor),
-                              suffixIcon: IconButton(
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Obx(
+                            () => CustomTextField(
+                              controller: controller.confirmPasswordController,
+                              label: 'confirm_new_password'.tr,
+                              hint: 'confirm_new_password'.tr,
+                              prefixIcon: LucideIcons.shieldCheck,
+                              obscureText: controller.obscureConfirm.value,
+                              validator: (v) {
+                                if (v == null || v.isEmpty) {
+                                  return 'confirm_password_required'.tr;
+                                }
+                                if (v !=
+                                    controller.newPasswordController.text) {
+                                  return 'passwords_no_match'.tr;
+                                }
+                                return null;
+                              },
+                              textInputAction: TextInputAction.done,
+                              suffix: IconButton(
+                                onPressed: controller.toggleConfirmVisibility,
                                 icon: Icon(
                                   controller.obscureConfirm.value
                                       ? LucideIcons.eyeOff
                                       : LucideIcons.eye,
-                                  size: 20,
-                                  color: hintColor,
+                                  size: 18,
+                                  color: AppColors.textHintLight,
                                 ),
-                                onPressed: controller.toggleConfirmVisibility,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 16),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(color: borderColor),
-                              ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                    color: AppColors.primary, width: 2),
-                              ),
-                              errorBorder: const UnderlineInputBorder(
-                                borderSide:
-                                    BorderSide(color: AppColors.error),
-                              ),
-                              focusedErrorBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                    color: AppColors.error, width: 2),
                               ),
                             ),
-                          )),
-                    ],
-                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-
-            // ── Bottom: Continue button ──
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Obx(() => SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: controller.isLoading.value
-                          ? null
-                          : controller.resetPassword,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor:
-                            AppColors.primary.withValues(alpha: 0.6),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: controller.isLoading.value
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2.5),
-                            )
-                          : Text(
-                              'save_new_password'.tr,
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w700),
-                            ),
-                    ),
-                  )),
+          ),
+          AuthBottomBar(
+            child: Obx(
+              () => AuthPrimaryButtonBar(
+                label: 'save_new_password'.tr,
+                onPressed: controller.isLoading.value
+                    ? null
+                    : controller.resetPassword,
+                isLoading: controller.isLoading.value,
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ─── Reusable back arrow ──────────────────────────────────────────────────
-class _BackArrow extends StatelessWidget {
-  final bool isDark;
-  const _BackArrow({required this.isDark});
+class _PasswordHero extends StatelessWidget {
+  const _PasswordHero();
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Get.back(),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+    return AuthHeroPanel(
+      gradientColors: const [
+        AppColors.primaryDark,
+        AppColors.primary,
+        AppColors.primaryLight,
+      ],
+      child: Row(
+        children: [
+          Container(
+            width: 78,
+            height: 78,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: const Icon(LucideIcons.lock, color: Colors.white, size: 32),
           ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(
-          LucideIcons.chevronLeft,
-          size: 16,
-          color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
-        ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Text(
+              'strong_password_hint'.tr,
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: Colors.white.withValues(alpha: 0.86),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

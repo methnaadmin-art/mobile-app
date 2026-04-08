@@ -2,18 +2,22 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'Methna';
-  static const String appTagline = 'Find Your Soulmate';
+  static const String appTagline = 'Muslim matchmaking with intention';
+  static const String appLogoAsset = 'assets/images/methna_logo_glow.png';
   static const String appVersion = '1.0.0';
 
   // Storage Keys
   static const String tokenKey = 'access_token';
   static const String refreshTokenKey = 'refresh_token';
+  static const String authSessionHintKey = 'has_auth_session';
   static const String userKey = 'user_data';
+  static const String authProviderKey = 'auth_provider';
   static const String onboardingKey = 'onboarding_done';
   static const String themeKey = 'theme_mode';
   static const String localeKey = 'locale';
   static const String firstLaunchKey = 'first_launch';
   static const String signupDraftKey = 'signup_draft';
+  static const String swipeTutorialPendingKey = 'swipe_tutorial_pending';
 
   // Signup Steps
   static const int signupTotalSteps = 11;

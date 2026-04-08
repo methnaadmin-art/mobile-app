@@ -6,6 +6,7 @@ import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/utils/icon_helper.dart';
 import 'package:methna_app/core/widgets/animated_empty_state.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class CategoriesScreen extends StatelessWidget {
@@ -15,18 +16,25 @@ class CategoriesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.put(CategoriesController());
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.backgroundDark : Colors.white;
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final secondaryColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+    final bgColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
+    final textColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimaryLight;
+    final secondaryColor = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: bgColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(LucideIcons.chevronLeft, color: textColor),
-          onPressed: () => Get.back(),
+        leadingWidth: 76,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16, top: 6, bottom: 6),
+          child: DatifyBackButton(onTap: () => Get.back()),
         ),
         title: Text(
           'categories'.tr,
@@ -38,68 +46,86 @@ class CategoriesScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: Obx(() {
-        if (controller.isLoading.value && controller.categories.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
+      body: DatifyBackground(
+        compact: true,
+        child: Obx(() {
+          if (controller.isLoading.value && controller.categories.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        if (controller.hasError.value && controller.categories.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(LucideIcons.wifiOff, size: 48, color: secondaryColor),
-                const SizedBox(height: 16),
-                Text('Failed to load categories', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor)),
-                const SizedBox(height: 8),
-                Text('Please check your connection and try again.', style: TextStyle(fontSize: 13, color: secondaryColor)),
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: controller.fetchCategories,
-                  icon: const Icon(LucideIcons.refreshCw, size: 16),
-                  label: const Text('Retry'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          if (controller.hasError.value && controller.categories.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.wifiOff, size: 48, color: secondaryColor),
+                  const SizedBox(height: 16),
+                  Text(
+                    'failed_load_categories'.tr,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'check_connection_retry'.tr,
+                    style: TextStyle(fontSize: 13, color: secondaryColor),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: controller.fetchCategories,
+                    icon: const Icon(LucideIcons.refreshCw, size: 16),
+                    label: Text('retry'.tr),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (controller.categories.isEmpty) {
+            return AnimatedEmptyState(
+              lottieAsset: 'assets/animations/no_categories.json',
+              title: 'no_categories'.tr,
+              subtitle: 'no_categories_desc'.tr,
+              fallbackIcon: LucideIcons.layoutGrid,
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: controller.fetchCategories,
+            color: AppColors.primary,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: controller.categories.length,
+              itemBuilder: (context, index) {
+                final category = controller.categories[index];
+                return _CategoryCard(
+                  category: category,
+                  isDark: isDark,
+                  textColor: textColor,
+                  secondaryColor: secondaryColor,
+                  onTap: () {
+                    controller.selectCategory(category);
+                    Get.toNamed(
+                      AppRoutes.categoryUsers,
+                      arguments: {'category': category},
+                    );
+                  },
+                );
+              },
             ),
           );
-        }
-
-        if (controller.categories.isEmpty) {
-          return AnimatedEmptyState(
-            lottieAsset: 'assets/animations/no_categories.json',
-            title: 'no_categories'.tr,
-            subtitle: 'no_categories_desc'.tr,
-            fallbackIcon: LucideIcons.layoutGrid,
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: controller.fetchCategories,
-          color: AppColors.primary,
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            itemCount: controller.categories.length,
-            itemBuilder: (context, index) {
-              final category = controller.categories[index];
-              return _CategoryCard(
-                category: category,
-                isDark: isDark,
-                textColor: textColor,
-                secondaryColor: secondaryColor,
-                onTap: () {
-                  controller.selectCategory(category);
-                  Get.toNamed(AppRoutes.categoryUsers, arguments: {'category': category});
-                },
-              );
-            },
-          ),
-        );
-      }),
+        }),
+      ),
     );
   }
 }
@@ -145,9 +171,7 @@ class _CategoryCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: isDark
-                  ? Border.all(color: AppColors.borderDark)
-                  : null,
+              border: isDark ? Border.all(color: AppColors.borderDark) : null,
             ),
             child: Row(
               children: [
@@ -185,10 +209,7 @@ class _CategoryCard extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           category.description!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: secondaryColor,
-                          ),
+                          style: TextStyle(fontSize: 12, color: secondaryColor),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -211,10 +232,7 @@ class _CategoryCard extends StatelessWidget {
                     ),
                     Text(
                       'users'.tr,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: secondaryColor,
-                      ),
+                      style: TextStyle(fontSize: 10, color: secondaryColor),
                     ),
                   ],
                 ),
@@ -227,5 +245,4 @@ class _CategoryCard extends StatelessWidget {
       ),
     );
   }
-
 }

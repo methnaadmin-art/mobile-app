@@ -1,10 +1,14 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/core/widgets/signup_flow.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   const EmailVerificationScreen({super.key});
@@ -17,8 +21,11 @@ class EmailVerificationScreen extends StatefulWidget {
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   final SignupController controller = Get.find<SignupController>();
   final RxString _code = ''.obs;
+  final RxBool _isVerifying = false.obs;
   final RxInt _countdown = 42.obs;
   final RxBool _canResend = false.obs;
+  final TextEditingController _otpInputController = TextEditingController();
+  final FocusNode _otpFocusNode = FocusNode();
   Timer? _timer;
 
   @override
@@ -26,17 +33,44 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     super.initState();
     controller.syncStep(AppRoutes.signupEmailVerification);
     _startCountdown();
+    _otpInputController.addListener(_onOtpTextChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _otpFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _onOtpTextChanged() {
+    final digitsOnly = _otpInputController.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (digitsOnly != _otpInputController.text) {
+      _otpInputController.value = TextEditingValue(
+        text: digitsOnly,
+        selection: TextSelection.collapsed(offset: digitsOnly.length),
+      );
+      return;
+    }
+
+    if (_code.value != digitsOnly) {
+      _code.value = digitsOnly;
+    }
+    controller.otpController.text = digitsOnly;
+
+    if (digitsOnly.length == 6 && !_isVerifying.value) {
+      _verifyAndHandleResult(digitsOnly);
+    }
   }
 
   void _startCountdown() {
     _countdown.value = 42;
     _canResend.value = false;
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _countdown.value--;
       if (_countdown.value <= 0) {
         _canResend.value = true;
-        t.cancel();
+        timer.cancel();
       }
     });
   }
@@ -44,318 +78,188 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _otpInputController.removeListener(_onOtpTextChanged);
+    _otpFocusNode.dispose();
+    _otpInputController.dispose();
     super.dispose();
   }
 
-  void _onDigit(String d) {
-    if (controller.isLoading.value) return;
-    if (_code.value.length < 6) {
-      _code.value += d;
-      if (_code.value.length == 6) {
-        controller.otpController.text = _code.value;
-        _verifyAndHandleResult();
-      }
-    }
-  }
+  Future<void> _verifyAndHandleResult([String? rawCode]) async {
+    if (_isVerifying.value) return;
+    final otp = (rawCode ?? _otpInputController.text).trim();
+    if (otp.length != 6) return;
 
-  Future<void> _verifyAndHandleResult() async {
+    _isVerifying.value = true;
+    controller.otpController.text = otp;
     try {
       await controller.verifyEmailOtp();
     } catch (_) {
-      // Reset code on failure so user can retry
-      _code.value = '';
+      _otpInputController.clear();
       controller.otpController.clear();
+      if (mounted) {
+        Future.microtask(() => _otpFocusNode.requestFocus());
+      }
+    } finally {
+      _isVerifying.value = false;
     }
   }
-
-  void _onDelete() {
-    if (controller.isLoading.value) return;
-    if (_code.value.isNotEmpty) {
-      _code.value = _code.value.substring(0, _code.value.length - 1);
-    }
-  }
-
-  // Colors for filled digit boxes (cycling pink/green/amber)
-  static const _fillColors = [
-    AppColors.primary,
-    Color(0xFF4CAF50),
-    Color(0xFFFFC107),
-    AppColors.primaryDark,
-    AppColors.primary,
-    Color(0xFF4CAF50),
-  ];
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final secondaryColor =
-        isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final bgColor = isDark ? AppColors.backgroundDark : const Color(0xFFFFF8F0);
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Top content ──
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
+    return SignupStepScaffold(
+      onBack: controller.goBack,
+      progress: controller.progressPercent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SignupHeroCard(
+            badge: '06 / 12',
+            icon: LucideIcons.mailCheck,
+            title: 'verify_email'.tr,
+            description: 'verify_email_subtitle'.tr,
+            preview: Text(
+              controller.emailController.text.trim(),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimaryLight,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          SignupSurfaceCard(
+            child: Column(
+              children: [
+                Obx(() {
+                  final minutes = (_countdown.value ~/ 60).toString().padLeft(
+                    2,
+                    '0',
+                  );
+                  final seconds = (_countdown.value % 60).toString().padLeft(
+                    2,
+                    '0',
+                  );
 
-                    // Back arrow
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: GestureDetector(
-                        onTap: () => controller.goBack(),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            LucideIcons.chevronLeft,
-                            size: 16,
-                            color: AppColors.primary,
-                          ),
+                  return Column(
+                    children: [
+                      Text(
+                        '$minutes:$seconds',
+                        style: Theme.of(context).textTheme.displaySmall
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'enter_6_digit_code'.tr,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondaryLight,
                         ),
                       ),
-                    ),
-
-                    const SizedBox(height: 36),
-
-                    // Countdown timer
-                    Obx(() {
-                      final m = (_countdown.value ~/ 60)
-                          .toString()
-                          .padLeft(2, '0');
-                      final s = (_countdown.value % 60)
-                          .toString()
-                          .padLeft(2, '0');
-                      return Text(
-                        '$m:$s',
-                        style: TextStyle(
-                          fontSize: 40,
+                    ],
+                  );
+                }),
+                const SizedBox(height: AppSpacing.xl),
+                Obx(
+                  () => TextField(
+                    controller: _otpInputController,
+                    focusNode: _otpFocusNode,
+                    enabled: !_isVerifying.value,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    maxLength: 6,
+                    onSubmitted: (_) => _verifyAndHandleResult(),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w800,
+                          letterSpacing: 8,
                           color: isDark
                               ? AppColors.textPrimaryDark
                               : AppColors.textPrimaryLight,
                         ),
-                      );
-                    }),
-
-                    const SizedBox(height: 12),
-
-                    // Subtitle
-                    Text(
-                      'verify_email_subtitle'.tr,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: secondaryColor,
-                        height: 1.5,
+                    textAlign: TextAlign.center,
+                    decoration: InputDecoration(
+                      counterText: '',
+                      hintText: '000000',
+                      hintStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 8,
+                            color: isDark
+                                ? AppColors.textHintDark
+                                : AppColors.textHintLight,
+                          ),
+                      filled: true,
+                      fillColor: isDark
+                          ? AppColors.surfaceMutedDark
+                          : AppColors.surfaceMutedLight,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.md,
+                        horizontal: AppSpacing.lg,
                       ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Show target email
-                    Text(
-                      controller.emailController.text.trim(),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.borderDark
+                              : AppColors.borderLight,
+                        ),
                       ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    // Loading indicator
-                    Obx(() => controller.isLoading.value
-                        ? Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink()),
-
-                    // ── 6 digit boxes ──
-                    Obx(() {
-                      final code = _code.value;
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(6, (i) {
-                          final filled = i < code.length;
-                          final char = filled ? code[i] : '';
-                          return Container(
-                            width: 44,
-                            height: 52,
-                            margin: EdgeInsets.only(right: i < 5 ? 8 : 0),
-                            decoration: BoxDecoration(
-                              color: filled
-                                  ? _fillColors[i % _fillColors.length]
-                                  : (isDark
-                                      ? AppColors.cardDark
-                                      : Colors.grey.shade100),
-                              borderRadius: BorderRadius.circular(14),
-                              border: filled
-                                  ? null
-                                  : Border.all(
-                                      color: isDark
-                                          ? AppColors.borderDark
-                                          : AppColors.borderLight,
-                                      width: 1.5,
-                                    ),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              char,
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                                color: filled
-                                    ? Colors.white
-                                    : (isDark
-                                        ? AppColors.textPrimaryDark
-                                        : AppColors.textPrimaryLight),
-                              ),
-                            ),
-                          );
-                        }),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Custom numpad ──
-            _NumPad(
-              onDigit: _onDigit,
-              onDelete: _onDelete,
-              isDark: isDark,
-            ),
-
-            // ── Send again ──
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20, top: 8),
-              child: Obx(() => GestureDetector(
-                    onTap: _canResend.value
-                        ? () {
-                            controller.resendOtp();
-                            _startCountdown();
-                          }
-                        : null,
-                    child: Text(
-                      'resend_code'.tr,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: _canResend.value
-                            ? AppColors.primary
-                            : secondaryColor,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.borderDark
+                              : AppColors.borderLight,
+                        ),
                       ),
-                    ),
-                  )),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Custom number pad ─────────────────────────────────────────────────────
-class _NumPad extends StatelessWidget {
-  final void Function(String) onDigit;
-  final VoidCallback onDelete;
-  final bool isDark;
-
-  const _NumPad({
-    required this.onDigit,
-    required this.onDelete,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final textColor =
-        isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        children: [
-          _row(['1', '2', '3'], textColor),
-          const SizedBox(height: 6),
-          _row(['4', '5', '6'], textColor),
-          const SizedBox(height: 6),
-          _row(['7', '8', '9'], textColor),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              _key('', textColor, enabled: false),
-              _key('0', textColor),
-              Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: onDelete,
-                    borderRadius: BorderRadius.circular(14),
-                    child: SizedBox(
-                      height: 52,
-                      child: Icon(LucideIcons.delete,
-                          size: 22, color: textColor),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(
+                          color: AppColors.primary,
+                          width: 1.8,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _row(List<String> digits, Color c) {
-    return Row(
-      children: digits.map((d) => _key(d, c)).toList(),
-    );
-  }
-
-  Widget _key(String d, Color c, {bool enabled = true}) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: enabled && d.isNotEmpty ? () => onDigit(d) : null,
-          borderRadius: BorderRadius.circular(14),
-          child: SizedBox(
-            height: 52,
-            child: Center(
-              child: Text(
-                d,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: enabled ? c : Colors.transparent,
+                Obx(
+                  () => _isVerifying.value
+                      ? const Padding(
+                          padding: EdgeInsets.only(top: AppSpacing.md),
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2.4),
+                          ),
+                        )
+                      : const SizedBox(height: AppSpacing.md),
                 ),
-              ),
+                Obx(
+                  () => TextButton(
+                    onPressed: _canResend.value && !_isVerifying.value
+                        ? () {
+                            controller.resendOtp();
+                          _otpInputController.clear();
+                          controller.otpController.clear();
+                            _startCountdown();
+                          _otpFocusNode.requestFocus();
+                          }
+                        : null,
+                    child: Text('resend_code'.tr),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }

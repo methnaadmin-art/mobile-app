@@ -5,7 +5,7 @@ class UsersBinding extends Bindings {
   @override
   void dependencies() {
     if (!Get.isRegistered<UsersController>()) {
-      Get.put(UsersController(), permanent: true);
+      Get.lazyPut<UsersController>(() => UsersController(), fenix: true);
     }
   }
 }

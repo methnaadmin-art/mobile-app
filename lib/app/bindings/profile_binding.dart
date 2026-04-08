@@ -6,10 +6,10 @@ class ProfileBinding extends Bindings {
   @override
   void dependencies() {
     if (!Get.isRegistered<ProfileController>()) {
-      Get.put(ProfileController(), permanent: true);
+      Get.lazyPut<ProfileController>(() => ProfileController(), fenix: true);
     }
     if (!Get.isRegistered<SettingsController>()) {
-      Get.put(SettingsController(), permanent: true);
+      Get.lazyPut<SettingsController>(() => SettingsController(), fenix: true);
     }
   }
 }

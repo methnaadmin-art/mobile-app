@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
-import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/controllers/signup_data.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/core/widgets/signup_flow.dart';
 
 class FaithReligionScreen extends GetView<SignupController> {
   const FaithReligionScreen({super.key});
@@ -11,248 +14,256 @@ class FaithReligionScreen extends GetView<SignupController> {
   @override
   Widget build(BuildContext context) {
     controller.syncStep(AppRoutes.signupFaithReligion);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.backgroundDark : Colors.white;
-    final cardColor = isDark ? AppColors.cardDark : Colors.white;
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.arrow_back_ios, color: textColor, size: 20),
-                      onPressed: () => controller.goBack(),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'faith_and_religion'.tr,
-                            style:  TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: textColor,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'tell_us_about_your_faith'.tr,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: textColor.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return SignupStepScaffold(
+      onBack: controller.goBack,
+      progress: controller.progressPercent,
+      footer: Obx(() {
+        final isFemale =
+            controller.selectedGender.value.toLowerCase() == 'female';
+        final ready =
+            controller.selectedSect.value.isNotEmpty &&
+            controller.selectedReligiousLevel.value.isNotEmpty &&
+            controller.selectedDietary.value.isNotEmpty &&
+            controller.selectedAlcohol.value.isNotEmpty &&
+            (!isFemale || controller.selectedHijab.value.isNotEmpty);
+        final busy =
+            controller.isNavigatingStep.value || controller.isLoading.value;
 
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      _buildSection(
-                        title: 'sect'.tr,
-                        icon: Icons.mosque,
-                        options: SignupData.sects,
-                        selectedOption: controller.selectedSect,
-                      ),
-                      const SizedBox(height: 20),
-                      _buildSection(
-                        title: 'religious_level'.tr,
-                        icon: Icons.auto_awesome,
-                        options: SignupData.religiousLevels,
-                        selectedOption: controller.selectedReligiousLevel,
-                      ),
-                      const SizedBox(height: 20),
-                      _buildSection(
-                        title: 'prayer_frequency'.tr,
-                        icon: Icons.query_builder,
-                        options: SignupData.prayerFrequencies,
-                        selectedOption: controller.selectedPrayerFrequency,
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      // Diet & Smoking
-                      _buildSection(
-                        title: 'dietary_preference'.tr,
-                        icon: Icons.restaurant,
-                        options: SignupData.dietaryPreferences,
-                        selectedOption: controller.selectedDietary,
-                      ),
-                      const SizedBox(height: 20),
-                      _buildSection(
-                        title: 'alcohol_usage'.tr,
-                        icon: Icons.local_drink,
-                        options: SignupData.alcoholPreferences,
-                        selectedOption: controller.selectedAlcohol,
-                      ),
-                      const SizedBox(height: 20),
-                      Obx(() => controller.selectedGender.value.toLowerCase() == 'female' 
-                        ? Column(
-                            children: [
-                              _buildSection(
-                                title: 'hijab_status'.tr,
-                                icon: Icons.face_2,
-                                options: SignupData.hijabStatuses,
-                                selectedOption: controller.selectedHijab,
-                              ),
-                              const SizedBox(height: 20),
-                            ],
-                          )
-                        : const SizedBox.shrink()
-                      ),
-
-                      // Continue Button
-                      ElevatedButton(
-                        onPressed: () => controller.navigateTo(AppRoutes.signupHobbies),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 56),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 8,
-                          shadowColor: AppColors.primary.withValues(alpha: 0.5),
-                        ),
-                        child: Text(
-                          'continue'.tr,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+        return SignupFooterActions(
+          primaryLabel: 'continue_text'.tr,
+          onPrimary: ready && !busy ? controller.goToNextStep : null,
+          isLoading: busy,
+          secondaryLabel: 'skip_for_now'.tr,
+          onSecondary: busy ? null : controller.skipCurrentOptionalStep,
+          helper: Text(
+            'add_extra_details_optional'.tr,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-        ),
-      );
-    
-  }
-
-  Widget _buildSection({
-    required String title,
-    required IconData icon,
-    required List<String> options,
-    required RxString selectedOption,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(Get.context!).brightness == Brightness.dark ? AppColors.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(Get.context!).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight),
-      ),
+        );
+      }),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(Get.context!).brightness == Brightness.dark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+          SignupHeroCard(
+            badge: '07 / 12',
+            icon: LucideIcons.moonStar,
+            title: 'faith_and_religion'.tr,
+            description: 'tell_us_about_your_faith'.tr,
+            preview: Wrap(
+              textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                SignupInfoPill(
+                  icon: LucideIcons.shieldCheck,
+                  label: 'private_profile_context'.tr,
                 ),
-              ),
-            ],
+                SignupInfoPill(
+                  icon: LucideIcons.sparkles,
+                  label: 'used_for_better_matching'.tr,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 14),
-          Obx(() => Column(
-                children: options.map((option) {
-                  final selected = selectedOption.value == option;
-                  return GestureDetector(
-                    onTap: () => selectedOption.value = option,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: selected ? AppColors.primary : (Theme.of(Get.context!).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight),
-                                width: 2,
-                              ),
-                            ),
-                            child: selected?
-                                     Container(
-                                      width: 10,
-                                      height: 10,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: AppColors.primary,
-                                      ),
-                                    )
-                                : null,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            option.tr,
-                            style: TextStyle(
-                              fontSize: 15, 
-                              color: Theme.of(Get.context!).brightness == Brightness.dark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight
-                            ),
-                          ),
-                        ],
+          const SizedBox(height: AppSpacing.xl),
+          _SelectionSection(
+            label: 'sect_label'.tr,
+            helper: 'sect_helper'.tr,
+            options: SignupData.sects,
+            selectedValue: controller.selectedSect,
+            icon: LucideIcons.moonStar,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _SelectionSection(
+            label: 'religious_level_label'.tr,
+            helper: 'religious_level_helper'.tr,
+            options: SignupData.religiousLevels,
+            selectedValue: controller.selectedReligiousLevel,
+            icon: LucideIcons.sparkles,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _SelectionSection(
+            label: 'prayer_frequency_label'.tr,
+            helper: 'prayer_frequency_helper'.tr,
+            options: SignupData.prayerFrequencies,
+            selectedValue: controller.selectedPrayerFrequency,
+            icon: LucideIcons.badgeCheck,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SignupSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SignupSectionLabel(text: 'lifestyle_label'.tr),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'lifestyle_helper'.tr,
+                  textAlign: TextAlign.start,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(height: isRtl ? 1.45 : 1.35),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                _SelectionWrap(
+                  label: 'dietary_label'.tr,
+                  options: SignupData.dietaryPreferences,
+                  selectedValue: controller.selectedDietary,
+                  icon: LucideIcons.utensils,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                _SelectionWrap(
+                  label: 'alcohol_label'.tr,
+                  options: SignupData.alcoholPreferences,
+                  selectedValue: controller.selectedAlcohol,
+                  icon: LucideIcons.wineOff,
+                ),
+                Obx(() {
+                  if (controller.selectedGender.value.toLowerCase() !=
+                      'female') {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppSpacing.lg),
+                      _SelectionWrap(
+                        label: 'hijab_label'.tr,
+                        options: SignupData.hijabStatuses,
+                        selectedValue: controller.selectedHijab,
+                        icon: LucideIcons.shieldCheck,
                       ),
-                    ),
+                    ],
                   );
-                }).toList(),
-              )),
+                }),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildSwitchRow({
-    required String title,
-    required IconData icon,
-    required RxBool value,
-  }) {
-    return Row(
-      children: [
-        Icon(icon, color: AppColors.primary, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 15, 
-              color: Theme.of(Get.context!).brightness == Brightness.dark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight
+class _SelectionSection extends StatelessWidget {
+  final String label;
+  final String helper;
+  final List<String> options;
+  final RxString selectedValue;
+  final IconData icon;
+
+  const _SelectionSection({
+    required this.label,
+    required this.helper,
+    required this.options,
+    required this.selectedValue,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+
+    return SignupSurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SignupSectionLabel(text: label),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            helper,
+            textAlign: TextAlign.start,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(height: isRtl ? 1.45 : 1.35),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Obx(
+            () => Column(
+              children: options
+                  .map(
+                    (option) => Padding(
+                      padding: EdgeInsets.only(
+                        bottom: option == options.last ? 0 : AppSpacing.sm,
+                      ),
+                      child: SignupChoiceTile(
+                        title: option.tr,
+                        leading: _FaithOptionIcon(icon: icon),
+                        selected: selectedValue.value == option,
+                        onTap: () => selectedValue.value = option,
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectionWrap extends StatelessWidget {
+  final String label;
+  final List<String> options;
+  final RxString selectedValue;
+  final IconData icon;
+
+  const _SelectionWrap({
+    required this.label,
+    required this.options,
+    required this.selectedValue,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SignupSectionLabel(text: label),
+        const SizedBox(height: AppSpacing.md),
+        Obx(
+          () => Column(
+            children: options
+                .map(
+                  (option) => Padding(
+                    padding: EdgeInsets.only(
+                      bottom: option == options.last ? 0 : AppSpacing.sm,
+                    ),
+                    child: SignupChoiceTile(
+                      title: option.tr,
+                      leading: _FaithOptionIcon(icon: icon),
+                      selected: selectedValue.value == option,
+                      onTap: () => selectedValue.value = option,
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
         ),
-        Obx(() => Switch(
-              value: value.value,
-              onChanged: (val) => value.value = val,
-              activeThumbColor: AppColors.primary,
-              activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
-            )),
       ],
+    );
+  }
+}
+
+class _FaithOptionIcon extends StatelessWidget {
+  const _FaithOptionIcon({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 16, color: AppColors.primary),
     );
   }
 }

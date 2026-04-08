@@ -8,7 +8,11 @@ import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/core/constants/api_constants.dart';
+import 'package:methna_app/core/utils/upload_image_optimizer.dart';
 import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/core/services/trial_manager.dart';
+import 'package:methna_app/app/data/services/monetization_service.dart';
+import 'package:methna_app/app/data/services/verification_service.dart';
 
 class ProfileController extends GetxController {
   final ApiService _api = Get.find<ApiService>();
@@ -35,6 +39,9 @@ class ProfileController extends GetxController {
     isLoading.value = true;
     try {
       await _auth.fetchMe();
+      try {
+        await Get.find<VerificationService>().fetchVerificationStatus();
+      } catch (_) {}
       user.value = _auth.currentUser.value;
     } catch (e) {
       debugPrint('[ProfileController] refreshProfile error: $e');
@@ -119,9 +126,10 @@ class ProfileController extends GetxController {
   Future<bool> uploadPhoto(File file, {bool isMain = false, bool refresh = true}) async {
     isUploading.value = true;
     try {
+      final optimized = await UploadImageOptimizer.optimizeProfilePhoto(file);
       final formData = FormData.fromMap({
         'photo': await MultipartFile.fromFile(
-          file.path,
+          optimized.path,
           filename: 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg',
           contentType: MediaType('image', 'jpeg'),
         ),
@@ -211,7 +219,15 @@ class ProfileController extends GetxController {
   }
 
   bool get isVerified => user.value?.selfieVerified ?? false;
-  bool get isPremium => user.value?.isPremium ?? false;
+  bool get isPremium {
+    try {
+      return Get.find<TrialManager>().isEffectivePremium ||
+             Get.find<MonetizationService>().isPremium ||
+             (user.value?.isPremium ?? false);
+    } catch (_) {
+      return user.value?.isPremium ?? false;
+    }
+  }
 
   /// Calculate Baraka Meter score based on Islamic values and religious commitment
   int get barakaScore {
@@ -258,17 +274,20 @@ class ProfileController extends GetxController {
     // Intentions & Marriage (25 points max)
     // Marriage intention (15 points)
     switch (profile.marriageIntention) {
-      case 'serious_marriage':
+      case 'within_months':
         score += 15;
         break;
-      case 'seeking_marriage':
+      case 'within_year':
         score += 12;
         break;
-      case 'open_to_marriage':
+      case 'one_to_two_years':
         score += 8;
         break;
-      case 'exploring':
+      case 'not_sure':
         score += 4;
+        break;
+      case 'just_exploring':
+        score += 2;
         break;
     }
     
@@ -279,16 +298,16 @@ class ProfileController extends GetxController {
 
     // Lifestyle (20 points max)
     // Dietary habits (10 points)
-    if (profile.dietary == 'halal' || profile.dietary == 'mostly_halal') {
+    if (profile.dietary == 'halal') {
       score += 10;
-    } else if (profile.dietary == 'sometimes_halal') {
+    } else if (profile.dietary == 'non_strict') {
       score += 5;
     }
     
     // Alcohol (10 points)
-    if (profile.alcohol == 'never') {
+    if (profile.alcohol == 'doesnt_drink') {
       score += 10;
-    } else if (profile.alcohol == 'rarely') {
+    } else if (profile.alcohol == 'drinks') {
       score += 5;
     }
 

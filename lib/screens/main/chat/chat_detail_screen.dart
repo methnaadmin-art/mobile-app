@@ -1,252 +1,186 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/chat_controller.dart';
 import 'package:methna_app/app/data/models/message_model.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
+import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_shadows.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/utils/helpers.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/core/widgets/chat_flow.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
 import 'package:methna_app/core/widgets/ice_breaker_suggestions.dart';
 
 class ChatDetailScreen extends GetView<ChatController> {
   const ChatDetailScreen({super.key});
 
-  static const _purple = AppColors.primary;
-
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.backgroundDark : Colors.white;
-    final textColor =
-        isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final secondaryColor =
-        isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
     final currentUserId = Get.find<AuthService>().userId ?? '';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) controller.leaveActiveChat();
       },
       child: Scaffold(
-        backgroundColor: bgColor,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // ── Top bar: back + name + status ──
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        controller.leaveActiveChat();
-                        Get.back();
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.borderDark
-                                : AppColors.borderLight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(LucideIcons.chevronLeft,
-                            size: 16, color: textColor),
-                      ),
-                    ),
-                    const Spacer(),
-                    Obx(() {
-                      final other = controller.activeConversation.value?.otherUser;
-                      final name = other?.firstName ?? other?.displayName ?? 'chat'.tr;
-                      return Column(
-                        children: [
-                          Text(
-                            name,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: textColor,
-                            ),
-                          ),
-                          if (controller.isTyping.value)
-                            Text(
-                              'typing'.tr,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _purple,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                        ],
-                      );
-                    }),
-                    const Spacer(),
-                    const Spacer(),
-                  ],
-                ),
-              ),
+        backgroundColor: isDark
+            ? AppColors.backgroundDark
+            : AppColors.backgroundLight,
+        body: DatifyBackground(
+          compact: true,
+          child: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                  ),
+                  child: Obx(() {
+                    final other =
+                        controller.activeConversation.value?.otherUser;
+                    final displayName =
+                        other?.firstName?.trim().isNotEmpty == true
+                        ? other!.firstName!
+                        : (other?.displayName.isNotEmpty == true
+                              ? other!.displayName
+                          : 'chats'.tr);
 
-              Divider(
-                  height: 1,
-                  color:
-                      isDark ? AppColors.dividerDark : Colors.grey.shade200),
-
-              // ── Messages list ──
-              Expanded(
-                child: Obx(() {
-                  if (controller.messagesLoading.value &&
-                      controller.activeMessages.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (controller.activeMessages.isEmpty) {
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    return Row(
                       children: [
-                        Icon(LucideIcons.messageSquare,
-                            size: 48, color: secondaryColor),
-                        const SizedBox(height: 12),
-                        Text(
-                          'say_hello'.tr,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: secondaryColor,
+                        _TopIconButton(
+                          icon: LucideIcons.chevronLeft,
+                          onTap: () {
+                            controller.leaveActiveChat();
+                            Get.back();
+                          },
+                        ),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Text(
+                                displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.titleLarge.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                controller.isTyping.value
+                                    ? 'typing'.tr
+                                    : (other?.isOnline ?? false)
+                                    ? 'online'.tr
+                                    : 'conversation'.tr,
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: controller.isTyping.value
+                                      ? AppColors.primary
+                                      : (isDark
+                                            ? AppColors.textSecondaryDark
+                                            : AppColors.textSecondaryLight),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        // Ice breaker suggestions
-                        Obx(() => controller.iceBreakers.isNotEmpty
-                          ? IceBreakerSuggestions(
-                              suggestions: controller.iceBreakers.toList(),
-                              onSelect: (text) {
-                                controller.sendIceBreaker(text);
-                              },
-                            )
-                          : const SizedBox.shrink(),
+                        _TopIconButton(
+                          icon: LucideIcons.moreHorizontal,
+                          onTap: () => Get.toNamed(AppRoutes.messageSettings),
                         ),
                       ],
                     );
-                  }
+                  }),
+                ),
+                Expanded(
+                  child: Obx(() {
+                    if (controller.messagesLoading.value &&
+                        controller.activeMessages.isEmpty) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      );
+                    }
 
-                  return ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    itemCount: controller.activeMessages.length,
-                    itemBuilder: (context, index) {
-                      final msg = controller.activeMessages[index];
-                      final isMine = msg.isMine(currentUserId);
-                      final showDate = index ==
-                              controller.activeMessages.length - 1 ||
-                          !_sameDay(
-                              msg.createdAt,
-                              controller
-                                  .activeMessages[index + 1].createdAt);
+                    if (controller.activeMessages.isEmpty) {
+                      return _EmptyConversation(
+                        suggestions: controller.iceBreakers.toList(),
+                        onSuggestionTap: controller.sendIceBreaker,
+                      );
+                    }
 
-                      return Column(
-                        children: [
-                          if (showDate)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 16),
-                              child: Text(
-                                Helpers.formatDate(msg.createdAt),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: secondaryColor,
-                                  fontWeight: FontWeight.w500,
+                    return ListView.builder(
+                      reverse: true,
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.sm,
+                        AppSpacing.lg,
+                        AppSpacing.md,
+                      ),
+                      itemCount: controller.activeMessages.length,
+                      itemBuilder: (context, index) {
+                        final message = controller.activeMessages[index];
+                        final isMine = message.isMine(currentUserId);
+                        final status = isMine
+                          ? controller.getMessageStatus(message.id)
+                          : null;
+                        final read = isMine &&
+                          (message.isRead ||
+                            controller.isMessageRead(message.id) ||
+                            status == MessageStatus.read);
+                        final showDate =
+                            index == controller.activeMessages.length - 1 ||
+                            !_sameDay(
+                              message.createdAt,
+                              controller.activeMessages[index + 1].createdAt,
+                            );
+
+                        return Column(
+                          children: [
+                            if (showDate)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: AppSpacing.md,
+                                ),
+                                child: ChatDateBadge(
+                                  label: Helpers.formatDate(message.createdAt),
                                 ),
                               ),
+                            _MessageBubble(
+                              message: message,
+                              isMine: isMine,
+                              status: status,
+                              isRead: read,
+                              onRetry: status == MessageStatus.failed
+                                  ? () => controller.retryMessage(message.id)
+                                  : null,
                             ),
-                          _MessageBubble(
-                            message: msg,
-                            isMine: isMine,
-                            isDark: isDark,
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                }),
-              ),
-
-              // ── Input bar ──
-              Container(
-                padding: EdgeInsets.fromLTRB(
-                    16, 10, 12, MediaQuery.of(context).padding.bottom + 10),
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  border: Border(
-                    top: BorderSide(
-                      color: isDark
-                          ? AppColors.dividerDark
-                          : Colors.grey.shade200,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    // Text field
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppColors.cardDark
-                              : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: TextField(
-                          controller: controller.messageTextController,
-                          maxLines: 4,
-                          minLines: 1,
-                          textCapitalization:
-                              TextCapitalization.sentences,
-                          onChanged: (_) =>
-                              controller.sendTypingIndicator(),
-                          decoration: InputDecoration(
-                            hintText: 'type_message'.tr,
-                            hintStyle: TextStyle(
-                              color: secondaryColor,
-                              fontSize: 14,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding:
-                                const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 10),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-
-                    // Send button
-                    GestureDetector(
-                      onTap: () {
-                        final text =
-                            controller.messageTextController.text.trim();
-                        if (text.isNotEmpty) {
-                          controller.sendMessage(text);
-                          controller.messageTextController.clear();
-                        }
+                          ],
+                        );
                       },
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: const BoxDecoration(
-                          color: _purple,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(LucideIcons.send,
-                            color: Colors.white, size: 20),
-                      ),
-                    ),
-                  ],
+                    );
+                  }),
                 ),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.xs,
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                  ),
+                  child: _ComposerBar(controller: controller),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -257,85 +191,335 @@ class ChatDetailScreen extends GetView<ChatController> {
       a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
-// ─── Message bubble ───────────────────────────────────────────────────────
-class _MessageBubble extends StatelessWidget {
-  final MessageModel message;
-  final bool isMine;
-  final bool isDark;
+class _TopIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
 
-  const _MessageBubble({
-    required this.message,
-    required this.isMine,
-    required this.isDark,
+  const _TopIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.cardDark.withValues(alpha: 0.82)
+                : Colors.white.withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Icon(
+            icon,
+            size: 17,
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimaryLight,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyConversation extends StatelessWidget {
+  final List<String> suggestions;
+  final ValueChanged<String> onSuggestionTap;
+
+  const _EmptyConversation({
+    required this.suggestions,
+    required this.onSuggestionTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final textColor =
-        isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final secondaryColor =
-        isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final isRTL = Directionality.of(context) == TextDirection.rtl;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final alignment = isMine
-        ? (isRTL ? Alignment.centerLeft : Alignment.centerRight)
-        : (isRTL ? Alignment.centerRight : Alignment.centerLeft);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 70,
+              height: 70,
+              decoration: const BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                LucideIcons.messageCircle,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'say_salam_first'.tr,
+              style: AppTextStyles.headlineMedium.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'chat_warm_opener_desc'.tr,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondaryLight,
+              ),
+            ),
+            if (suggestions.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              IceBreakerSuggestions(
+                suggestions: suggestions,
+                onSelect: onSuggestionTap,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  final MessageModel message;
+  final bool isMine;
+  final MessageStatus? status;
+  final bool isRead;
+  final VoidCallback? onRetry;
+
+  const _MessageBubble({
+    required this.message,
+    required this.isMine,
+    this.status,
+    this.isRead = false,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final receivedColor = isDark ? AppColors.cardDark : const Color(0xFFF8F3EF);
+    final metaColor = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
 
     return Align(
-      alignment: alignment,
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
-        crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           Container(
-            constraints:
-                BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-            margin: const EdgeInsets.only(bottom: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.68,
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
             decoration: BoxDecoration(
-              color: isMine
-                  ? AppColors.primary
-                  : (isDark ? AppColors.cardDark : Colors.grey.shade100),
-              borderRadius: BorderRadiusDirectional.only(
-                topStart: const Radius.circular(20),
-                topEnd: const Radius.circular(20),
-                bottomStart: Radius.circular(isMine ? 20 : 4),
-                bottomEnd: Radius.circular(isMine ? 4 : 20),
-              ).resolve(Directionality.of(context)),
+              gradient: isMine ? AppColors.primaryGradient : null,
+              color: isMine ? null : receivedColor,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(18),
+                topRight: const Radius.circular(18),
+                bottomLeft: Radius.circular(isMine ? 18 : 6),
+                bottomRight: Radius.circular(isMine ? 6 : 18),
+              ),
             ),
             child: Text(
               message.content,
-              style: TextStyle(
-                fontSize: 15,
-                color: isMine ? Colors.white : textColor,
-                height: 1.4,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: isMine
+                    ? Colors.white
+                    : (isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.textPrimaryLight),
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  Helpers.formatTime(message.createdAt),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: secondaryColor,
-                  ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                Helpers.formatTime(message.createdAt),
+                style: AppTextStyles.labelSmall.copyWith(color: metaColor),
+              ),
+              if (isMine) ...[
+                const SizedBox(width: 6),
+                _DeliveryStatusChip(
+                  status: status ?? MessageStatus.delivered,
+                  isRead: isRead,
+                  onRetry: onRetry,
+                  isDark: isDark,
                 ),
-                if (isMine) ...[
-                  const SizedBox(width: 4),
-                  Icon(
-                    message.isRead ? LucideIcons.checkCheck : LucideIcons.check,
-                    size: 14,
-                    color: message.isRead ? AppColors.primary : secondaryColor,
-                  ),
-                ],
               ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryStatusChip extends StatelessWidget {
+  const _DeliveryStatusChip({
+    required this.status,
+    required this.isRead,
+    required this.isDark,
+    this.onRetry,
+  });
+
+  final MessageStatus status;
+  final bool isRead;
+  final bool isDark;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveStatus = isRead ? MessageStatus.read : status;
+
+    IconData icon;
+    Color color;
+
+    switch (effectiveStatus) {
+      case MessageStatus.pending:
+        icon = LucideIcons.clock3;
+        color = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+        break;
+      case MessageStatus.sent:
+        icon = LucideIcons.check;
+        color = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+        break;
+      case MessageStatus.delivered:
+        icon = LucideIcons.checkCheck;
+        color = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+        break;
+      case MessageStatus.read:
+        icon = LucideIcons.checkCheck;
+        color = AppColors.primary;
+        break;
+      case MessageStatus.failed:
+        icon = LucideIcons.alertCircle;
+        color = AppColors.error;
+        break;
+    }
+
+    final iconWidget = Icon(icon, size: 13, color: color);
+
+    if (effectiveStatus == MessageStatus.failed && onRetry != null) {
+      return InkWell(
+        onTap: onRetry,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+          child: iconWidget,
+        ),
+      );
+    }
+
+    return iconWidget;
+  }
+}
+
+class _ComposerBar extends StatelessWidget {
+  final ChatController controller;
+
+  const _ComposerBar({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.cardDark.withValues(alpha: 0.96)
+            : Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(AppRadii.xxl),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        ),
+        boxShadow: AppShadows.surface(isDark),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            LucideIcons.plus,
+            size: 18,
+            color: isDark
+                ? AppColors.textSecondaryDark
+                : AppColors.textSecondaryLight,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: TextField(
+              controller: controller.messageTextController,
+              minLines: 1,
+              maxLines: 4,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => controller.sendTypingIndicator(),
+              decoration: InputDecoration(
+                hintText: 'send_message_hint'.tr,
+                hintStyle: AppTextStyles.bodyMedium.copyWith(
+                  color: isDark
+                      ? AppColors.textHintDark
+                      : AppColors.textHintLight,
+                ),
+                border: InputBorder.none,
+              ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(width: AppSpacing.sm),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                final text = controller.messageTextController.text.trim();
+                if (text.isEmpty) return;
+                controller.sendMessage(text);
+                controller.messageTextController.clear();
+              },
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  LucideIcons.send,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -5,7 +5,7 @@ class ChatBinding extends Bindings {
   @override
   void dependencies() {
     if (!Get.isRegistered<ChatController>()) {
-      Get.put(ChatController(), permanent: true);
+      Get.lazyPut<ChatController>(() => ChatController(), fenix: true);
     }
   }
 }

@@ -1,281 +1,157 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
-import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/core/widgets/signup_flow.dart';
 
-class HobbiesInterestsScreen extends GetView<SignupController> {
+class HobbiesInterestsScreen extends StatefulWidget {
   const HobbiesInterestsScreen({super.key});
 
-  // Categorized hobbies with emojis
-  static const _categories = <String, List<_HobbyItem>>{
-    'SPORTS': [
-      _HobbyItem('Gym', '🏋️'),
-      _HobbyItem('Football', '⚽'),
-      _HobbyItem('Horse Riding', '🏇'),
-      _HobbyItem('Archery', '🏹'),
-      _HobbyItem('Swimming', '🏊'),
-    ],
-    'LIFESTYLE': [
-      _HobbyItem('Traveling', '✈️'),
-      _HobbyItem('Coffee', '☕'),
-      _HobbyItem('Reading', '📚'),
-      _HobbyItem('Yoga', '🧘'),
-      _HobbyItem('Camping', '🏕️'),
-    ],
-    'FOOD & ENTERTAINMENT': [
-      _HobbyItem('Cooking', '🍳'),
-      _HobbyItem('Anime', '🎌'),
-      _HobbyItem('Pizza', '🍕'),
-      _HobbyItem('Baking', '🧁'),
-    ],
-  };
+  @override
+  State<HobbiesInterestsScreen> createState() => _HobbiesInterestsScreenState();
+}
+
+class _HobbiesInterestsScreenState extends State<HobbiesInterestsScreen> {
+  final SignupController controller = Get.find<SignupController>();
+
+  static const List<String> _options = [
+    'Travel',
+    'Cooking',
+    'Hiking',
+    'Yoga',
+    'Gaming',
+    'Movies',
+    'Photography',
+    'Music',
+    'Pets',
+    'Painting',
+    'Art',
+    'Fitness',
+    'Reading',
+    'Dancing',
+    'Sports',
+    'Board Games',
+    'Technology',
+    'Fashion',
+    'Motorcycling',
+  ];
 
   @override
   Widget build(BuildContext context) {
     controller.syncStep(AppRoutes.signupHobbies);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor =
-        isDark ? AppColors.backgroundDark : Colors.white;
-    final secondaryColor =
-        isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
+    return Obx(() {
+      final busy =
+          controller.isNavigatingStep.value || controller.isLoading.value;
+      final selectedCount = controller.selectedHobbies.length;
+
+      return SignupStepScaffold(
+        onBack: controller.goBack,
+        progress: controller.progressPercent,
+        footer: SignupFooterActions(
+          primaryLabel: selectedCount > 0
+              ? '${'continue_text'.tr} ($selectedCount/${SignupController.maxHobbiesSelection})'
+              : 'continue_text'.tr,
+          onPrimary: selectedCount > 0 && !busy
+              ? controller.goToNextStep
+              : null,
+          isLoading: busy,
+          secondaryLabel: 'skip_for_now'.tr,
+          onSecondary: busy ? null : controller.skipCurrentOptionalStep,
+        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Top bar: back arrow + progress ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-              child: Row(
+            SignupHeroCard(
+              badge: '08 / 12',
+              icon: LucideIcons.sparkles,
+              title: 'discover_like_minded'.tr,
+              description: 'discover_like_minded_desc'.tr,
+              preview: Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
-                  _BackArrow(isDark: isDark),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Obx(() => _ProgressBar(
-                          progress: controller.progressPercent,
-                        )),
+                  SignupInfoPill(
+                    icon: LucideIcons.heart,
+                    label:
+                        '${'select_hobbies'.tr} (${SignupController.maxHobbiesSelection})',
                   ),
                 ],
               ),
             ),
-
-            // ── Scrollable content ──
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 28),
-
-                    // Title
-                    Text(
-                      'hobbies_interests'.tr,
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: isDark
-                            ? AppColors.textPrimaryDark
-                            : AppColors.textPrimaryLight,
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    // ── Category sections ──
-                    ..._categories.entries.map((entry) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Section header with decorative line
-                          Row(
-                            children: [
-                              Container(
-                                width: 20,
-                                height: 1.5,
-                                color: secondaryColor.withValues(alpha: 0.4),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                entry.key.tr,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.2,
-                                  color: secondaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Chips wrap
-                          Obx(() => Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children:
-                                    entry.value.map((item) {
-                                  final selected = controller
-                                      .selectedHobbies
-                                      .contains(item.name);
-                                  return GestureDetector(
-                                    onTap: () =>
-                                        controller.toggleHobby(item.name),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                          milliseconds: 200),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: selected
-                                            ? AppColors.primary
-                                            : (isDark
-                                                ? AppColors.cardDark
-                                                : Colors.white),
-                                        borderRadius:
-                                            BorderRadius.circular(24),
-                                        border: Border.all(
-                                          color: selected
-                                              ? AppColors.primary
-                                              : (isDark
-                                                  ? AppColors.borderDark
-                                                  : AppColors.borderLight),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            item.emoji,
-                                            style: const TextStyle(
-                                                fontSize: 16),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            item.name.tr,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: selected
-                                                  ? Colors.white
-                                                  : (isDark
-                                                      ? AppColors
-                                                          .textPrimaryDark
-                                                      : AppColors
-                                                          .textPrimaryLight),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              )),
-
-                          const SizedBox(height: 24),
-                        ],
+            const SizedBox(height: AppSpacing.xl),
+            SignupSurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SignupSectionLabel(text: 'hobbies_interests'.tr),
+                  const SizedBox(height: AppSpacing.lg),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: _options.map((interest) {
+                      final selected = controller.selectedHobbies.contains(
+                        interest,
                       );
-                    }),
-
-                    const SizedBox(height: 8),
-                  ],
-                ),
+                      return SignupOptionChip(
+                        label: interest,
+                        selected: selected,
+                        icon: _iconForInterest(interest),
+                        onTap: () => controller.toggleHobby(interest),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
-            ),
-
-            // ── Bottom: Continue button ──
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Obx(() => SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: controller.selectedHobbies.length >= 3
-                          ? controller.goToNextStep
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor:
-                            AppColors.primary.withValues(alpha: 0.4),
-                        disabledForegroundColor: Colors.white70,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                      ),
-                      child: Text(
-                        'continue_text'.tr,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  )),
             ),
           ],
         ),
-      ),
-    );
+      );
+    });
   }
-}
 
-// ─── Hobby item model ─────────────────────────────────────────────────────
-class _HobbyItem {
-  final String name;
-  final String emoji;
-  const _HobbyItem(this.name, this.emoji);
-}
-
-// ─── Progress bar ─────────────────────────────────────────────────────────
-class _ProgressBar extends StatelessWidget {
-  final double progress;
-  const _ProgressBar({required this.progress});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: LinearProgressIndicator(
-        value: progress,
-        minHeight: 6,
-        backgroundColor: Colors.grey.shade200,
-        valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-      ),
-    );
-  }
-}
-
-// ─── Reusable back arrow ──────────────────────────────────────────────────
-class _BackArrow extends StatelessWidget {
-  final bool isDark;
-  const _BackArrow({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Get.find<SignupController>().goBack(),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isDark ? AppColors.borderDark : AppColors.borderLight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(
-          LucideIcons.chevronLeft,
-          size: 16,
-          color: isDark
-              ? AppColors.textPrimaryDark
-              : AppColors.textPrimaryLight,
-        ),
-      ),
-    );
+  IconData _iconForInterest(String interest) {
+    switch (interest) {
+      case 'Travel':
+        return Icons.flight_takeoff_rounded;
+      case 'Cooking':
+        return Icons.restaurant_menu_rounded;
+      case 'Hiking':
+        return Icons.terrain_rounded;
+      case 'Yoga':
+        return Icons.self_improvement_rounded;
+      case 'Gaming':
+        return Icons.sports_esports_rounded;
+      case 'Movies':
+        return Icons.movie_creation_outlined;
+      case 'Photography':
+        return Icons.photo_camera_outlined;
+      case 'Music':
+        return Icons.music_note_rounded;
+      case 'Pets':
+        return Icons.pets_outlined;
+      case 'Painting':
+      case 'Art':
+        return Icons.palette_outlined;
+      case 'Fitness':
+      case 'Sports':
+        return Icons.fitness_center_rounded;
+      case 'Reading':
+        return Icons.menu_book_rounded;
+      case 'Dancing':
+        return Icons.nightlife_rounded;
+      case 'Board Games':
+        return Icons.casino_outlined;
+      case 'Technology':
+        return Icons.memory_rounded;
+      case 'Fashion':
+        return Icons.checkroom_rounded;
+      case 'Motorcycling':
+        return Icons.two_wheeler_rounded;
+      default:
+        return Icons.auto_awesome_rounded;
+    }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/data/models/category_model.dart';
@@ -31,13 +32,16 @@ class CategoriesController extends GetxController {
     isLoading.value = true;
     hasError.value = false;
     try {
-      final response = await _api.get(ApiConstants.categories);
+      final response = await _api.get(
+        ApiConstants.categories,
+        options: Options(extra: {'disable_retry': true}),
+      );
       final data = response.data;
       final list = (data is Map && data.containsKey('data')) ? data['data'] : (data is List ? data : []);
       
-      categories.value = (list as List)
+      categories.assignAll((list as List)
           .map((c) => CategoryModel.fromJson(c))
-          .toList();
+          .toList());
       debugPrint('[Categories] Fetched ${categories.length} categories');
     } catch (e) {
       debugPrint('[Categories] fetchCategories error: $e');
@@ -78,7 +82,7 @@ class CategoriesController extends GetxController {
       if (loadMore) {
         categoryUsers.addAll(users);
       } else {
-        categoryUsers.value = users;
+        categoryUsers.assignAll(users);
       }
 
       currentPage.value = page;

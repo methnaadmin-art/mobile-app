@@ -5,7 +5,7 @@ class HomeBinding extends Bindings {
   @override
   void dependencies() {
     if (!Get.isRegistered<HomeController>()) {
-      Get.put(HomeController(), permanent: true);
+      Get.lazyPut<HomeController>(() => HomeController(), fenix: true);
     }
   }
 }

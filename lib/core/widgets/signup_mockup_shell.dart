@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:methna_app/core/utils/google_fonts_stub.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 
 const Color signupMockPurple = Color(0xFF9627FF);
 const Color signupMockPurpleEnd = Color(0xFF7B1FFF);
@@ -81,10 +81,8 @@ class SignupMockScaffold extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Text(
                   title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 34,
-                    height: 1.22,
-                    fontWeight: FontWeight.w700,
+                  style: AppTextStyles.screenTitle.copyWith(
+                    fontWeight: FontWeight.w800,
                     color: _mockText(isDark),
                   ),
                 ),
@@ -94,10 +92,8 @@ class SignupMockScaffold extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Text(
                   subtitle,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
+                  style: AppTextStyles.bodyMedium.copyWith(
                     height: 1.55,
-                    fontWeight: FontWeight.w400,
                     color: _mockMuted(isDark),
                   ),
                 ),
@@ -161,9 +157,7 @@ class SignupMockPrimaryButton extends StatelessWidget {
                     )
                   : Text(
                       label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
+                      style: AppTextStyles.button.copyWith(
                         color: Colors.white,
                       ),
                     ),
@@ -199,7 +193,7 @@ class SignupMockWideOption extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(999),
           child: Ink(
-            height: 40,
+            height: 48,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(999),
               gradient: selected
@@ -220,9 +214,8 @@ class SignupMockWideOption extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    style: AppTextStyles.button.copyWith(
+                      fontSize: 14,
                       color: selected ? Colors.white : _mockText(Theme.of(context).brightness == Brightness.dark),
                     ),
                   ),
@@ -276,18 +269,14 @@ class SignupMockCardOption extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                style: AppTextStyles.titleSmall.copyWith(
                   color: _mockText(Theme.of(context).brightness == Brightness.dark),
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 description,
-                style: GoogleFonts.poppins(
-                  fontSize: 11.2,
-                  fontWeight: FontWeight.w400,
+                style: AppTextStyles.bodySmall.copyWith(
                   height: 1.5,
                   color: _mockMuted(Theme.of(context).brightness == Brightness.dark),
                 ),
@@ -335,8 +324,7 @@ class SignupMockChip extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: GoogleFonts.poppins(
-                  fontSize: 11.2,
+                style: AppTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w500,
                   color: selected ? Colors.white : _mockText(Theme.of(context).brightness == Brightness.dark),
                 ),

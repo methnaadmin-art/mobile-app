@@ -6,8 +6,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../app/controllers/users_controller.dart';
 import '../../../app/data/models/user_model.dart';
 import '../../../core/theme/premium_theme.dart';
-import '../../../core/utils/cloudinary_url.dart';
-import '../../../core/widgets/animated_empty_state.dart';
+import 'package:methna_app/core/utils/cloudinary_url.dart';
+import 'package:methna_app/core/widgets/animated_empty_state.dart';
 
 /// Premium Tinder-style Swipe Cards Screen
 class PremiumSwipeCardsScreen extends StatefulWidget {
@@ -76,12 +76,17 @@ class _PremiumSwipeCardsScreenState extends State<PremiumSwipeCardsScreen> {
                           vertical: 12,
                         ),
                         onSwipe: (previousIndex, currentIndex, direction) {
-                          final user = controller.allUsers[previousIndex];
-                          _handleSwipe(direction, user);
+                          if (previousIndex < controller.allUsers.length) {
+                            final user = controller.allUsers[previousIndex];
+                            _handleSwipe(direction, user);
+                          }
                           return true;
                         },
                         cardBuilder:
                             (context, index, horizontalOffset, verticalOffset) {
+                              if (index >= controller.allUsers.length) {
+                                return const SizedBox.shrink();
+                              }
                               final user = controller.allUsers[index];
                               return _SwipeCard(
                                 user: user,
@@ -257,6 +262,10 @@ class _SwipeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayName = user.publicDisplayName.trim().isNotEmpty
+        ? user.publicDisplayName.trim()
+        : 'profile'.tr;
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
@@ -411,7 +420,7 @@ class _SwipeCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          '${user.firstName ?? user.username}, ${user.profile?.age ?? ''}',
+                          '$displayName, ${user.profile?.age ?? ''}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 32,

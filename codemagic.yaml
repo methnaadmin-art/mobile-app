@@ -46,6 +46,9 @@ workflows:
       app_store_connect: Codemagic Methna
 
     environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.methnapp.app
       vars:
         BUNDLE_ID: "com.methnapp.app"
         XCODE_WORKSPACE: "Runner.xcworkspace"
@@ -101,17 +104,7 @@ workflows:
       - name: Initialize keychain
         script: keychain initialize
 
-      - name: Fetch signing files (App Store) and create if missing
-        script: |
-          set -e
-          # Auto-create or fetch a matching iOS Distribution certificate AND
-          # an App Store provisioning profile for $BUNDLE_ID via the App Store
-          # Connect API key configured in the integration.
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-
-      - name: Add fetched certificates to keychain
+      - name: Add certificates to keychain
         script: keychain add-certificates
 
       - name: Apply provisioning profiles to Xcode project

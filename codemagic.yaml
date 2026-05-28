@@ -30,7 +30,7 @@
 
 definitions:
   flutter_version: &flutter_version stable
-  xcode_version: &xcode_version 15.4
+  xcode_version: &xcode_version latest
   cocoapods_version: &cocoapods_version default
 
 workflows:

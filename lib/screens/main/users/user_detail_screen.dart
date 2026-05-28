@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/controllers/chat_controller.dart';
 import 'package:methna_app/app/controllers/home_controller.dart';
 import 'package:methna_app/app/controllers/settings_controller.dart';
 import 'package:methna_app/app/controllers/users_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/monetization_service.dart';
+import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/screens/main/profile/profile_screen.dart';
 
@@ -17,12 +19,17 @@ class UserDetailScreen extends StatefulWidget {
 }
 
 class _UserDetailScreenState extends State<UserDetailScreen> {
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
   bool _didRecordView = false;
 
   @override
   Widget build(BuildContext context) {
     final args = Get.arguments as Map<String, dynamic>?;
     final user = args?['user'] as UserModel?;
+    final sourceTab =
+        (args?['sourceTab']?.toString().trim().toLowerCase() ?? '');
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final home = Get.find<HomeController>();
 
@@ -36,34 +43,58 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     if (!_didRecordView) {
       _didRecordView = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
+        if (mounted && _uuidPattern.hasMatch(user.id.trim())) {
           Get.find<MonetizationService>().recordProfileView(user.id);
         }
       });
     }
 
+    final hidePassAction =
+      sourceTab == 'liked_me' || sourceTab == 'who_liked_me';
     final usersController = Get.isRegistered<UsersController>()
         ? Get.find<UsersController>()
         : null;
-    final hideActions =
-        home.hasInteractedWith(user.id) ||
-        (usersController?.hasInteractedWith(user.id) ?? false);
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
-      body: SafeArea(
-        bottom: false,
-        child: ProfileShowcaseContent(
-          user: user,
-          onBack: () => Get.back(),
-          onMore: () => _showUserActions(context, user),
-          extraBottomPadding: 160,
+    return Obx(() {
+      final isMatched = usersController?.isMatchedWithUser(user.id) ?? false;
+      final isPassed = usersController?.hasPassedUser(user.id) ?? false;
+      final hideActions =
+          !isPassed &&
+          (home.hasInteractedWith(user.id) ||
+              (usersController?.hasInteractedWith(user.id) ?? false));
+      final premiumComplimentOnly =
+          hidePassAction && !home.hasPaidPremiumPlan;
+
+      return Scaffold(
+        backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+        body: SafeArea(
+          bottom: false,
+          child: ProfileShowcaseContent(
+            user: user,
+            onBack: () => Get.back(),
+            onMore: () => _showUserActions(context, user),
+            onPhotoTap: (initialIndex) => openProfileGalleryViewer(
+              context,
+              user,
+              initialIndex: initialIndex,
+            ),
+            heroAvatarSize: 148,
+            extraBottomPadding: 160,
+          ),
         ),
-      ),
-      bottomNavigationBar: hideActions
-          ? null
-          : _BottomActionBar(isDark: isDark, user: user),
-    );
+        bottomNavigationBar: isMatched
+            ? _MatchedActionBar(isDark: isDark, user: user)
+            : hideActions
+            ? null
+            : _BottomActionBar(
+                isDark: isDark,
+                user: user,
+                showPassAction: !hidePassAction,
+                sourceTab: sourceTab,
+                requirePremiumForCompliment: premiumComplimentOnly,
+              ),
+      );
+    });
   }
 
   void _showUserActions(BuildContext context, UserModel user) {
@@ -87,7 +118,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(LucideIcons.flag, color: Colors.orange),
+              leading: const Icon(LucideIcons.flag, color: AppColors.primary),
               title: Text('report_user'.tr),
               onTap: () {
                 Get.back();
@@ -281,82 +312,101 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 }
 
 class _BottomActionBar extends StatelessWidget {
-  const _BottomActionBar({required this.isDark, required this.user});
+  const _BottomActionBar({
+    required this.isDark,
+    required this.user,
+    this.showPassAction = true,
+    this.sourceTab,
+    this.requirePremiumForCompliment = false,
+  });
 
   final bool isDark;
   final UserModel user;
+  final bool showPassAction;
+  final String? sourceTab;
+  final bool requirePremiumForCompliment;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-        20,
+        16,
         12,
-        20,
-        MediaQuery.of(context).padding.bottom + 12,
+        16,
+        MediaQuery.of(context).padding.bottom + 10,
       ),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundDark : Colors.white,
+        color: isDark ? const Color(0xFF10151F) : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0xFF273043) : const Color(0xFFE9EAF0),
+          ),
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.26 : 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, -6),
           ),
         ],
       ),
       child: Row(
         children: [
-          _CircleActionBtn(
-            icon: LucideIcons.x,
-            color: isDark
-                ? AppColors.textSecondaryDark
-                : AppColors.textHintLight,
-            onTap: () async {
-              final success = await Get.find<HomeController>().passUser(
-                user.id,
-              );
-              if (success) {
-                Get.back();
-              }
-            },
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Container(
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: InkWell(
+          if (showPassAction)
+            Expanded(
+              child: _ActionPillButton(
+                icon: LucideIcons.x,
+                label: 'home_action_pass'.tr,
+                iconColor: const Color(0xFFFF9862),
+                backgroundColor: isDark
+                    ? const Color(0xFF1D2330)
+                    : const Color(0xFFFFEFE6),
+                borderColor: const Color(0xFFFFC3A0),
                 onTap: () async {
-                  final success = await Get.find<HomeController>().likeUser(
+                  final success = await Get.find<HomeController>().passUser(
                     user.id,
+                    fallbackUser: user,
                   );
                   if (success) {
                     Get.back();
                   }
                 },
-                borderRadius: BorderRadius.circular(16),
-                child: Center(
-                  child: Text(
-                    'interested'.tr,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
               ),
             ),
+          if (showPassAction) const SizedBox(width: 10),
+          Expanded(
+            child: _ActionPillButton(
+              icon: LucideIcons.heart,
+              label: 'home_action_like'.tr,
+              iconColor: Colors.white,
+              textColor: Colors.white,
+              gradient: AppColors.primaryGradient,
+              onTap: () async {
+                final success = await Get.find<HomeController>().likeUser(
+                  user.id,
+                  fallbackUser: user,
+                );
+                final matchedNow = Get.isRegistered<UsersController>() &&
+                    Get.find<UsersController>().isMatchedWithUser(user.id);
+                if (success && !matchedNow) {
+                  Get.back();
+                }
+              },
+            ),
           ),
-          const SizedBox(width: 16),
-          _CircleActionBtn(
-            icon: LucideIcons.award,
-            color: AppColors.primary,
-            onTap: () => _showComplimentDialog(context),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _ActionPillButton(
+              icon: LucideIcons.award,
+              label: 'home_action_compliment'.tr,
+              iconColor: const Color(0xFF2D95FF),
+              backgroundColor: isDark
+                  ? const Color(0xFF1D2330)
+                  : const Color(0xFFEAF4FF),
+              borderColor: const Color(0xFF9BCBFF),
+              onTap: () => _showComplimentDialog(context),
+            ),
           ),
         ],
       ),
@@ -364,6 +414,11 @@ class _BottomActionBar extends StatelessWidget {
   }
 
   void _showComplimentDialog(BuildContext context) {
+    if (requirePremiumForCompliment) {
+      Get.toNamed(AppRoutes.subscription);
+      return;
+    }
+
     final controller = Get.find<HomeController>();
     final tc = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -428,12 +483,17 @@ class _BottomActionBar extends StatelessWidget {
                 final success = await controller.complimentUser(
                   user.id,
                   tc.text.trim(),
+                  fallbackUser: user,
                 );
                 if (success) {
                   if (Get.isDialogOpen ?? false) {
                     Get.back();
                   }
-                  Get.back();
+                  final matchedNow = Get.isRegistered<UsersController>() &&
+                      Get.find<UsersController>().isMatchedWithUser(user.id);
+                  if (!matchedNow) {
+                    Get.back();
+                  }
                 }
               }
             },
@@ -452,30 +512,168 @@ class _BottomActionBar extends StatelessWidget {
   }
 }
 
-class _CircleActionBtn extends StatelessWidget {
-  const _CircleActionBtn({
+class _MatchedActionBar extends StatelessWidget {
+  const _MatchedActionBar({required this.isDark, required this.user});
+
+  final bool isDark;
+  final UserModel user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        MediaQuery.of(context).padding.bottom + 10,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF10151F) : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0xFF273043) : const Color(0xFFE9EAF0),
+          ),
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, -6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ActionPillButton(
+              icon: LucideIcons.messageCircle,
+              label: 'chat'.tr,
+              iconColor: const Color(0xFF2D95FF),
+              backgroundColor: isDark
+                  ? const Color(0xFF1D2330)
+                  : const Color(0xFFEAF4FF),
+              borderColor: const Color(0xFF9BCBFF),
+              onTap: () =>
+                  Get.find<ChatController>().openConversationWithUser(user),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _ActionPillButton(
+              icon: LucideIcons.xCircle,
+              label: 'remove_match'.tr,
+              iconColor: Colors.white,
+              textColor: Colors.white,
+              backgroundColor: AppColors.error,
+              onTap: () => _confirmUnmatch(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmUnmatch(BuildContext context) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    await Get.dialog<void>(
+      AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        title: Text('remove_match'.tr),
+        content: Text('remove_match_confirm'.tr),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back<void>(),
+            child: Text('cancel'.tr),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Get.back<void>();
+              final success = await Get.find<UsersController>().unmatchUser(
+                user.id,
+              );
+              if (success) {
+                Get.back<void>();
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('remove_match'.tr),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionPillButton extends StatelessWidget {
+  const _ActionPillButton({
     required this.icon,
-    required this.color,
+    required this.label,
+    required this.iconColor,
     required this.onTap,
+    this.textColor,
+    this.backgroundColor,
+    this.borderColor,
+    this.gradient,
   });
 
   final IconData icon;
-  final Color color;
+  final String label;
+  final Color iconColor;
+  final Color? textColor;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final Gradient? gradient;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-          border: Border.all(color: color.withValues(alpha: 0.4)),
+    final resolvedTextColor = textColor ?? iconColor;
+    final resolvedIconSize =
+        icon == LucideIcons.heart || icon == LucideIcons.heartHandshake
+        ? 20.0
+        : 18.0;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: gradient,
+        color: gradient == null ? backgroundColor : null,
+        borderRadius: BorderRadius.circular(16),
+        border: gradient == null && borderColor != null
+            ? Border.all(color: borderColor!)
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 56,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: iconColor, size: resolvedIconSize),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: resolvedTextColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Icon(icon, color: color, size: 24),
       ),
     );
   }

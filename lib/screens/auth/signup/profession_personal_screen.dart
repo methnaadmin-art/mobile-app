@@ -4,11 +4,64 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
 import 'package:methna_app/app/controllers/signup_data.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/core/utils/profile_option_icons.dart';
 import 'package:methna_app/core/widgets/signup_flow.dart';
 
 class ProfessionPersonalScreen extends GetView<SignupController> {
   const ProfessionPersonalScreen({super.key});
+
+  static const List<_MarriageTimelineOption> _marriageTimelineOptions = [
+    _MarriageTimelineOption(
+      key: '1-3 MONTHS',
+      icon: Icons.flash_on_rounded,
+      iconColor: AppColors.primaryDark,
+      iconBackground: AppColors.primarySurface,
+    ),
+    _MarriageTimelineOption(
+      key: '3-6 MONTHS',
+      icon: Icons.schedule_rounded,
+      iconColor: AppColors.primary,
+      iconBackground: AppColors.primarySurface,
+    ),
+    _MarriageTimelineOption(
+      key: 'UP TO 1 YEAR',
+      icon: Icons.event_available_rounded,
+      iconColor: AppColors.secondary,
+      iconBackground: AppColors.primarySurface,
+    ),
+    _MarriageTimelineOption(
+      key: '1-2 YEARS',
+      icon: Icons.hourglass_bottom_rounded,
+      iconColor: AppColors.primaryDark,
+      iconBackground: AppColors.primarySurface,
+    ),
+    _MarriageTimelineOption(
+      key: 'NOT SURE',
+      icon: Icons.explore_rounded,
+      iconColor: AppColors.primaryLight,
+      iconBackground: AppColors.primarySurface,
+    ),
+  ];
+
+  static const List<String> _skinComplexionOptions = [
+    'very_fair',
+    'fair',
+    'medium',
+    'olive',
+    'dark',
+    'prefer_not_to_say',
+  ];
+
+  static const List<String> _bodyBuildOptions = [
+    'slim',
+    'average',
+    'athletic',
+    'curvy',
+    'prefer_not_to_say',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -18,32 +71,13 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
       onBack: controller.goBack,
       progress: controller.progressPercent,
       footer: Obx(() {
-        final hasLiveFormState = controller.formChangeTick >= 0;
-        final hasChildren = controller.hasChildren.value;
-        final ready =
-            hasLiveFormState &&
-            controller.selectedEducation.value.isNotEmpty &&
-            controller.jobTitleController.text.trim().isNotEmpty &&
-            controller.selectedLanguages.isNotEmpty &&
-            controller.selectedNationalities.isNotEmpty &&
-            controller.selectedEthnicity.value.isNotEmpty &&
-            hasChildren != null &&
-            (!hasChildren ||
-                controller.numberOfChildrenController.text.trim().isNotEmpty) &&
-            controller.selectedFamilyValues.isNotEmpty;
         final busy =
             controller.isNavigatingStep.value || controller.isLoading.value;
 
         return SignupFooterActions(
           primaryLabel: 'continue_text'.tr,
-          onPrimary: ready && !busy ? controller.goToNextStep : null,
+          onPrimary: !busy ? controller.goToNextStep : null,
           isLoading: busy,
-          secondaryLabel: 'skip_for_now'.tr,
-          onSecondary: busy ? null : controller.skipCurrentOptionalStep,
-          helper: Text(
-            'add_extra_details_optional'.tr,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
         );
       }),
       child: Column(
@@ -53,21 +87,7 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
             badge: '09 / 12',
             icon: LucideIcons.briefcase,
             title: 'profession_personal'.tr,
-            description: 'profession_personal_desc'.tr,
-            preview: Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: [
-                SignupInfoPill(
-                  icon: LucideIcons.briefcase,
-                  label: 'work_education'.tr,
-                ),
-                SignupInfoPill(
-                  icon: LucideIcons.users,
-                  label: 'family_details'.tr,
-                ),
-              ],
-            ),
+            description: '',
           ),
           const SizedBox(height: AppSpacing.xl),
           SignupSurfaceCard(
@@ -101,9 +121,42 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                 SignupInputField(
                   controller: controller.bioController,
                   label: 'about_me_header'.tr,
-                  hint: 'write_about_yourself'.tr,
+                  hint: 'Short bio',
                   icon: LucideIcons.fileText,
                   maxLines: 5,
+                  textInputAction: TextInputAction.newline,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SignupInputField(
+                        controller: controller.heightController,
+                        label: 'height'.tr,
+                        hint: 'enter_height'.tr,
+                        keyboardType: TextInputType.number,
+                        icon: Icons.height_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: SignupInputField(
+                        controller: controller.weightController,
+                        label: 'weight'.tr,
+                        hint: 'enter_weight'.tr,
+                        keyboardType: TextInputType.number,
+                        icon: Icons.monitor_weight_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                SignupInputField(
+                  controller: controller.describeIdealSpouseController,
+                  label: 'describe_ideal_spouse'.tr,
+                  hint: 'describe_ideal_spouse_hint'.tr,
+                  icon: Icons.favorite_border_rounded,
+                  maxLines: 4,
                   textInputAction: TextInputAction.newline,
                 ),
               ],
@@ -114,25 +167,48 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SignupSectionLabel(text: 'languages_label'.tr),
-                const SizedBox(height: AppSpacing.md),
                 Obx(
-                  () => Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: SignupData.languagesList
-                        .map(
-                          (language) => SignupOptionChip(
-                            label: language,
-                            selected: controller.selectedLanguages.contains(
-                              language,
-                            ),
-                            onTap: () => controller.toggleLanguage(language),
-                            translateLabel: true,
+                  () {
+                    final selectedLanguages = controller.selectedLanguages
+                        .toList(growable: false);
+                    final languageSummary = selectedLanguages.isEmpty
+                        ? null
+                        : selectedLanguages.length == 1
+                        ? selectedLanguages.first
+                        : '${selectedLanguages.length} selected';
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SignupPickerTile(
+                          label: 'languages_label'.tr,
+                          placeholder: 'Select languages',
+                          icon: Icons.translate_rounded,
+                          value: languageSummary,
+                          translateValue: selectedLanguages.length == 1,
+                          onTap: () => _showLanguageSheet(context),
+                        ),
+                        if (selectedLanguages.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Wrap(
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.sm,
+                            children: selectedLanguages
+                                .map(
+                                  (language) => SignupOptionChip(
+                                    label: language,
+                                    selected: true,
+                                    translateLabel: true,
+                                    onTap: () =>
+                                        controller.toggleLanguage(language),
+                                  ),
+                                )
+                                .toList(),
                           ),
-                        )
-                        .toList(),
-                  ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 Obx(() {
@@ -140,7 +216,7 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                   final secondaryNationality = controller.secondaryNationality;
                   final secondaryOptions = primaryNationality == null
                       ? <String>[]
-                      : SignupData.arabicCountries
+                      : SignupData.supportedCountries
                             .where((country) => country != primaryNationality)
                             .toList();
 
@@ -150,12 +226,12 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                       SignupPickerTile(
                         label: 'first_nationality'.tr,
                         placeholder: 'select_first_nationality'.tr,
-                        icon: LucideIcons.flag,
+                        icon: identityFieldIcon('nationality'),
                         value: primaryNationality,
                         onTap: () => _showPickerSheet(
                           context,
                           title: 'first_nationality'.tr,
-                          options: SignupData.arabicCountries,
+                          options: SignupData.supportedCountries,
                           onSelected: controller.setPrimaryNationality,
                           translateItems: true,
                         ),
@@ -165,7 +241,7 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                       SignupPickerTile(
                         label: 'secondary_nationality'.tr,
                         placeholder: 'select_secondary_nationality'.tr,
-                        icon: LucideIcons.flag,
+                        icon: identityFieldIcon('nationality'),
                         value: secondaryNationality,
                         onTap: () => _showPickerSheet(
                           context,
@@ -191,13 +267,47 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                   () => SignupPickerTile(
                     label: 'ethnicity_label'.tr,
                     placeholder: 'select_ethnicity'.tr,
-                    icon: LucideIcons.flag,
+                    icon: identityFieldIcon('ethnicity'),
                     value: controller.selectedEthnicity.value,
                     onTap: () => _showPickerSheet(
                       context,
                       title: 'ethnicity'.tr,
                       options: SignupData.ethnicities,
                       onSelected: controller.setEthnicity,
+                      translateItems: true,
+                    ),
+                    translateValue: true,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                Obx(
+                  () => SignupPickerTile(
+                    label: 'skin_complexion'.tr,
+                    placeholder: 'select_skin_complexion'.tr,
+                    icon: Icons.face_retouching_natural_outlined,
+                    value: controller.selectedSkinComplexion.value,
+                    onTap: () => _showPickerSheet(
+                      context,
+                      title: 'skin_complexion'.tr,
+                      options: _skinComplexionOptions,
+                      onSelected: controller.setSkinComplexion,
+                      translateItems: true,
+                    ),
+                    translateValue: true,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Obx(
+                  () => SignupPickerTile(
+                    label: 'body_build'.tr,
+                    placeholder: 'select_body_build'.tr,
+                    icon: Icons.accessibility_new_rounded,
+                    value: controller.selectedBodyBuild.value,
+                    onTap: () => _showPickerSheet(
+                      context,
+                      title: 'body_build'.tr,
+                      options: _bodyBuildOptions,
+                      onSelected: controller.setBodyBuild,
                       translateItems: true,
                     ),
                     translateValue: true,
@@ -253,6 +363,32 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                   );
                 }),
                 const SizedBox(height: AppSpacing.xl),
+                SignupSectionLabel(text: 'willing_to_relocate'.tr),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => Row(
+                    children: [
+                      Expanded(
+                        child: SignupOptionChip(
+                          label: 'yes'.tr,
+                          selected: controller.willingToRelocate.value == true,
+                          onTap: () => controller.setWillingToRelocate(true),
+                          translateLabel: false,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: SignupOptionChip(
+                          label: 'no'.tr,
+                          selected: controller.willingToRelocate.value == false,
+                          onTap: () => controller.setWillingToRelocate(false),
+                          translateLabel: false,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
                 SignupSectionLabel(text: 'family_future'.tr),
                 const SizedBox(height: AppSpacing.md),
                 Obx(
@@ -273,11 +409,203 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                         .toList(),
                   ),
                 ),
+                const SizedBox(height: AppSpacing.xl),
+                SignupSectionLabel(text: 'marriage_timeline'.tr),
+                const SizedBox(height: AppSpacing.md),
+                Obx(() {
+                  final selectedKey = controller.selectedMarriageTimeline.value;
+                  final selectedIndex = _timelineIndexFor(selectedKey);
+                  final selectedOption = _marriageTimelineOptions[selectedIndex];
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0x1FFFFFFF)
+                              : AppColors.primarySurface,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: selectedOption.iconBackground,
+                              ),
+                              child: Icon(
+                                selectedOption.icon,
+                                color: selectedOption.iconColor,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    selectedOption.key,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _timelineCaption(selectedOption.key),
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Slider(
+                        value: selectedIndex.toDouble(),
+                        min: 0,
+                        max: (_marriageTimelineOptions.length - 1).toDouble(),
+                        divisions: _marriageTimelineOptions.length - 1,
+                        label: selectedOption.key,
+                        onChanged: (value) {
+                          final index = value.round().clamp(
+                            0,
+                            _marriageTimelineOptions.length - 1,
+                          ).toInt();
+                          controller.setMarriageTimeline(
+                            _marriageTimelineOptions[index].key,
+                          );
+                        },
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _marriageTimelineOptions.first.key,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                          Text(
+                            _marriageTimelineOptions.last.key,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                }),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  void _showLanguageSheet(BuildContext context) {
+    final draftSelection = controller.selectedLanguages.toSet();
+
+    Get.bottomSheet<void>(
+      StatefulBuilder(
+        builder: (context, setModalState) {
+          return SignupSurfaceCard(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl,
+              AppSpacing.sm,
+              AppSpacing.xl,
+              AppSpacing.xl,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).dividerColor,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'languages_label'.tr,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: SignupData.languagesList.map((language) {
+                        final selected = draftSelection.contains(language);
+                        return Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.sm,
+                          ),
+                          child: SignupChoiceTile(
+                            title: language.tr,
+                            selected: selected,
+                            leading: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(
+                                  alpha: selected ? 0.16 : 0.08,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadii.lg,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.translate_rounded,
+                                size: 16,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            onTap: () {
+                              setModalState(() {
+                                if (selected) {
+                                  draftSelection.remove(language);
+                                } else {
+                                  draftSelection.add(language);
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                SignupFooterActions(
+                  primaryLabel: 'done'.tr,
+                  onPrimary: () {
+                    controller.selectedLanguages.assignAll(
+                      SignupData.languagesList
+                          .where(draftSelection.contains)
+                          .toList(),
+                    );
+                    Get.back<void>();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
     );
   }
 
@@ -368,7 +696,7 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                                           Theme.of(context).brightness ==
                                               Brightness.dark
                                           ? const Color(0x1FFFFFFF)
-                                          : const Color(0xFFF7F3FD),
+                                          : AppColors.primarySurface,
                                       borderRadius: BorderRadius.circular(22),
                                     ),
                                     child: Text(
@@ -392,4 +720,40 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
       isScrollControlled: true,
     );
   }
+
+  static int _timelineIndexFor(String key) {
+    final index = _marriageTimelineOptions.indexWhere(
+      (option) => option.key == key,
+    );
+    return index >= 0 ? index : 1;
+  }
+
+  static String _timelineCaption(String key) {
+    switch (key) {
+      case '1-3 MONTHS':
+        return 'Ready to move quickly with family involvement.';
+      case '3-6 MONTHS':
+        return 'Looking for a serious, near-term path.';
+      case 'UP TO 1 YEAR':
+        return 'Sincere intention with space to build trust.';
+      case '1-2 YEARS':
+        return 'Open to a thoughtful getting-to-know period.';
+      default:
+        return 'Still exploring the right time frame.';
+    }
+  }
+}
+
+class _MarriageTimelineOption {
+  final String key;
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBackground;
+
+  const _MarriageTimelineOption({
+    required this.key,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBackground,
+  });
 }

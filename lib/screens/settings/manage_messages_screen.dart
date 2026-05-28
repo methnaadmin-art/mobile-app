@@ -50,13 +50,6 @@ class ManageMessagesScreen extends GetView<SettingsController> {
                       controller.updateChatSetting('typingIndicator', value),
                 ),
                 SettingsPlainSwitchTile(
-                  title: 'auto_download_media'.tr,
-                  subtitle: 'auto_download_media_desc'.tr,
-                  value: controller.autoDownloadMedia.value,
-                  onChanged: (value) =>
-                      controller.updateChatSetting('autoDownloadMedia', value),
-                ),
-                SettingsPlainSwitchTile(
                   title: 'message_notifications'.tr,
                   subtitle: 'message_notifications_desc'.tr,
                   value:

@@ -3,6 +3,8 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -28,17 +30,8 @@ android {
                     "Checked '${rootProject.file(path).absolutePath}' and '${file(path).absolutePath}'."
             )
 
-    val googleWebClientId =
-        (project.findProperty("GOOGLE_WEB_CLIENT_ID") as String?)
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?: System.getenv("GOOGLE_WEB_CLIENT_ID")
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-            ?: "980830018700-cjjk2dk6g53j5a60bd2n0nec3kf4fpq1.apps.googleusercontent.com"
-
-    namespace = "com.methna.app"
-    compileSdk = flutter.compileSdkVersion
+    namespace = "com.methnapp.app"
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -52,15 +45,12 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.methna.app"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        applicationId = "com.methnapp.app"
+        minSdk = maxOf(flutter.minSdkVersion, 24)
+        targetSdk = 35
+        versionCode = 31
+        versionName = "1.2.2"
 
-        // google_sign_in Android fallback reads this resource when explicit
-        // serverClientId is not provided by native config tools.
-        resValue("string", "default_web_client_id", googleWebClientId)
     }
 
     signingConfigs {
@@ -83,6 +73,8 @@ android {
                 )
             }
             signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

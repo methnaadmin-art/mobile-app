@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -211,6 +211,7 @@ class _SearchRadarScreenState extends State<SearchRadarScreen>
                         (controller.foundUsers.isNotEmpty
                             ? controller.foundUsers.first
                             : null);
+                    final animateRadar = controller.isSearching.value;
 
                     return Column(
                       children: [
@@ -223,18 +224,25 @@ class _SearchRadarScreenState extends State<SearchRadarScreen>
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
-                                  AnimatedBuilder(
-                                    animation: Listenable.merge([
-                                      _sweepController,
-                                      _pulseController,
-                                    ]),
-                                    builder: (context, _) => _RadarCore(
-                                      size: radarSize,
-                                      user: focusUser,
-                                      sweepProgress: _sweepController.value,
-                                      pulseProgress: _pulseController.value,
-                                    ),
-                                  ),
+                                  animateRadar
+                                      ? AnimatedBuilder(
+                                          animation: Listenable.merge([
+                                            _sweepController,
+                                            _pulseController,
+                                          ]),
+                                          builder: (context, _) => _RadarCore(
+                                            size: radarSize,
+                                            user: focusUser,
+                                            sweepProgress: _sweepController.value,
+                                            pulseProgress: _pulseController.value,
+                                          ),
+                                        )
+                                      : _RadarCore(
+                                          size: radarSize,
+                                          user: focusUser,
+                                          sweepProgress: 0,
+                                          pulseProgress: 0,
+                                        ),
                                   ..._buildAvatarWidgets(radarSize),
                                 ],
                               ),
@@ -415,7 +423,7 @@ class _RadarUserBubble extends StatelessWidget {
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8F23FF).withValues(alpha: 0.4),
+            color: const Color(0xFF6E3DFB).withValues(alpha: 0.4),
             blurRadius: 12,
             spreadRadius: 2,
           ),
@@ -424,7 +432,7 @@ class _RadarUserBubble extends StatelessWidget {
       child: ClipOval(
         child: imageUrl.isEmpty
             ? Container(
-                color: const Color(0xFFF0E7FF),
+                color: const Color(0xFFF4F0FF),
                 alignment: Alignment.center,
                 child: Text(
                   Helpers.getInitials(user.firstName, user.lastName),
@@ -439,7 +447,7 @@ class _RadarUserBubble extends StatelessWidget {
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
                 errorWidget: (_, _, _) => Container(
-                  color: const Color(0xFFF0E7FF),
+                  color: const Color(0xFFF4F0FF),
                   alignment: Alignment.center,
                   child: Text(
                     Helpers.getInitials(user.firstName, user.lastName),
@@ -642,7 +650,7 @@ class _RadarFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFF0E7FF),
+      color: const Color(0xFFF4F0FF),
       alignment: Alignment.center,
       child: Text(
         Helpers.getInitials(user?.firstName, user?.lastName),
@@ -715,9 +723,9 @@ class _RadarBackground extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFB54BFF),
-                Color(0xFFA134FF),
-                Color(0xFF932DFF),
+                Color(0xFFA78BFA),
+                Color(0xFF6E3DFB),
+                Color(0xFF8B5CF6),
               ],
             ),
           ),

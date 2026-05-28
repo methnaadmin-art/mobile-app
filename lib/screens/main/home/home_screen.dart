@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -21,6 +21,21 @@ import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/animated_empty_state.dart';
 import 'package:methna_app/core/widgets/app_modal_sheet.dart';
 import 'package:methna_app/core/widgets/custom_button.dart';
+import 'package:methna_app/core/widgets/ad_card.dart';
+
+class _DiscoverCardPhoto {
+  const _DiscoverCardPhoto({
+    required this.url,
+    this.isLocked = false,
+    this.lockReason,
+    this.unlockCta,
+  });
+
+  final String url;
+  final bool isLocked;
+  final String? lockReason;
+  final String? unlockCta;
+}
 
 class HomeScreen extends GetView<HomeController> {
   const HomeScreen({super.key});
@@ -44,10 +59,8 @@ class HomeScreen extends GetView<HomeController> {
     final sent = await controller.complimentUser(user.id, trimmed);
     if (!sent) return;
 
-    final fallback = user.displayName.trim();
-    final displayName = (user.firstName ?? '').trim().isNotEmpty
-        ? user.firstName!.trim()
-        : (fallback.isNotEmpty ? fallback : 'someone'.tr);
+    final fallback = user.publicDisplayName.trim();
+    final displayName = fallback.isNotEmpty ? fallback : 'someone'.tr;
     Helpers.showSnackbar(
       message: 'compliment_sent_success'.trParams({'name': displayName}),
     );
@@ -63,38 +76,21 @@ class HomeScreen extends GetView<HomeController> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: ColoredBox(
-        color: isDark ? AppColors.backgroundDark : Colors.white,
+        color: isDark ? AppColors.backgroundDark : AppColors.surfaceLight,
         child: SafeArea(
           bottom: false,
           child: Obx(() {
             final hasCards = controller.discoverUsers.isNotEmpty;
             final showLocationGate = controller.showLocationGate.value;
-            final showStartupRadar = controller.showStartupRadar.value;
             final showSwipeTutorial = controller.showSwipeTutorial.value;
+            final featuredAd = controller.featuredAd.value;
 
             return Stack(
               children: [
                 Positioned.fill(
                   child: Builder(
                     builder: (context) {
-                      if (controller.isLoading.value &&
-                          controller.discoverUsers.isEmpty) {
-                        return const Padding(
-                          padding: EdgeInsets.only(top: 54, bottom: 0),
-                          child: _LoadingCard(),
-                        );
-                      }
-
-                      if (controller.isLoadingMoreUsers &&
-                          controller.discoverUsers.isEmpty) {
-                        return const Padding(
-                          padding: EdgeInsets.only(top: 54, bottom: 0),
-                          child: _LoadingCard(),
-                        );
-                      }
-
-                      if (controller.discoverUsers.isEmpty &&
-                          !controller.isLoading.value) {
+                      if (controller.discoverUsers.isEmpty) {
                         return Padding(
                           padding: const EdgeInsets.only(top: 54, bottom: 0),
                           child: _EmptyState(
@@ -103,7 +99,14 @@ class HomeScreen extends GetView<HomeController> {
                         );
                       }
 
+                      final topCardId = controller.discoverUsers.isEmpty
+                          ? 'empty'
+                          : controller.discoverUsers.first.id;
+
                       return CardSwiper(
+                        key: ValueKey<String>(
+                          'discover_${topCardId}_${controller.discoverUsers.length}',
+                        ),
                         controller: controller.swiperController,
                         cardsCount: controller.discoverUsers.length,
                         numberOfCardsDisplayed:
@@ -132,16 +135,20 @@ class HomeScreen extends GetView<HomeController> {
                             return false;
                           }
 
-                          controller.currentCardIndex.value = currentIndex ?? 0;
-
                           switch (direction) {
                             case CardSwiperDirection.right:
                               HapticFeedback.mediumImpact();
-                              controller.likeUser(user.id);
+                              controller.likeUser(
+                                user.id,
+                                swiperCurrentIndex: currentIndex,
+                              );
                               break;
                             case CardSwiperDirection.left:
                               HapticFeedback.selectionClick();
-                              controller.passUser(user.id);
+                              controller.passUser(
+                                user.id,
+                                swiperCurrentIndex: currentIndex,
+                              );
                               break;
                             case CardSwiperDirection.top:
                               break;
@@ -188,20 +195,36 @@ class HomeScreen extends GetView<HomeController> {
                   right: 14,
                   child: _HomeTopBar(
                     notificationService: notificationService,
-                    transparent:
-                        hasCards && !showLocationGate && !showStartupRadar,
+                    transparent: hasCards && !showLocationGate,
                   ),
                 ),
+                if (featuredAd != null &&
+                    featuredAd.isNotEmpty &&
+                    !showLocationGate &&
+                    !showSwipeTutorial)
+                  Positioned(
+                    top: 56,
+                    left: 14,
+                    right: 14,
+                    height: 118,
+                    child: AdCard(
+                      ad: AdCardData.fromJson(featuredAd),
+                      onTrackClick: () async {
+                        final adId = (featuredAd['id'] ?? '')
+                            .toString()
+                            .trim();
+                        if (adId.isNotEmpty) {
+                          await controller.trackAdClick(adId);
+                        }
+                      },
+                    ),
+                  ),
                 if (showLocationGate)
                   Positioned.fill(
                     child: _LocationGateOverlay(
                       onEnable: controller.enableLocationFromGate,
                       onLater: controller.dismissLocationGate,
                     ),
-                  ),
-                if (showStartupRadar)
-                  Positioned.fill(
-                    child: _StartupRadarOverlay(controller: controller),
                   ),
                 if (showSwipeTutorial)
                   Positioned.fill(
@@ -387,11 +410,11 @@ class _TopAvatarButton extends StatelessWidget {
             )
           : BoxDecoration(
               shape: BoxShape.circle,
-              color: isDark ? const Color(0xFF1D2130) : const Color(0xFFF2EEFA),
+              color: isDark ? const Color(0xFF1D2130) : const Color(0xFFFFF5F7),
               border: Border.all(
                 color: isDark
                     ? const Color(0xFF353B4B)
-                    : const Color(0xFFE2DAF1),
+                    : const Color(0xFFEDE9FE),
               ),
             ),
       child: ClipOval(
@@ -515,7 +538,7 @@ class _HomeProfileCard extends StatelessWidget {
         _humanizeNullable(profile?.marriageIntention),
       ),
       MapEntry('marital_status'.tr, _humanizeNullable(profile?.maritalStatus)),
-      MapEntry('intent_mode'.tr, _humanizeNullable(profile?.intentMode)),
+      MapEntry('time_frame'.tr, _humanizeNullable(profile?.intentMode)),
       MapEntry(
         'second_wife_preference'.tr,
         _humanizeNullable(profile?.secondWifePreference),
@@ -598,23 +621,44 @@ class _HomeProfileCard extends StatelessWidget {
     final travelPreferences = profile?.travelPreferences ?? const <String>[];
     final previewInterests = interests.take(4).toList(growable: false);
     final countryLabel = (profile?.country ?? '').trim();
-    final photoUrls = <String>[];
-    final seenPhotoUrls = <String>{};
+    final cardPhotos = <_DiscoverCardPhoto>[];
+    final seenUnlockedPhotoUrls = <String>{};
 
     for (final photo in user.photos ?? const <PhotoModel>[]) {
       final rawUrl = photo.url.trim();
+      if (photo.isLocked) {
+        cardPhotos.add(
+          _DiscoverCardPhoto(
+            url: rawUrl,
+            isLocked: true,
+            lockReason: photo.lockReason,
+            unlockCta: photo.unlockCta,
+          ),
+        );
+        continue;
+      }
+
       if (rawUrl.isEmpty) continue;
-      if (seenPhotoUrls.add(rawUrl)) {
-        photoUrls.add(rawUrl);
+      if (seenUnlockedPhotoUrls.add(rawUrl)) {
+        cardPhotos.add(_DiscoverCardPhoto(url: rawUrl));
       }
     }
 
     final fallbackMain = (user.mainPhotoUrl ?? '').trim();
-    if (fallbackMain.isNotEmpty && seenPhotoUrls.add(fallbackMain)) {
-      photoUrls.add(fallbackMain);
+    if (fallbackMain.isNotEmpty && seenUnlockedPhotoUrls.add(fallbackMain)) {
+      cardPhotos.insert(0, _DiscoverCardPhoto(url: fallbackMain));
     }
-    if (photoUrls.isEmpty) {
-      photoUrls.add('');
+
+    final firstUnlockedPhotoIndex = cardPhotos.indexWhere(
+      (photo) => !photo.isLocked && photo.url.trim().isNotEmpty,
+    );
+    if (firstUnlockedPhotoIndex > 0) {
+      final unlockedMain = cardPhotos.removeAt(firstUnlockedPhotoIndex);
+      cardPhotos.insert(0, unlockedMain);
+    }
+
+    if (cardPhotos.isEmpty) {
+      cardPhotos.add(const _DiscoverCardPhoto(url: ''));
     }
 
     final surfaceColor = isDark ? const Color(0xFF0F1320) : Colors.white;
@@ -638,9 +682,9 @@ class _HomeProfileCard extends StatelessWidget {
     final dividerColor = isDark
         ? Colors.white.withValues(alpha: 0.18)
         : const Color(0xFFD5DCEA);
-    final topMaskColor = Colors.black.withValues(alpha: isDark ? 0.34 : 0.26);
+    final topMaskColor = Colors.black.withValues(alpha: isDark ? 0.42 : 0.34);
     final bottomMaskColor = Colors.black.withValues(
-      alpha: isDark ? 0.86 : 0.82,
+      alpha: isDark ? 0.9 : 0.88,
     );
     final panelBorderColor = isDark
         ? Colors.white.withValues(alpha: 0.12)
@@ -654,15 +698,16 @@ class _HomeProfileCard extends StatelessWidget {
         const actionRowHeight = 74.0;
         const actionDockPullDown = 30.0;
         final bottomInset = MediaQuery.of(context).padding.bottom;
-        final floatingNavBottomMargin =
-            bottomInset > 0 ? bottomInset + 8 : 10.0;
+        final floatingNavBottomMargin = bottomInset > 0
+            ? bottomInset + 8
+            : 10.0;
         // Aggressively dock actions closer to nav, while keeping a tiny safe floor.
         final actionRowBottom =
-          (floatingNavBottomMargin +
-              floatingNavHeight +
-              actionNavGap -
-              actionDockPullDown)
-            .clamp(floatingNavBottomMargin + 4, double.infinity)
+            (floatingNavBottomMargin +
+                    floatingNavHeight +
+                    actionNavGap -
+                    actionDockPullDown)
+                .clamp(floatingNavBottomMargin + 4, double.infinity)
                 .clamp(0.0, double.infinity)
                 .toDouble();
         final scrollBottomPadding = actionRowBottom + actionRowHeight + 20;
@@ -671,9 +716,10 @@ class _HomeProfileCard extends StatelessWidget {
         return Obx(() {
           final currentPhotoIndex = controller.cardPhotoIndexFor(
             user.id,
-            photoUrls.length,
+            cardPhotos.length,
           );
-          final photoUrl = photoUrls[currentPhotoIndex];
+          final currentPhoto = cardPhotos[currentPhotoIndex];
+          final photoUrl = currentPhoto.url;
           final cityLabel = (profile?.city ?? '').trim();
           final locationLabel = [
             cityLabel,
@@ -686,12 +732,15 @@ class _HomeProfileCard extends StatelessWidget {
               .take(3)
               .toList(growable: false);
           final summaryInterestsLine = summaryInterests.join(' • ');
-          final summaryFaith = [
-            _humanizeNullable(profile?.religiousLevel),
-            _humanizeNullable(profile?.sect),
-          ].whereType<String>().where((value) => value.trim().isNotEmpty)
-              .take(2)
-              .join(' • ');
+          final summaryFaith =
+              [
+                    _humanizeNullable(profile?.religiousLevel),
+                    _humanizeNullable(profile?.sect),
+                  ]
+                  .whereType<String>()
+                  .where((value) => value.trim().isNotEmpty)
+                  .take(2)
+                  .join(' • ');
           final cue = controller.swipeButtonCue.value.trim().toLowerCase();
           final passEmphasis = math.max(
             passProgress,
@@ -701,10 +750,12 @@ class _HomeProfileCard extends StatelessWidget {
             likeProgress,
             cue == 'like' ? 1.0 : 0.0,
           );
+          final likeFlashStrength = likeEmphasis.clamp(0.0, 1.0).toDouble();
           final complimentEmphasis = math.max(
             complimentProgress,
             cue == 'compliment' ? 1.0 : 0.0,
           );
+          final passFlashStrength = passEmphasis.clamp(0.0, 1.0).toDouble();
           final swipeTextProgress = math.max(likeProgress, passProgress);
           final swipeTextCue = likeProgress >= passProgress ? 'like' : 'pass';
           final primaryName = _primaryName(user);
@@ -723,10 +774,13 @@ class _HomeProfileCard extends StatelessWidget {
               : focusedSwipeAction == 'pass'
               ? passProgress
               : 0.0;
-          final focusedVisualStrength = math.max(
-            focusedSwipeStrength,
-            focusedSwipeAction.isNotEmpty ? 0.34 : 0.0,
-          ).clamp(0.0, 1.0).toDouble();
+          final focusedVisualStrength = math
+              .max(
+                focusedSwipeStrength,
+                focusedSwipeAction.isNotEmpty ? 0.34 : 0.0,
+              )
+              .clamp(0.0, 1.0)
+              .toDouble();
 
           void onPassTap() {
             HapticFeedback.selectionClick();
@@ -741,10 +795,7 @@ class _HomeProfileCard extends StatelessWidget {
           }
 
           return Container(
-            decoration: BoxDecoration(
-              color: surfaceColor,
-              border: Border.all(color: panelBorderColor),
-            ),
+            decoration: BoxDecoration(color: surfaceColor),
             child: Stack(
               children: [
                 Positioned.fill(
@@ -759,7 +810,35 @@ class _HomeProfileCard extends StatelessWidget {
                           child: Stack(
                             children: [
                               Positioned.fill(
-                                child: _CardPhoto(user: user, imageUrl: photoUrl),
+                                child: _CardPhoto(
+                                  user: user,
+                                  imageUrl: photoUrl,
+                                  isLocked: currentPhoto.isLocked,
+                                  lockReason: currentPhoto.lockReason,
+                                  unlockCta: currentPhoto.unlockCta,
+                                ),
+                              ),
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.black.withValues(
+                                            alpha: isDark ? 0.12 : 0.14,
+                                          ),
+                                          Colors.transparent,
+                                          Colors.black.withValues(
+                                            alpha: isDark ? 0.2 : 0.24,
+                                          ),
+                                        ],
+                                        stops: const [0, 0.36, 1],
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                               Positioned(
                                 top: 0,
@@ -771,7 +850,10 @@ class _HomeProfileCard extends StatelessWidget {
                                     gradient: LinearGradient(
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
-                                      colors: [topMaskColor, Colors.transparent],
+                                      colors: [
+                                        topMaskColor,
+                                        Colors.transparent,
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -799,15 +881,24 @@ class _HomeProfileCard extends StatelessWidget {
                                 ),
                               ),
                               Positioned.fill(
+                                child: IgnorePointer(
+                                  child: _SwipeEdgeFeedback(
+                                    likeStrength: likeFlashStrength,
+                                    passStrength: passFlashStrength,
+                                  ),
+                                ),
+                              ),
+                              Positioned.fill(
                                 child: Row(
                                   children: [
                                     Expanded(
                                       child: GestureDetector(
                                         behavior: HitTestBehavior.translucent,
-                                        onTap: () => controller.previousCardPhoto(
-                                          user.id,
-                                          photoUrls.length,
-                                        ),
+                                        onTap: () =>
+                                            controller.previousCardPhoto(
+                                              user.id,
+                                              cardPhotos.length,
+                                            ),
                                       ),
                                     ),
                                     Expanded(
@@ -815,7 +906,7 @@ class _HomeProfileCard extends StatelessWidget {
                                         behavior: HitTestBehavior.translucent,
                                         onTap: () => controller.nextCardPhoto(
                                           user.id,
-                                          photoUrls.length,
+                                          cardPhotos.length,
                                         ),
                                       ),
                                     ),
@@ -827,7 +918,7 @@ class _HomeProfileCard extends StatelessWidget {
                                 left: 12,
                                 right: 12,
                                 child: _CardTopProgress(
-                                  count: photoUrls.length,
+                                  count: cardPhotos.length,
                                   activeIndex: currentPhotoIndex,
                                 ),
                               ),
@@ -840,8 +931,8 @@ class _HomeProfileCard extends StatelessWidget {
                                 top: 42,
                                 right: 12,
                                 child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 240),
-                                  switchInCurve: Curves.easeOutCubic,
+                                  duration: const Duration(milliseconds: 300),
+                                  switchInCurve: Curves.easeOutQuart,
                                   switchOutCurve: Curves.easeInCubic,
                                   transitionBuilder: (child, animation) {
                                     final offset = _swipeStatusOffsetFromKey(
@@ -856,7 +947,7 @@ class _HomeProfileCard extends StatelessWidget {
                                         ).animate(animation),
                                         child: ScaleTransition(
                                           scale: Tween<double>(
-                                            begin: 0.94,
+                                            begin: 0.9,
                                             end: 1,
                                           ).animate(animation),
                                           child: child,
@@ -883,19 +974,35 @@ class _HomeProfileCard extends StatelessWidget {
                                 right: 16,
                                 child: IgnorePointer(
                                   child: AnimatedOpacity(
-                                    duration: const Duration(milliseconds: 80),
+                                    duration: const Duration(milliseconds: 120),
+                                    curve: Curves.easeOutCubic,
                                     opacity: swipeTextProgress.clamp(0.0, 1.0),
-                                    child: Transform.translate(
-                                      offset: Offset(
-                                        (passProgress - likeProgress) * 22,
-                                        0,
+                                    child: AnimatedScale(
+                                      duration: const Duration(
+                                        milliseconds: 120,
                                       ),
-                                      child: _SwipeDragLabel(
-                                        title:
-                                            _swipeStatusTitle(swipeTextCue) ??
+                                      curve: Curves.easeOutBack,
+                                      scale:
+                                          0.92 +
+                                          (0.16 *
+                                              swipeTextProgress.clamp(
+                                                0.0,
+                                                1.0,
+                                              )),
+                                      child: Transform.translate(
+                                        offset: Offset(
+                                          (passProgress - likeProgress) * 22,
+                                          0,
+                                        ),
+                                        child: _SwipeDragLabel(
+                                          title:
+                                              _swipeStatusTitle(swipeTextCue) ??
+                                              swipeTextCue,
+                                          icon: _swipeStatusIcon(swipeTextCue),
+                                          color: _swipeStatusColor(
                                             swipeTextCue,
-                                        icon: _swipeStatusIcon(swipeTextCue),
-                                        color: _swipeStatusColor(swipeTextCue),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -926,7 +1033,9 @@ class _HomeProfileCard extends StatelessWidget {
                                                       fontSize: 36,
                                                       fontWeight:
                                                           FontWeight.w700,
-                                                      color: Colors.white,
+                                                      color: const Color(
+                                                        0xFFFFC95A,
+                                                      ),
                                                       letterSpacing: -0.62,
                                                       textStyle:
                                                           const TextStyle(
@@ -979,7 +1088,24 @@ class _HomeProfileCard extends StatelessWidget {
                                               ),
                                             ),
                                           ),
-                                          if (user.selfieVerified)
+                                          if (user.isPremium)
+                                            ...[
+                                              const SizedBox(width: 6),
+                                              Icon(
+                                                LucideIcons.crown,
+                                                size: 19,
+                                                color: const Color(0xFFA78BFA),
+                                                shadows: const [
+                                                  Shadow(
+                                                    color: Color(0xAA000000),
+                                                    blurRadius: 8,
+                                                    offset: Offset(0, 1),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          if (user.selfieVerified) ...[
+                                            const SizedBox(width: 6),
                                             Icon(
                                               LucideIcons.badgeCheck,
                                               size: 20,
@@ -992,6 +1118,7 @@ class _HomeProfileCard extends StatelessWidget {
                                                 ),
                                               ],
                                             ),
+                                          ],
                                         ],
                                       ),
                                       const SizedBox(height: 4),
@@ -1075,7 +1202,7 @@ class _HomeProfileCard extends StatelessWidget {
                         SizedBox(height: actionRowHeight + 22),
                         ..._buildProfileDetailsSections(
                           profile: profile,
-                          photoUrls: photoUrls,
+                          photos: cardPhotos,
                           currentPhotoIndex: currentPhotoIndex,
                           infoItems: infoItems,
                           interests: interests,
@@ -1106,12 +1233,12 @@ class _HomeProfileCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  left: 8,
-                  right: 8,
+                  left: 32,
+                  right: 32,
                   bottom: actionRowBottom,
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 160),
-                    switchInCurve: Curves.easeOutCubic,
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutQuart,
                     switchOutCurve: Curves.easeInCubic,
                     child: focusedSwipeAction == 'pass'
                         ? Center(
@@ -1141,10 +1268,10 @@ class _HomeProfileCard extends StatelessWidget {
                                 child: _LabeledActionButton(
                                   label: 'home_action_relay'.tr,
                                   icon: LucideIcons.rotateCcw,
-                                  color: const Color(0xFF34C759),
-                                  outerSize: 50,
-                                  innerSize: 42,
-                                  iconSize: 17,
+                                  color: const Color(0xFF2A9D6A),
+                                  outerSize: 48,
+                                  innerSize: 38,
+                                  iconSize: 15,
                                   showLabel: false,
                                   labelColor: detailsPrimary,
                                   emphasis: controller.canRewind ? 0.2 : 0,
@@ -1155,7 +1282,7 @@ class _HomeProfileCard extends StatelessWidget {
                                     }
                                     if (controller.canRewind) {
                                       HapticFeedback.selectionClick();
-                                      controller.swiperController.undo();
+                                      controller.rewindLastSwipe();
                                     } else {
                                       Helpers.showSnackbar(
                                         message: 'no_swipe_to_undo'.tr,
@@ -1169,9 +1296,9 @@ class _HomeProfileCard extends StatelessWidget {
                                   label: 'home_action_pass'.tr,
                                   icon: LucideIcons.x,
                                   color: const Color(0xFFFF4D4F),
-                                  outerSize: 68,
-                                  innerSize: 58,
-                                  iconSize: 23,
+                                  outerSize: 74,
+                                  innerSize: 62,
+                                  iconSize: 24,
                                   showLabel: false,
                                   labelColor: detailsPrimary,
                                   emphasis: passEmphasis,
@@ -1182,15 +1309,15 @@ class _HomeProfileCard extends StatelessWidget {
                               Expanded(
                                 child: _LabeledActionButton(
                                   label: 'home_action_compliment'.tr,
-                                  icon: LucideIcons.star,
-                                  color: const Color(0xFFFFA31A),
-                                  outerSize: 68,
-                                  innerSize: 58,
-                                  iconSize: 22,
+                                  icon: LucideIcons.zap,
+                                  color: AppColors.primary,
+                                  outerSize: 74,
+                                  innerSize: 62,
+                                  iconSize: 24,
                                   showLabel: false,
                                   labelColor: detailsPrimary,
                                   emphasis: complimentEmphasis,
-                                  highlightColor: const Color(0xFFFFA31A),
+                                  highlightColor: AppColors.primary,
                                   onTap: () {
                                     if (!controller.canSendCompliment) {
                                       Get.toNamed(AppRoutes.subscription);
@@ -1208,33 +1335,55 @@ class _HomeProfileCard extends StatelessWidget {
                                 child: _LabeledActionButton(
                                   label: 'home_action_like'.tr,
                                   icon: LucideIcons.heart,
-                                  color: AppColors.primary,
-                                  outerSize: 68,
-                                  innerSize: 58,
-                                  iconSize: 23,
+                                  color: const Color(0xFF2ED47A),
+                                  outerSize: 74,
+                                  innerSize: 62,
+                                  iconSize: 24,
                                   showLabel: false,
                                   labelColor: detailsPrimary,
                                   emphasis: likeEmphasis,
-                                  highlightColor: AppColors.primary,
+                                  highlightColor: const Color(0xFF2ED47A),
                                   onTap: onLikeTap,
-                                ),
-                              ),
-                              Expanded(
-                                child: _LabeledActionButton(
-                                  label: 'home_action_boost'.tr,
-                                  icon: LucideIcons.zap,
-                                  color: const Color(0xFF1890FF),
-                                  outerSize: 50,
-                                  innerSize: 42,
-                                  iconSize: 17,
-                                  showLabel: false,
-                                  labelColor: detailsPrimary,
-                                  emphasis: controller.hasBoostAccess ? 0.12 : 0,
-                                  onTap: () => _showBoostSheet(context),
                                 ),
                               ),
                             ],
                           ),
+                  ),
+                ),
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: actionRowBottom - 24,
+                  child: IgnorePointer(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'home_swipe_hint'.tr,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.88),
+                            letterSpacing: 0.05,
+                            textStyle: const TextStyle(
+                              shadows: [
+                                Shadow(
+                                  color: Color(0x92000000),
+                                  blurRadius: 7,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          LucideIcons.chevronsUp,
+                          size: 14,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -1247,7 +1396,7 @@ class _HomeProfileCard extends StatelessWidget {
 
   List<Widget> _buildProfileDetailsSections({
     required ProfileModel? profile,
-    required List<String> photoUrls,
+    required List<_DiscoverCardPhoto> photos,
     required int currentPhotoIndex,
     required List<String> infoItems,
     required List<String> interests,
@@ -1305,7 +1454,10 @@ class _HomeProfileCard extends StatelessWidget {
       sections.add(const SizedBox(height: 18));
     }
 
-    void addFactsSection({required String title, required List<_ProfileFact> facts}) {
+    void addFactsSection({
+      required String title,
+      required List<_ProfileFact> facts,
+    }) {
       if (facts.isEmpty) return;
       sections.add(
         Padding(
@@ -1323,7 +1475,9 @@ class _HomeProfileCard extends StatelessWidget {
       sections.add(const SizedBox(height: 14));
     }
 
-    if (photoUrls.length > 1) {
+    final lockedPreviewUrl = CloudinaryUrl.medium(user.mainPhotoUrl ?? '');
+
+    if (photos.length > 1) {
       sections.add(
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1338,10 +1492,11 @@ class _HomeProfileCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            itemCount: photoUrls.length,
+            itemCount: photos.length,
             separatorBuilder: (context, index) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final thumb = photoUrls[index];
+              final photo = photos[index];
+              final thumb = photo.url;
               final resolvedThumb = CloudinaryUrl.medium(thumb);
               final selected = index == currentPhotoIndex;
 
@@ -1361,7 +1516,45 @@ class _HomeProfileCard extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(15),
-                    child: resolvedThumb.isNotEmpty
+                    child: photo.isLocked
+                        ? Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (lockedPreviewUrl.isNotEmpty)
+                                CachedNetworkImage(
+                                  imageUrl: lockedPreviewUrl,
+                                  fit: BoxFit.cover,
+                                )
+                              else
+                                Container(
+                                  color: tagSurface,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.lock_rounded,
+                                    color: detailsSecondary,
+                                  ),
+                                ),
+                              Positioned.fill(
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(
+                                    sigmaX: 5,
+                                    sigmaY: 5,
+                                  ),
+                                  child: Container(
+                                    color: Colors.black.withValues(alpha: 0.45),
+                                  ),
+                                ),
+                              ),
+                              Center(
+                                child: Icon(
+                                  Icons.lock_rounded,
+                                  color: Colors.white.withValues(alpha: 0.95),
+                                  size: 20,
+                                ),
+                              ),
+                            ],
+                          )
+                        : resolvedThumb.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: resolvedThumb,
                             fit: BoxFit.cover,
@@ -1507,9 +1700,9 @@ class _HomeProfileCard extends StatelessWidget {
   }
 
   String _primaryName(UserModel user) {
-    final displayName = user.displayName.trim();
+    final displayName = user.publicShortName.trim();
     if (displayName.isNotEmpty) {
-      return displayName.split(' ').first;
+      return displayName;
     }
     return 'profile'.tr;
   }
@@ -1677,10 +1870,10 @@ class _HomeProfileCard extends StatelessWidget {
     return _swipeStatusOffset(cue);
   }
 
+  // ignore: unused_element
   Future<void> _showBoostSheet(BuildContext context) {
     if (!controller.hasBoostAccess) {
-      Get.toNamed(AppRoutes.subscription);
-      return Future<void>.value();
+      return controller.boostProfile().then((_) {});
     }
 
     return Get.to<void>(
@@ -1820,11 +2013,11 @@ class _SwipeStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
       constraints: const BoxConstraints(minWidth: 140),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(color: color.withValues(alpha: 0.45), width: 1.1),
         boxShadow: [
           BoxShadow(
@@ -1890,14 +2083,14 @@ class _SwipeDragLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(15),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.28),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(15),
               border: Border.all(
                 color: color.withValues(alpha: 0.7),
                 width: 1.25,
@@ -1929,6 +2122,67 @@ class _SwipeDragLabel extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SwipeEdgeFeedback extends StatelessWidget {
+  const _SwipeEdgeFeedback({
+    required this.likeStrength,
+    required this.passStrength,
+  });
+
+  final double likeStrength;
+  final double passStrength;
+
+  @override
+  Widget build(BuildContext context) {
+    final like = likeStrength.clamp(0.0, 1.0).toDouble();
+    final pass = passStrength.clamp(0.0, 1.0).toDouble();
+
+    return Stack(
+      children: [
+        if (pass > 0.001)
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 90),
+            curve: Curves.easeOutCubic,
+            opacity: (0.52 * pass).clamp(0.0, 1.0),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    const Color(0xA6FF4D4F),
+                    const Color(0x22FF4D4F),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.38, 0.74],
+                ),
+              ),
+            ),
+          ),
+        if (like > 0.001)
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 90),
+            curve: Curves.easeOutCubic,
+            opacity: (0.52 * like).clamp(0.0, 1.0),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.7),
+                    AppColors.primary.withValues(alpha: 0.14),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.38, 0.74],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1968,9 +2222,7 @@ class _ComplimentComposerSheetState extends State<_ComplimentComposerSheet> {
   }
 
   String get _displayName {
-    final firstName = (widget.user.firstName ?? '').trim();
-    if (firstName.isNotEmpty) return firstName;
-    final displayName = widget.user.displayName.trim();
+    final displayName = widget.user.publicDisplayName.trim();
     if (displayName.isNotEmpty) return displayName;
     return 'someone'.tr;
   }
@@ -2109,14 +2361,14 @@ class _ComplimentComposerSheetState extends State<_ComplimentComposerSheet> {
             filled: true,
             fillColor: isDark
                 ? Colors.white.withValues(alpha: 0.07)
-                : const Color(0xFFF7F3FF),
+                : const Color(0xFFF4F0FF),
             contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.1)
-                    : const Color(0xFFE4DDF3),
+                    : const Color(0xFFEDE9FE),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -2375,10 +2627,19 @@ class _DetailFactsCard extends StatelessWidget {
 }
 
 class _CardPhoto extends StatelessWidget {
-  const _CardPhoto({required this.user, required this.imageUrl});
+  const _CardPhoto({
+    required this.user,
+    required this.imageUrl,
+    this.isLocked = false,
+    this.lockReason,
+    this.unlockCta,
+  });
 
   final UserModel user;
   final String imageUrl;
+  final bool isLocked;
+  final String? lockReason;
+  final String? unlockCta;
 
   String _extractEmbeddedUrl(String input) {
     final value = input.trim();
@@ -2471,7 +2732,8 @@ class _CardPhoto extends StatelessWidget {
             .toString();
       }
 
-      final secureUri = parsed.scheme.toLowerCase() == 'http' &&
+      final secureUri =
+          parsed.scheme.toLowerCase() == 'http' &&
               !localHosts.contains(hostLower)
           ? parsed.replace(scheme: 'https')
           : parsed;
@@ -2513,7 +2775,9 @@ class _CardPhoto extends StatelessWidget {
       imageUrl,
       user.mainPhotoUrl,
       user.fallbackPhotoUrl,
-      ...(user.photos ?? const <PhotoModel>[]).map((photo) => photo.url),
+      ...(user.photos ?? const <PhotoModel>[])
+          .where((photo) => !photo.isLocked)
+          .map((photo) => photo.url),
     ];
 
     for (final candidate in candidates) {
@@ -2528,13 +2792,14 @@ class _CardPhoto extends StatelessWidget {
         continue;
       }
 
+      final transformed = CloudinaryUrl.medium(normalized);
+      if (transformed.isNotEmpty &&
+          transformed != normalized &&
+          seen.add(transformed)) {
+        results.add(transformed);
+      }
       if (seen.add(normalized)) {
         results.add(normalized);
-      }
-
-      final transformed = CloudinaryUrl.large(normalized);
-      if (transformed.isNotEmpty && transformed != normalized && seen.add(transformed)) {
-        results.add(transformed);
       }
     }
 
@@ -2548,8 +2813,8 @@ class _CardPhoto extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isDark
-              ? [const Color(0xFF1B1730), const Color(0xFF241D3F)]
-              : [const Color(0xFFF7E9FF), const Color(0xFFECE7FF)],
+              ? [const Color(0xFF1A1520), const Color(0xFF241D28)]
+              : [const Color(0xFFF4F0FF), const Color(0xFFEDE9FE)],
         ),
       ),
       child: Center(
@@ -2572,16 +2837,118 @@ class _CardPhoto extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isDark
-              ? [const Color(0xFF1C1831), const Color(0xFF261F42)]
-              : [const Color(0xFFF6F0FF), const Color(0xFFEDE7FF)],
+              ? [const Color(0xFF1C1520), const Color(0xFF261D28)]
+              : [const Color(0xFFFFF5F7), const Color(0xFFEDE9FE)],
         ),
       ),
+    );
+  }
+
+  List<String> _resolveLockedPreviewUrls() {
+    final preview = _normalizePhotoUrl(user.mainPhotoUrl ?? user.fallbackPhotoUrl);
+    if (preview.isEmpty) {
+      return const <String>[];
+    }
+
+    final transformed = CloudinaryUrl.medium(preview);
+    if (transformed.isNotEmpty && transformed != preview) {
+      return <String>[transformed, preview];
+    }
+    return <String>[preview];
+  }
+
+  Widget _lockedPhotoView(bool isDark) {
+    final previewUrls = _resolveLockedPreviewUrls();
+    final reasonText = (lockReason ?? '').trim().isNotEmpty
+        ? lockReason!.trim()
+      : 'Verify your selfie to unlock all photos';
+    final ctaText = (unlockCta ?? '').trim().isNotEmpty
+        ? unlockCta!.trim()
+      : 'Verify selfie now';
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (previewUrls.isNotEmpty)
+          _HomeResilientCachedImage(
+            urls: previewUrls,
+            fit: BoxFit.cover,
+            fallback: _fallback(isDark),
+            placeholder: _placeholder(isDark),
+          )
+        else
+          _placeholder(isDark),
+        Positioned.fill(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(color: Colors.black.withValues(alpha: 0.4)),
+          ),
+        ),
+        Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 26),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+            decoration: BoxDecoration(
+              color: const Color(0xCC0F1320),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_rounded,
+                  color: Colors.white.withValues(alpha: 0.95),
+                  size: 28,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  reasonText,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => Get.toNamed(AppRoutes.verificationCenter),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: const Color(0xFF1C1A26),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    ctaText,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isLocked) {
+      return _lockedPhotoView(isDark);
+    }
+
     final imageUrls = _resolvePhotoUrls();
 
     if (imageUrls.isEmpty) {
@@ -2611,7 +2978,8 @@ class _HomeResilientCachedImage extends StatefulWidget {
   final BoxFit fit;
 
   @override
-  State<_HomeResilientCachedImage> createState() => _HomeResilientCachedImageState();
+  State<_HomeResilientCachedImage> createState() =>
+      _HomeResilientCachedImageState();
 }
 
 class _HomeResilientCachedImageState extends State<_HomeResilientCachedImage> {
@@ -2770,6 +3138,7 @@ class _ActionRingButton extends StatelessWidget {
     final clamped = emphasis.clamp(0.0, 1.0).toDouble();
     final activeColor = highlightColor ?? color;
     final ringExpansion = innerSize * 0.34;
+    final iconBoost = icon == LucideIcons.heart ? 2.0 : 0.0;
     final fillColor = Color.lerp(
       activeColor.withValues(alpha: 0.86),
       activeColor,
@@ -2777,7 +3146,8 @@ class _ActionRingButton extends StatelessWidget {
     );
 
     return AnimatedScale(
-      duration: const Duration(milliseconds: 130),
+      duration: const Duration(milliseconds: 170),
+      curve: Curves.easeOutCubic,
       scale: 1 + (0.14 * clamped),
       child: Material(
         color: Colors.transparent,
@@ -2792,7 +3162,8 @@ class _ActionRingButton extends StatelessWidget {
               children: [
                 IgnorePointer(
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
                     width: innerSize + (ringExpansion * clamped),
                     height: innerSize + (ringExpansion * clamped),
                     decoration: BoxDecoration(
@@ -2805,7 +3176,8 @@ class _ActionRingButton extends StatelessWidget {
                   ),
                 ),
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 130),
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOutCubic,
                   width: innerSize,
                   height: innerSize,
                   decoration: BoxDecoration(
@@ -2829,7 +3201,7 @@ class _ActionRingButton extends StatelessWidget {
                   ),
                   child: Icon(
                     icon,
-                    size: iconSize + (2 * clamped),
+                    size: iconSize + iconBoost + (2 * clamped),
                     color: Colors.white,
                   ),
                 ),
@@ -2870,8 +3242,8 @@ class _FocusedSwipeActionButton extends StatelessWidget {
         children: [
           IgnorePointer(
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 90),
-              curve: Curves.easeOutCubic,
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutQuart,
               width: innerSize + (26 * clamped),
               height: innerSize + (26 * clamped),
               decoration: BoxDecoration(
@@ -2953,7 +3325,7 @@ class _BoostBenefitRow extends StatelessWidget {
 class _BoostInfoScreen extends StatefulWidget {
   const _BoostInfoScreen({required this.onActivate});
 
-  final Future<void> Function() onActivate;
+  final Future<bool> Function() onActivate;
 
   @override
   State<_BoostInfoScreen> createState() => _BoostInfoScreenState();
@@ -2965,10 +3337,12 @@ class _BoostInfoScreenState extends State<_BoostInfoScreen> {
   Future<void> _activateBoost() async {
     if (_isActivating) return;
     setState(() => _isActivating = true);
-    await widget.onActivate();
+    final activated = await widget.onActivate();
     if (!mounted) return;
     setState(() => _isActivating = false);
-    Get.back<void>();
+    if (activated) {
+      Get.back<void>();
+    }
   }
 
   @override
@@ -3080,13 +3454,16 @@ class _LocationGateOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    // Keep CTA controls fully above the floating bottom nav.
+    final navClearance = bottomInset > 0 ? bottomInset + 104.0 : 96.0;
 
     return ColoredBox(
-      color: isDark ? const Color(0xFF111218) : Colors.white,
+      color: isDark ? const Color(0xFF111218) : AppColors.smoothBeige,
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 72, 22, 34),
+          padding: EdgeInsets.fromLTRB(22, 72, 22, navClearance),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3134,12 +3511,19 @@ class _LocationGateOverlay extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: CustomButton(
-                  text: 'not_now'.tr,
+              Center(
+                child: TextButton(
                   onPressed: onLater,
-                  variant: CustomButtonVariant.secondary,
+                  child: Text(
+                    'not_now'.tr,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.86)
+                          : const Color(0xFF6A6377),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -3272,7 +3656,7 @@ class _SwipeTutorialOverlayState extends State<_SwipeTutorialOverlay>
                                   child: Center(
                                     child: _SwipeTutorialTag(
                                       label: 'swipe_tutorial_compliment'.tr,
-                                      color: const Color(0xFF8B5CFF),
+                                      color: const Color(0xFF6E3DFB),
                                     ),
                                   ),
                                 ),
@@ -3444,7 +3828,7 @@ class _StartupRadarOverlayState extends State<_StartupRadarOverlay>
         .toList(growable: false);
 
     return ColoredBox(
-      color: const Color(0xFF971DFF),
+      color: const Color(0xFF6E3DFB),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -3761,7 +4145,7 @@ class _StartupRadarAvatar extends StatelessWidget {
       child: ClipOval(
         child: imageUrl.isEmpty
             ? Container(
-                color: const Color(0xFFF0E7FF),
+                color: const Color(0xFFF4F0FF),
                 alignment: Alignment.center,
                 child: Text(
                   Helpers.getInitials(user?.firstName, user?.lastName),
@@ -3776,7 +4160,7 @@ class _StartupRadarAvatar extends StatelessWidget {
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
                 errorWidget: (context, imageUrl, error) => Container(
-                  color: const Color(0xFFF0E7FF),
+                  color: const Color(0xFFF4F0FF),
                   alignment: Alignment.center,
                   child: Text(
                     Helpers.getInitials(user?.firstName, user?.lastName),
@@ -3793,66 +4177,6 @@ class _StartupRadarAvatar extends StatelessWidget {
   }
 }
 
-class _LoadingCard extends StatelessWidget {
-  const _LoadingCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : const Color(0xFFF7F4FB),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isDark
-                    ? [const Color(0xFF1B1730), const Color(0xFF241D3F)]
-                    : [const Color(0xFFF8F1FF), const Color(0xFFEDE6FF)],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 88,
-            child: Container(
-              height: 24,
-              width: 140,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.18)
-                    : Colors.white.withValues(alpha: 0.72),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 16,
-            right: 120,
-            bottom: 56,
-            child: Container(
-              height: 14,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.14)
-                    : Colors.white.withValues(alpha: 0.58),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.onRefresh});
 
@@ -3861,12 +4185,12 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedEmptyState(
-      lottieAsset: 'assets/animations/no_matches.json',
+      lottieAsset: 'discover_no_users',
       title: 'no_profiles_right_now'.tr,
       subtitle: 'refresh_profiles_hint'.tr,
-      fallbackIcon: LucideIcons.heart,
+      width: 220,
+      contentMaxWidth: 420,
       fallbackColor: AppColors.primary,
-      width: 196,
       primaryActionLabel: 'refresh'.tr,
       onPrimaryAction: onRefresh,
     );

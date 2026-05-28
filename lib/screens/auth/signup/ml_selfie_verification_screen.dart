@@ -151,7 +151,7 @@ class _MLSelfieVerificationScreenState
         source: ImageSource.camera,
         maxWidth: 800,
         maxHeight: 800,
-        imageQuality: 72,
+        imageQuality: 90,
         preferredCameraDevice: CameraDevice.front,
       );
 

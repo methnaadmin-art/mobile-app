@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 /// Intent Mode badge — shows user's intention with adapted colors.
 /// - Serious Marriage: deep green + ring icon
 /// - Exploring: warm amber + compass icon
-/// - Family Introduction: soft purple + family icon
+/// - Family Introduction: soft primaryBrand + family icon
 class IntentBadge extends StatelessWidget {
   final String intentMode;
   final bool compact;
@@ -16,7 +16,7 @@ class IntentBadge extends StatelessWidget {
 
   Color get _color {
     switch (intentMode) {
-      case 'serious_marriage': return const Color(0xFF2E7D32);
+      case 'serious_marriage': return const Color(0xFF8B5CF6);
       case 'exploring': return const Color(0xFFF9A825);
       case 'family_introduction': return const Color(0xFF7B1FA2);
       default: return const Color(0xFF757575);

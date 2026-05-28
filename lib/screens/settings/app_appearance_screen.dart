@@ -57,7 +57,7 @@ class AppAppearanceScreen extends GetView<SettingsController> {
       case 'dark':
         return 'dark'.tr;
       default:
-        return 'system_default'.tr;
+        return 'light'.tr;
     }
   }
 
@@ -108,11 +108,6 @@ class AppAppearanceScreen extends GetView<SettingsController> {
                 const SizedBox(height: AppSpacing.md),
                 SettingsPlainListCard(
                   children: [
-                    SettingsRadioTile(
-                      title: 'system_default'.tr,
-                      selected: pendingSelection.value == 'system',
-                      onTap: () => pendingSelection.value = 'system',
-                    ),
                     SettingsRadioTile(
                       title: 'light'.tr,
                       selected: pendingSelection.value == 'light',

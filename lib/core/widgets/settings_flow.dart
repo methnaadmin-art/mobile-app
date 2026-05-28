@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -8,6 +8,16 @@ import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/widgets/app_card.dart';
 import 'package:methna_app/core/widgets/app_modal_sheet.dart';
+
+Color _switchInactiveThumbColor(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return isDark ? const Color(0xFF948FA8) : const Color(0xFF6F6A84);
+}
+
+Color _switchInactiveTrackColor(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return isDark ? const Color(0xFF2C2736) : const Color(0xFFE5E2EE);
+}
 
 class SettingsSimplePageScaffold extends StatelessWidget {
   final String title;
@@ -32,7 +42,9 @@ class SettingsSimplePageScaffold extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      backgroundColor: isDark
+          ? AppColors.surfaceDark
+          : Colors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -132,7 +144,9 @@ class SettingsPageScaffold extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      backgroundColor: isDark
+          ? AppColors.surfaceDark
+          : AppColors.smoothBeige,
       body: SafeArea(
         child: Column(
           children: [
@@ -160,7 +174,7 @@ class SettingsPageScaffold extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: AppTextStyles.labelMedium.copyWith(
                               color: AppColors.primary,
-                              letterSpacing: 0.5,
+                              letterSpacing: 0,
                             ),
                           ),
                         if (eyebrow.trim().isNotEmpty)
@@ -245,7 +259,7 @@ class SettingsPlainListCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AppCard(
-      radius: 22,
+      radius: AppRadii.xl,
       padding: EdgeInsets.zero,
       child: Column(
         children: [
@@ -298,11 +312,11 @@ class SettingsPlainTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(AppRadii.xl),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
-            vertical: 15,
+            vertical: AppSpacing.sm,
           ),
           child: Row(
             children: [
@@ -402,6 +416,8 @@ class SettingsPlainSwitchTile extends StatelessWidget {
           onChanged: onChanged,
           activeTrackColor: AppColors.primary,
           activeThumbColor: Colors.white,
+          inactiveThumbColor: _switchInactiveThumbColor(context),
+          inactiveTrackColor: _switchInactiveTrackColor(context),
         ),
       ),
     );
@@ -528,16 +544,16 @@ class SettingsPromoBanner extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadii.xl),
         child: Ink(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
             vertical: AppSpacing.md,
           ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(AppRadii.xl),
             gradient: const LinearGradient(
-              colors: [Color(0xFF7F38FF), Color(0xFFB44CFF)],
+              colors: [Color(0xFF6E3DFB), Color(0xFF8B5CF6)],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
@@ -549,7 +565,7 @@ class SettingsPromoBanner extends StatelessWidget {
                 height: 34,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadii.lg),
                 ),
                 alignment: Alignment.center,
                 child: const Icon(
@@ -637,7 +653,7 @@ class SettingsGroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return AppCard(
-      radius: AppRadii.hero,
+      radius: AppRadii.xl,
       padding: EdgeInsets.zero,
       child: Padding(
         padding: padding,
@@ -683,7 +699,7 @@ class SettingsSectionLabel extends StatelessWidget {
           text,
           style: AppTextStyles.labelMedium.copyWith(
             color: isDark ? AppColors.textHintDark : AppColors.textHintLight,
-            letterSpacing: 1.0,
+            letterSpacing: 0,
           ),
         ),
       ),
@@ -848,6 +864,8 @@ class SettingsToggleTile extends StatelessWidget {
         value: value,
         onChanged: onChanged,
         activeTrackColor: AppColors.primary,
+        inactiveThumbColor: _switchInactiveThumbColor(context),
+        inactiveTrackColor: _switchInactiveTrackColor(context),
       ),
     );
   }

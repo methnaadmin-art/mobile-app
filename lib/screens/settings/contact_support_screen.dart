@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
@@ -28,11 +28,53 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
   final RxBool isSubmitting = false.obs;
   final RxBool isLoadingTickets = false.obs;
   final RxList<Map<String, dynamic>> myTickets = <Map<String, dynamic>>[].obs;
+  String? _pendingTicketId;
+  bool _attemptedPendingTicketOpen = false;
 
   @override
   void initState() {
     super.initState();
+    _applyInitialArguments();
     _fetchMyTickets();
+  }
+
+  void _applyInitialArguments() {
+    final args = Get.arguments;
+    if (args is! Map) return;
+
+    final map = Map<String, dynamic>.from(args);
+    final initialTab = map['initialTab'];
+    if (initialTab is int) {
+      _selectedTab.value = initialTab.clamp(0, 1);
+    }
+
+    final ticketId = map['ticketId']?.toString().trim() ?? '';
+    if (ticketId.isNotEmpty) {
+      _pendingTicketId = ticketId;
+      _selectedTab.value = 1;
+    }
+
+    final ticketPayload = map['ticketPayload'];
+    if (ticketPayload is Map) {
+      final parsed = Map<String, dynamic>.from(ticketPayload);
+      if (parsed.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _openTicketDetails(parsed);
+        });
+      }
+    }
+
+    final reason =
+        map['supportMessage']?.toString().trim() ??
+        map['reason']?.toString().trim() ??
+        map['moderationReasonText']?.toString().trim() ??
+        '';
+    if (reason.isNotEmpty) {
+      _selectedTab.value = 0;
+      _subjectCtrl.text = 'Account status issue';
+      _messageCtrl.text = reason;
+    }
   }
 
   @override
@@ -77,10 +119,86 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
           ? (data['tickets'] ?? [])
           : (data is List ? data : []);
       myTickets.value = List<Map<String, dynamic>>.from(list);
+      _openPendingTicketIfNeeded();
     } catch (_) {
     } finally {
       isLoadingTickets.value = false;
     }
+  }
+
+  void _openPendingTicketIfNeeded() {
+    if (_attemptedPendingTicketOpen) return;
+    final ticketId = _pendingTicketId;
+    if (ticketId == null || ticketId.isEmpty) return;
+
+    _attemptedPendingTicketOpen = true;
+    Map<String, dynamic>? target;
+    for (final ticket in myTickets) {
+      final id = ticket['id']?.toString().trim() ?? '';
+      if (id == ticketId) {
+        target = ticket;
+        break;
+      }
+    }
+
+    final targetTicket = target;
+    if (targetTicket == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _openTicketDetails(targetTicket);
+    });
+  }
+
+  void _openTicketDetails(Map<String, dynamic> ticket) {
+    final subject = ticket['subject']?.toString().trim() ?? '';
+    final message = ticket['message']?.toString().trim() ?? '';
+    final adminReply = ticket['adminReply']?.toString().trim() ?? '';
+    final status = ticket['status']?.toString().trim() ?? 'open';
+    final createdAt = DateTime.tryParse(ticket['createdAt']?.toString() ?? '');
+    final timeText = createdAt == null ? '' : Helpers.timeAgo(createdAt);
+
+    Get.dialog<void>(
+      AlertDialog(
+        title: Text(subject.isEmpty ? 'ticket_details'.tr : subject),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${'status'.tr}: ${status.replaceAll('_', ' ')}'),
+              if (timeText.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(timeText),
+              ],
+              if (message.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  message,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium,
+                ),
+              ],
+              if (adminReply.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  '${'reply'.tr}:',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(adminReply),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back<void>(),
+            child: Text('close'.tr),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -181,7 +299,10 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
             .map(
               (ticket) => Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _TicketCard(ticket: ticket),
+                child: _TicketCard(
+                  ticket: ticket,
+                  onTap: () => _openTicketDetails(ticket),
+                ),
               ),
             )
             .toList(growable: false),
@@ -192,17 +313,18 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
 
 class _TicketCard extends StatelessWidget {
   final Map<String, dynamic> ticket;
+  final VoidCallback? onTap;
 
-  const _TicketCard({required this.ticket});
+  const _TicketCard({required this.ticket, this.onTap});
 
   Color _statusColor(String status) {
     switch (status) {
       case 'open':
-        return const Color(0xFFFF9800);
+        return const Color(0xFF8B5CF6);
       case 'in_progress':
         return const Color(0xFF2196F3);
       case 'resolved':
-        return const Color(0xFF4CAF50);
+        return const Color(0xFF6E3DFB);
       case 'closed':
         return Colors.grey;
       default:
@@ -239,66 +361,73 @@ class _TicketCard extends StatelessWidget {
         ? DateTime.tryParse(ticket['createdAt'])
         : null;
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceGlassDark : Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceGlassDark : Colors.white,
+            borderRadius: BorderRadius.circular(AppRadii.lg),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  ticket['subject']?.toString() ?? '',
-                  style: AppTextStyles.titleMedium.copyWith(color: textColor),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xxs,
-                ),
-                decoration: BoxDecoration(
-                  color: _statusColor(status).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppRadii.pill),
-                ),
-                child: Text(
-                  _statusLabel(status),
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: _statusColor(status),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      ticket['subject']?.toString() ?? '',
+                      style: AppTextStyles.titleMedium.copyWith(color: textColor),
+                    ),
                   ),
-                ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _statusColor(status).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                    ),
+                    child: Text(
+                      _statusLabel(status),
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: _statusColor(status),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                ticket['message']?.toString() ?? '',
+                style: AppTextStyles.bodySmall.copyWith(color: secondaryColor),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if ((ticket['adminReply']?.toString() ?? '').trim().isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  ticket['adminReply'].toString(),
+                  style: AppTextStyles.bodySmall.copyWith(color: textColor),
+                ),
+              ],
+              if (created != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  Helpers.timeAgo(created),
+                  style: AppTextStyles.bodySmall.copyWith(color: secondaryColor),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            ticket['message']?.toString() ?? '',
-            style: AppTextStyles.bodySmall.copyWith(color: secondaryColor),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if ((ticket['adminReply']?.toString() ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              ticket['adminReply'].toString(),
-              style: AppTextStyles.bodySmall.copyWith(color: textColor),
-            ),
-          ],
-          if (created != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              Helpers.timeAgo(created),
-              style: AppTextStyles.bodySmall.copyWith(color: secondaryColor),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

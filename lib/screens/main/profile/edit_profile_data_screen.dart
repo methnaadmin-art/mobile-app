@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/controllers/profile_controller.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
@@ -605,11 +605,15 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
         'phone': _phoneCtrl.text.trim(),
       };
 
-      // Update profile
-      await controller.updateProfile({...userData, ...profileData});
+      final success = await controller.updateProfile({...userData, ...profileData});
 
-      Get.back();
-      Helpers.showSnackbar(message: 'profile_updated_success'.tr);
+      if (!mounted || !success) return;
+
+      await controller.refreshProfile();
+      // Dismiss the edit screen and reveal the underlying profile screen.
+      if (mounted && Get.key.currentState?.canPop() == true) {
+        Get.back(result: true);
+      }
     } catch (e) {
       debugPrint('[EditProfile] Error saving: $e');
       Helpers.showSnackbar(message: 'failed_to_save_profile'.tr, isError: true);

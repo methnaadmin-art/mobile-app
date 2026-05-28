@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
 
 class AnimatedGradientBackground extends StatefulWidget {
   final Widget child;
@@ -9,10 +10,10 @@ class AnimatedGradientBackground extends StatefulWidget {
     super.key,
     required this.child,
     this.colors = const [
-      Color(0xFFD4AF37),
-      Color(0xFF234746),
-      Color(0xFFE8CC6E),
-      Color(0xFF3A6B69),
+      AppColors.primary,
+      AppColors.secondary,
+      AppColors.primaryLight,
+      AppColors.primaryDark,
     ],
     this.duration = const Duration(seconds: 4),
   });

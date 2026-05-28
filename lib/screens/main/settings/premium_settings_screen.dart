@@ -64,7 +64,7 @@ class PremiumSettingsScreen extends StatelessWidget {
                   ),
                   _SettingsItem(
                     icon: LucideIcons.image,
-                    iconColor: const Color(0xFF6C63FF),
+                    iconColor: const Color(0xFF6E3DFB),
                     title: 'my_photos'.tr,
                     subtitle: 'manage_your_photos'.tr,
                     onTap: () {},
@@ -89,14 +89,14 @@ class PremiumSettingsScreen extends StatelessWidget {
                 items: [
                   _SettingsItem(
                     icon: LucideIcons.bell,
-                    iconColor: const Color(0xFFFF6B35),
+                    iconColor: const Color(0xFF8B5CF6),
                     title: 'notifications'.tr,
                     subtitle: 'manage_alerts'.tr,
                     onTap: () {},
                   ),
                   _SettingsItem(
                     icon: LucideIcons.globe,
-                    iconColor: const Color(0xFF00B4D8),
+                    iconColor: const Color(0xFFA78BFA),
                     title: 'language'.tr,
                     subtitle: 'english'.tr,
                     showArrow: true,
@@ -104,7 +104,7 @@ class PremiumSettingsScreen extends StatelessWidget {
                   ),
                   _SettingsItem(
                     icon: LucideIcons.moon,
-                    iconColor: const Color(0xFF6C63FF),
+                    iconColor: const Color(0xFF6E3DFB),
                     title: 'dark_mode'.tr,
                     subtitle: 'always_on'.tr,
                     showArrow: true,
@@ -131,7 +131,7 @@ class PremiumSettingsScreen extends StatelessWidget {
                   ),
                   _SettingsItem(
                     icon: LucideIcons.zap,
-                    iconColor: const Color(0xFFFF6B35),
+                    iconColor: const Color(0xFF8B5CF6),
                     title: 'boost_profile'.tr,
                     subtitle: 'get_more_visibility'.tr,
                     onTap: () {},

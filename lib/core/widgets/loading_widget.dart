@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 
 class LoadingWidget extends StatelessWidget {
@@ -19,16 +20,13 @@ class LoadingWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: size,
-            height: size,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation(color ?? AppColors.primary),
-            ),
+          Icon(
+            LucideIcons.clock3,
+            size: size,
+            color: color ?? AppColors.primary,
           ),
           if (message != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               message!,
               style: TextStyle(
@@ -61,45 +59,19 @@ class ShimmerLoading extends StatefulWidget {
 
 class _ShimmerLoadingState extends State<ShimmerLoading>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    debugPrint('[ShimmerLoading] Building skeleton...');
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, _) {
-        return Container(
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2.0 * _controller.value, 0),
-              end: Alignment(-1.0 + 2.0 * _controller.value + 1.0, 0),
-              colors: isDark
-                  ? [AppColors.cardDark, AppColors.borderDark, AppColors.cardDark]
-                  : [AppColors.dividerLight, AppColors.borderLight, AppColors.dividerLight],
-            ),
-          ),
-        );
-      },
+    return Container(
+      width: widget.width,
+      height: widget.height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        color: isDark ? AppColors.cardDark : AppColors.dividerLight,
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        ),
+      ),
     );
   }
 }

@@ -1,27 +1,38 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:methna_app/app/controllers/chat_controller.dart';
+import 'package:methna_app/app/controllers/home_controller.dart';
+import 'package:methna_app/app/controllers/users_controller.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
+import 'package:methna_app/app/data/services/message_queue_service.dart';
+import 'package:methna_app/app/data/services/notification_service.dart';
 import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
+import 'package:methna_app/app/data/services/biometric_service.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/core/constants/api_constants.dart';
+import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/core/utils/validators.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SettingsController extends GetxController {
   final AuthService _auth = Get.find<AuthService>();
   final StorageService _storage = Get.find<StorageService>();
   final ApiService _api = Get.find<ApiService>();
+  final BiometricService _biometric = Get.find<BiometricService>();
 
   // â”€â”€â”€ Theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  final RxString themeMode = 'dark'.obs;
+  final RxString themeMode = 'light'.obs;
 
   // â”€â”€â”€ Privacy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   final RxBool showOnlineStatus = true.obs;
   final RxBool showDistance = true.obs;
   final RxBool showLastSeen = true.obs;
   final RxBool showAge = true.obs;
-  final RxBool privacyMode = false.obs;
   final RxString visibility = 'everyone'.obs;
 
   // â”€â”€â”€ Chat Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -32,19 +43,26 @@ class SettingsController extends GetxController {
 
   // â”€â”€â”€ Notification settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   final RxBool isLoadingNotifSettings = false.obs;
+  final RxBool isSyncingNotifSettings = false.obs;
+  final RxBool isDeletingAccount = false.obs;
+  final RxBool isDeactivatingAccount = false.obs;
+  final RxBool isLoggingOut = false.obs;
   final RxMap<String, bool> notifSettings = <String, bool>{
     'matchNotifications': true,
     'messageNotifications': true,
     'likeNotifications': true,
-    'profileVisitorNotifications': false,
-    'eventsNotifications': false,
+    'complimentNotifications': true,
+    'profileVisitorNotifications': true,
+    'eventsNotifications': true,
     'safetyAlertNotifications': true,
-    'promotionsNotifications': false,
-    'inAppRecommendationNotifications': false,
-    'weeklySummaryNotifications': false,
+    'promotionsNotifications': true,
+    'inAppRecommendationNotifications': true,
+    'weeklySummaryNotifications': true,
     'connectionRequestNotifications': true,
-    'surveyNotifications': false,
+    'surveyNotifications': true,
   }.obs;
+  final RxSet<String> localOnlyNotificationSettings = <String>{}.obs;
+  final RxSet<String> syncingNotificationSettings = <String>{}.obs;
 
   // â”€â”€â”€ Blocked users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   final RxList<UserModel> blockedUsers = <UserModel>[].obs;
@@ -60,11 +78,50 @@ class SettingsController extends GetxController {
   UserModel? get currentUser => _auth.currentUser.value;
   String get username => currentUser?.username ?? '';
 
+  Future<bool?> checkUsernameAvailability(String usernameCandidate) async {
+    final normalized = usernameCandidate.trim().replaceFirst('@', '');
+    final validationError = Validators.username(normalized);
+    if (validationError != null) {
+      return false;
+    }
+
+    final current = username.trim().replaceFirst('@', '');
+    if (current.toLowerCase() == normalized.toLowerCase()) {
+      return true;
+    }
+
+    return _checkUsernameAvailabilityRemote(normalized);
+  }
+
+  Future<bool?> _checkUsernameAvailabilityRemote(
+    String usernameCandidate,
+  ) async {
+    try {
+      final response = await _api.get(
+        ApiConstants.checkUsername,
+        queryParameters: {'username': usernameCandidate},
+      );
+      final payload = response.data;
+      if (payload is Map && payload['available'] != null) {
+        return payload['available'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[Settings] username availability check failed: $e');
+      return null;
+    }
+  }
+
   @override
   void onInit() {
     super.onInit();
-    themeMode.value = _storage.themeMode;
+    final savedTheme = _storage.themeMode;
+    themeMode.value = savedTheme == 'dark' ? 'dark' : 'light';
+    if (savedTheme != themeMode.value) {
+      unawaited(_storage.setThemeMode(themeMode.value));
+    }
     _loadSecuritySettings();
+    unawaited(_biometric.init());
     _loadPrivacySettings();
     _loadChatSettings();
     fetchChatSettings();
@@ -79,7 +136,6 @@ class SettingsController extends GetxController {
     showDistance.value = _storage.getBool('privacy_showDistance') ?? true;
     showLastSeen.value = _storage.getBool('privacy_showLastSeen') ?? true;
     showAge.value = _storage.getBool('privacy_showAge') ?? true;
-    privacyMode.value = _storage.getBool('privacy_privacyMode') ?? false;
     visibility.value = _storage.getString('privacy_visibility') ?? 'everyone';
 
     // Then sync from backend user profile (source of truth)
@@ -96,7 +152,7 @@ class SettingsController extends GetxController {
       _storage.saveBool('privacy_showAge', showAge.value);
     }
     debugPrint(
-      '[Settings] Loaded privacy: online=${showOnlineStatus.value}, distance=${showDistance.value}, lastSeen=${showLastSeen.value}, age=${showAge.value}, privacy=${privacyMode.value}, vis=${visibility.value}',
+      '[Settings] Loaded privacy: online=${showOnlineStatus.value}, distance=${showDistance.value}, lastSeen=${showLastSeen.value}, age=${showAge.value}, vis=${visibility.value}',
     );
   }
 
@@ -138,9 +194,10 @@ class SettingsController extends GetxController {
   // THEME
   // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   void changeTheme(String mode) {
-    themeMode.value = mode;
-    _storage.setThemeMode(mode);
-    switch (mode) {
+    final normalized = mode == 'dark' ? 'dark' : 'light';
+    themeMode.value = normalized;
+    _storage.setThemeMode(normalized);
+    switch (normalized) {
       case 'light':
         Get.changeThemeMode(ThemeMode.light);
         break;
@@ -148,35 +205,101 @@ class SettingsController extends GetxController {
         Get.changeThemeMode(ThemeMode.dark);
         break;
       default:
-        Get.changeThemeMode(ThemeMode.system);
+        Get.changeThemeMode(ThemeMode.light);
     }
   }
 
   // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   // USERNAME
   // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
-  Future<bool> changeUsername(String newUsername) async {
-    if (newUsername.trim().isEmpty) {
-      Helpers.showSnackbar(message: 'username_empty'.tr, isError: true);
+  Future<bool> changeUsername(
+    String newUsername, {
+    bool showFeedback = true,
+  }) async {
+    final normalized = newUsername.trim();
+    final validationError = Validators.username(normalized);
+    if (validationError != null) {
+      if (showFeedback) {
+        Helpers.showSnackbar(message: validationError, isError: true);
+      }
       return false;
     }
+
+    final previousUser = _auth.currentUser.value;
+    final previousUsername = previousUser?.username?.trim() ?? '';
+    if (previousUsername.toLowerCase() == normalized.toLowerCase()) {
+      return true;
+    }
+
+    final availability = await _checkUsernameAvailabilityRemote(normalized);
+    if (availability == false) {
+      if (showFeedback) {
+        Helpers.showSnackbar(
+          message: 'username_not_available'.tr,
+          isError: true,
+        );
+      }
+      return false;
+    }
+    if (availability == null) {
+      if (showFeedback) {
+        Helpers.showSnackbar(message: 'username_check_fail'.tr, isError: true);
+      }
+      return false;
+    }
+
     isSavingUsername.value = true;
     try {
-      await _api.patch(
-        ApiConstants.usersMe,
-        data: {'username': newUsername.trim()},
-      );
+      if (previousUser != null) {
+        final optimisticPayload = previousUser.toJson()
+          ..['username'] = normalized;
+        _auth.currentUser.value = UserModel.fromJson(optimisticPayload);
+      }
+
+      await _api.patch(ApiConstants.usersMe, data: {'username': normalized});
+
       await _auth.fetchMe();
-      Helpers.showSnackbar(message: 'username_updated_success'.tr);
       return true;
     } catch (e) {
-      Helpers.showSnackbar(
-        message: 'username_updated_failed'.tr,
-        isError: true,
-      );
+      if (previousUser != null) {
+        _auth.currentUser.value = previousUser;
+      }
+      if (showFeedback) {
+        Helpers.showSnackbar(
+          message: Helpers.extractErrorMessage(e),
+          isError: true,
+        );
+      }
       return false;
     } finally {
       isSavingUsername.value = false;
+    }
+  }
+
+  Future<void> shareMyProfile() async {
+    final user = currentUser;
+    final usernameValue = (user?.username ?? '').trim().replaceFirst('@', '');
+    final fallbackId = (user?.id ?? '').trim();
+    final profileToken = usernameValue.isNotEmpty ? usernameValue : fallbackId;
+
+    if (profileToken.isEmpty) {
+      Helpers.showSnackbar(message: 'something_went_wrong'.tr, isError: true);
+      return;
+    }
+
+    final link = '${AppConstants.websiteUrl}/profile/$profileToken';
+    final displayName = user?.publicDisplayName.trim() ?? '';
+    final message = displayName.isNotEmpty
+        ? 'Meet $displayName on Methna\n$link'
+        : 'See my profile on Methna\n$link';
+
+    try {
+      await Share.share(message, subject: 'Methna Profile');
+    } catch (e) {
+      Helpers.showSnackbar(
+        message: Helpers.extractErrorMessage(e),
+        isError: true,
+      );
     }
   }
 
@@ -185,10 +308,15 @@ class SettingsController extends GetxController {
   // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   Future<void> fetchNotificationSettings() async {
     isLoadingNotifSettings.value = true;
+    localOnlyNotificationSettings.clear();
+    syncingNotificationSettings.clear();
+    isSyncingNotifSettings.value = false;
+    final localOverrides = <String, bool?>{};
 
     // Load local first
     for (final key in notifSettings.keys.toList()) {
       final localVal = _storage.getBool('notif_$key');
+      localOverrides[key] = localVal;
       if (localVal != null) {
         notifSettings[key] = localVal;
       }
@@ -198,17 +326,52 @@ class SettingsController extends GetxController {
       final response = await _api.get(ApiConstants.notificationSettings);
       if (response.data is Map) {
         final data = response.data as Map<String, dynamic>;
+        final missingRemoteBackfill = <String, bool>{};
         for (final key in notifSettings.keys.toList()) {
           if (data.containsKey(key)) {
             notifSettings[key] = data[key] == true;
             _storage.saveBool('notif_$key', data[key] == true);
+          } else if (localOverrides[key] == null) {
+            missingRemoteBackfill[key] = true;
           }
+        }
+        if (missingRemoteBackfill.isNotEmpty) {
+          await _backfillMissingNotificationSettings(missingRemoteBackfill);
         }
       }
     } catch (e) {
       debugPrint('[Settings] fetchNotificationSettings error: $e');
     } finally {
+      for (final entry in localOverrides.entries) {
+        if (entry.value == null) {
+          await _storage.saveBool(
+            'notif_${entry.key}',
+            notifSettings[entry.key] ?? true,
+          );
+        }
+      }
       isLoadingNotifSettings.value = false;
+    }
+  }
+
+  Future<void> _backfillMissingNotificationSettings(
+    Map<String, bool> values,
+  ) async {
+    if (values.isEmpty) return;
+    try {
+      await _api.patch(ApiConstants.notificationSettings, data: values);
+      debugPrint(
+        '[Settings] Notification settings backfilled: ${values.keys.join(', ')}',
+      );
+    } catch (e) {
+      try {
+        await _api.patch(ApiConstants.usersMe, data: values);
+      } catch (fallbackError) {
+        localOnlyNotificationSettings.addAll(values.keys);
+        debugPrint(
+          '[Settings] Notification settings backfill failed: $fallbackError',
+        );
+      }
     }
   }
 
@@ -216,8 +379,11 @@ class SettingsController extends GetxController {
     debugPrint('[Settings] updateNotifSetting: $key=$value');
     notifSettings[key] = value;
     _storage.saveBool('notif_$key', value);
+    syncingNotificationSettings.add(key);
+    isSyncingNotifSettings.value = true;
     try {
       await _api.patch(ApiConstants.notificationSettings, data: {key: value});
+      localOnlyNotificationSettings.remove(key);
       debugPrint(
         '[Settings] Notification setting synced via notificationSettings: $key=$value',
       );
@@ -225,15 +391,30 @@ class SettingsController extends GetxController {
       // Fallback for backends that still expect user-level patch fields.
       try {
         await _api.patch(ApiConstants.usersMe, data: {key: value});
+        localOnlyNotificationSettings.remove(key);
         debugPrint(
           '[Settings] Notification setting synced via usersMe fallback: $key=$value',
         );
       } catch (fallbackError) {
+        localOnlyNotificationSettings.add(key);
         debugPrint(
           '[Settings] Notification setting sync failed (local kept): $fallbackError',
         );
       }
+    } finally {
+      syncingNotificationSettings.remove(key);
+      isSyncingNotifSettings.value = syncingNotificationSettings.isNotEmpty;
     }
+  }
+
+  String getNotificationSyncStatus(String key) {
+    if (syncingNotificationSettings.contains(key)) {
+      return 'syncing';
+    }
+    if (localOnlyNotificationSettings.contains(key)) {
+      return 'pending';
+    }
+    return 'synced';
   }
 
   // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
@@ -255,6 +436,7 @@ class SettingsController extends GetxController {
             : entry;
         return UserModel.fromJson(Map<String, dynamic>.from(rawUser as Map));
       }).toList();
+      await _syncBlockedUsersCache();
       debugPrint(
         '[SettingsController] Parsed ${blockedUsers.length} blocked users',
       );
@@ -272,21 +454,87 @@ class SettingsController extends GetxController {
 
   Future<void> unblockUser(String userId) async {
     try {
-      await _api.delete(ApiConstants.unblockUser(userId));
+      final response = await _api.delete(ApiConstants.unblockUser(userId));
+      final payload = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : const <String, dynamic>{};
+      final serverMessage = payload['message']?.toString();
+
       blockedUsers.removeWhere((u) => u.id == userId);
-      Helpers.showSnackbar(message: 'user_unblocked'.tr);
+      await _storage.removeBlockedUserId(userId);
+      try {
+        await fetchBlockedUsers();
+      } catch (refreshError) {
+        debugPrint('[Settings] unblock refresh failed: $refreshError');
+      }
+      Helpers.showSnackbar(
+        message: (serverMessage != null && serverMessage.trim().isNotEmpty)
+            ? serverMessage
+            : 'user_unblocked'.tr,
+      );
     } catch (e) {
-      Helpers.showSnackbar(message: 'user_unblock_failed'.tr, isError: true);
+      Helpers.showSnackbar(
+        message: Helpers.extractErrorMessage(e),
+        isError: true,
+      );
     }
   }
 
   Future<void> blockUser(String userId) async {
     try {
-      await _api.post(ApiConstants.blockUser(userId));
-      Helpers.showSnackbar(message: 'user_blocked'.tr);
-      fetchBlockedUsers();
+      final response = await _api.post(ApiConstants.blockUser(userId));
+      final payload = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : const <String, dynamic>{};
+      final serverMessage = payload['message']?.toString();
+
+      await _storage.addBlockedUserIds([userId]);
+      _propagateBlockedUsers({userId});
+
+      // Backend block endpoint already performs unmatch logic. Avoid a second
+      // explicit unmatch call here to prevent duplicate network side-effects
+      // and mixed success/error toasts.
+      if (Get.isRegistered<UsersController>()) {
+        unawaited(Get.find<UsersController>().ensureUsersTabData(force: true));
+      }
+
+      try {
+        await fetchBlockedUsers();
+      } catch (refreshError) {
+        debugPrint('[Settings] block refresh failed: $refreshError');
+      }
+      Helpers.showSnackbar(
+        message: (serverMessage != null && serverMessage.trim().isNotEmpty)
+            ? serverMessage
+            : 'user_blocked'.tr,
+      );
     } catch (e) {
-      Helpers.showSnackbar(message: 'user_block_failed'.tr, isError: true);
+      Helpers.showSnackbar(
+        message: Helpers.extractErrorMessage(e),
+        isError: true,
+      );
+    }
+  }
+
+  Future<void> _syncBlockedUsersCache() async {
+    final blockedIds = blockedUsers
+        .map((user) => user.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    await _storage.saveBlockedUserIds(blockedIds);
+    _propagateBlockedUsers(blockedIds);
+  }
+
+  void _propagateBlockedUsers(Set<String> blockedIds) {
+    if (blockedIds.isEmpty) return;
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().evictUsersByIds(blockedIds);
+    }
+    if (Get.isRegistered<UsersController>()) {
+      Get.find<UsersController>().evictUsersByIds(blockedIds);
+    }
+    if (Get.isRegistered<ChatController>()) {
+      Get.find<ChatController>().evictUsersByIds(blockedIds);
     }
   }
 
@@ -450,29 +698,16 @@ class SettingsController extends GetxController {
   Future<bool> submitFeedback(String type, String description) async {
     final normalizedType = _normalizeReportReason(type);
     final message = description.trim();
-    final email = _auth.currentUser.value?.email.trim();
     if (description.trim().length < 10) {
       Helpers.showSnackbar(message: 'feedback_min_chars'.tr, isError: true);
       return false;
     }
 
     try {
-      // Try the dedicated feedback endpoint first, then fall back.
-      try {
-        await _api.post(
-          ApiConstants.supportFeedback,
-          data: {
-            'type': normalizedType == 'other' ? 'feedback' : normalizedType,
-            'message': message,
-            if (email != null && email.isNotEmpty) 'email': email,
-          },
-        );
-      } catch (_) {
-        await _api.post(
-          ApiConstants.createReport,
-          data: {'reason': normalizedType, 'details': message},
-        );
-      }
+      await _api.post(
+        ApiConstants.createReport,
+        data: {'reason': normalizedType, 'details': message},
+      );
       await fetchMyReports(silent: true);
       Helpers.showSnackbar(message: 'feedback_thank_you'.tr);
       return true;
@@ -496,6 +731,32 @@ class SettingsController extends GetxController {
       'job_vacancy' => 'jobs',
       _ => type,
     };
+
+    final localizedContent = await _fetchAppContentFromApi(
+      normalizedType: normalizedType,
+      locale: locale,
+    );
+    if (localizedContent != null && localizedContent.trim().isNotEmpty) {
+      return localizedContent;
+    }
+
+    if (locale != 'en') {
+      final englishContent = await _fetchAppContentFromApi(
+        normalizedType: normalizedType,
+        locale: 'en',
+      );
+      if (englishContent != null && englishContent.trim().isNotEmpty) {
+        return englishContent;
+      }
+    }
+
+    return _fallbackStaticContent(normalizedType);
+  }
+
+  Future<String?> _fetchAppContentFromApi({
+    required String normalizedType,
+    required String locale,
+  }) async {
     try {
       final response = await _api.get(
         ApiConstants.appContent(normalizedType),
@@ -504,10 +765,37 @@ class SettingsController extends GetxController {
       if (response.data is Map) {
         return response.data['content']?.toString();
       }
-      return null;
     } catch (e) {
-      debugPrint('[Settings] fetchAppContent error: $e');
-      return null;
+      debugPrint(
+        '[Settings] fetchAppContent error: type=$normalizedType locale=$locale error=$e',
+      );
+    }
+
+    return null;
+  }
+
+  String? _fallbackStaticContent(String normalizedType) {
+    switch (normalizedType) {
+      case 'terms':
+        return '''Terms of Service
+
+By using Methna, you agree to use the app lawfully and respectfully. Accounts that violate community and safety rules may be restricted or removed.
+
+You are responsible for the accuracy of your profile information and for your activity inside the app.
+
+Full Terms: ${AppConstants.termsUrl}
+Support: ${AppConstants.supportEmail}''';
+      case 'privacy':
+        return '''Privacy Policy
+
+Methna processes account, profile, and usage information to provide matching, safety, notifications, and support.
+
+You can control privacy settings in the app and request account deletion from Settings.
+
+Full Privacy Policy: ${AppConstants.privacyPolicyUrl}
+Privacy contact: ${AppConstants.privacyEmail}''';
+      default:
+        return null;
     }
   }
 
@@ -519,24 +807,21 @@ class SettingsController extends GetxController {
     bool? showDist,
     bool? showLastSeenVal,
     bool? showAgeVal,
-    bool? privacyModeVal,
   }) async {
     debugPrint(
-      '[Settings] updatePrivacy: online=$showOnline, dist=$showDist, lastSeen=$showLastSeenVal, age=$showAgeVal, privacy=$privacyModeVal',
+      '[Settings] updatePrivacy: online=$showOnline, dist=$showDist, lastSeen=$showLastSeenVal, age=$showAgeVal',
     );
     // 1. Optimistic UI update
     if (showOnline != null) showOnlineStatus.value = showOnline;
     if (showDist != null) showDistance.value = showDist;
     if (showLastSeenVal != null) showLastSeen.value = showLastSeenVal;
     if (showAgeVal != null) showAge.value = showAgeVal;
-    if (privacyModeVal != null) privacyMode.value = privacyModeVal;
 
     // 2. Persist to storage
     _storage.saveBool('privacy_showOnline', showOnlineStatus.value);
     _storage.saveBool('privacy_showDistance', showDistance.value);
     _storage.saveBool('privacy_showLastSeen', showLastSeen.value);
     _storage.saveBool('privacy_showAge', showAge.value);
-    _storage.saveBool('privacy_privacyMode', privacyMode.value);
     debugPrint('[Settings] Privacy saved to local storage');
 
     // 3. API
@@ -546,7 +831,6 @@ class SettingsController extends GetxController {
       if (showDist != null) data['showDistance'] = showDist;
       if (showLastSeenVal != null) data['showLastSeen'] = showLastSeenVal;
       if (showAgeVal != null) data['showAge'] = showAgeVal;
-      if (privacyModeVal != null) data['privacyMode'] = privacyModeVal;
       if (data.isEmpty) return;
 
       await _api.patch(ApiConstants.updatePrivacy, data: data);
@@ -606,35 +890,97 @@ class SettingsController extends GetxController {
   // ACCOUNT
   // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   Future<void> logout() async {
-    await _auth.logout();
-    Get.offAllNamed(AppRoutes.login);
-  }
+    if (isLoggingOut.value) return;
 
-  Future<void> deleteAccount() async {
+    isLoggingOut.value = true;
     try {
-      Helpers.showLoading(message: 'deleting_account'.tr);
-      await _api.delete(ApiConstants.usersMe);
-      Helpers.hideLoading();
+      _clearTransientAppState();
       await _auth.logout();
       Get.offAllNamed(AppRoutes.login);
-      Helpers.showSnackbar(message: 'account_deleted'.tr);
-    } catch (e) {
-      Helpers.hideLoading();
-      Helpers.showSnackbar(message: 'delete_account_failed'.tr, isError: true);
+    } finally {
+      isLoggingOut.value = false;
     }
   }
 
-  Future<void> deactivateAccount() async {
+  Future<bool> deleteAccount({String? reason, String? details}) async {
+    if (isDeletingAccount.value) return false;
+    isDeletingAccount.value = true;
     try {
-      await _api.patch(ApiConstants.usersMe, data: {'status': 'deactivated'});
+      final payload = <String, dynamic>{'action': 'delete', 'hardDelete': true};
+      if (reason != null && reason.trim().isNotEmpty) {
+        payload['reason'] = reason.trim();
+      }
+      if (details != null && details.trim().isNotEmpty) {
+        payload['details'] = details.trim();
+      }
+
+      try {
+        await _api.post(ApiConstants.closeAccount, data: payload);
+      } catch (_) {
+        await _api.delete(ApiConstants.usersMe);
+      }
+      _clearTransientAppState();
+      await _auth.logout();
+      Get.offAllNamed(AppRoutes.login);
+      Helpers.showSnackbar(message: 'account_deleted'.tr);
+      return true;
+    } catch (e) {
+      debugPrint('[Settings] deleteAccount error: $e');
+      Helpers.showSnackbar(message: 'delete_account_failed'.tr, isError: true);
+      return false;
+    } finally {
+      isDeletingAccount.value = false;
+    }
+  }
+
+  Future<bool> deactivateAccount({String? reason, String? details}) async {
+    if (isDeactivatingAccount.value) return false;
+    isDeactivatingAccount.value = true;
+    try {
+      final payload = <String, dynamic>{'action': 'deactivate'};
+      if (reason != null && reason.trim().isNotEmpty) {
+        payload['reason'] = reason.trim();
+      }
+      if (details != null && details.trim().isNotEmpty) {
+        payload['details'] = details.trim();
+      }
+
+      try {
+        await _api.post(ApiConstants.closeAccount, data: payload);
+      } catch (_) {
+        await _api.patch(ApiConstants.usersMe, data: {'status': 'deactivated'});
+      }
+      _clearTransientAppState();
       await _auth.logout();
       Get.offAllNamed(AppRoutes.login);
       Helpers.showSnackbar(message: 'account_deactivated'.tr);
+      return true;
     } catch (e) {
       Helpers.showSnackbar(
         message: 'deactivate_account_failed'.tr,
         isError: true,
       );
+      return false;
+    } finally {
+      isDeactivatingAccount.value = false;
+    }
+  }
+
+  void _clearTransientAppState() {
+    if (Get.isRegistered<MessageQueueService>()) {
+      Get.find<MessageQueueService>().clearQueue();
+    }
+    if (Get.isRegistered<NotificationService>()) {
+      Get.find<NotificationService>().clearAll();
+    }
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().resetForLogout();
+    }
+    if (Get.isRegistered<UsersController>()) {
+      Get.find<UsersController>().resetForLogout();
+    }
+    if (Get.isRegistered<ChatController>()) {
+      Get.find<ChatController>().resetForLogout();
     }
   }
 
@@ -643,31 +989,61 @@ class SettingsController extends GetxController {
   // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   final RxBool isChangingPassword = false.obs;
 
-  Future<bool> changePassword(String oldPassword, String newPassword) async {
+  Future<bool> changePassword(
+    String oldPassword,
+    String newPassword, {
+    bool showFeedback = true,
+  }) async {
     if (oldPassword.trim().isEmpty || newPassword.trim().isEmpty) {
-      Helpers.showSnackbar(message: 'fill_all_fields'.tr, isError: true);
+      if (showFeedback) {
+        Helpers.showSnackbar(message: 'fill_all_fields'.tr, isError: true);
+      }
       return false;
     }
-    if (newPassword.trim().length < 8) {
-      Helpers.showSnackbar(message: 'password_min_8'.tr, isError: true);
+    if (oldPassword.trim() == newPassword.trim()) {
+      if (showFeedback) {
+        Helpers.showSnackbar(
+          message: 'New password must be different from current password.',
+          isError: true,
+        );
+      }
+      return false;
+    }
+    final validationError = Validators.password(newPassword.trim());
+    if (validationError != null) {
+      if (showFeedback) {
+        Helpers.showSnackbar(message: validationError, isError: true);
+      }
       return false;
     }
     isChangingPassword.value = true;
     try {
-      await _api.patch(
+      final response = await _api.patch(
         ApiConstants.changePassword,
         data: {
           'oldPassword': oldPassword.trim(),
           'newPassword': newPassword.trim(),
         },
       );
-      Helpers.showSnackbar(message: 'password_changed_success'.tr);
+      final payload = response.data;
+      final serverMessage = payload is Map && payload['message'] != null
+          ? payload['message'].toString()
+          : null;
+      if (showFeedback) {
+        Helpers.showSnackbar(
+          message: (serverMessage != null && serverMessage.trim().isNotEmpty)
+              ? serverMessage
+              : 'password_changed_success'.tr,
+        );
+      }
       return true;
     } catch (e) {
-      Helpers.showSnackbar(
-        message: 'password_changed_failed'.tr,
-        isError: true,
-      );
+      if (showFeedback) {
+        Helpers.showSnackbar(
+          message: Helpers.extractErrorMessage(e),
+          isError: true,
+        );
+      }
       return false;
     } finally {
       isChangingPassword.value = false;
@@ -682,10 +1058,13 @@ class SettingsController extends GetxController {
   final RxBool faceId = false.obs;
   final RxBool smsAuth = false.obs;
   final RxBool googleAuth = false.obs;
+  final RxBool isUpdatingBiometric = false.obs;
 
   void _loadSecuritySettings() {
     rememberMe.value = _storage.getBool('security_remember_me') ?? true;
-    biometricId.value = _storage.getBool('security_biometric') ?? false;
+    biometricId.value =
+        _storage.getBool('security_biometric') ??
+        (_storage.getBool('biometric_enabled') ?? false);
     faceId.value = _storage.getBool('security_face_id') ?? false;
     smsAuth.value = _storage.getBool('security_sms_auth') ?? false;
     googleAuth.value = _storage.getBool('security_google_auth') ?? false;
@@ -697,17 +1076,73 @@ class SettingsController extends GetxController {
     _storage.saveBool('security_remember_me', val);
   }
 
-  void toggleBiometric(bool val) {
-    debugPrint('[Settings] toggleBiometric: $val');
-    biometricId.value = val;
-    _storage.saveBool('security_biometric', val);
+  Future<void> setBiometricLock(bool enabled) async {
+    if (isUpdatingBiometric.value) return;
+
+    isUpdatingBiometric.value = true;
+    try {
+      await _biometric.init();
+
+      if (enabled) {
+        if (!_biometric.isAvailable.value) {
+          Helpers.showSnackbar(
+            message: _biometric.failureMessage,
+            isError: true,
+          );
+          biometricId.value = false;
+          faceId.value = false;
+          await _biometric.setEnabled(false);
+          await _storage.saveBool('security_face_id', false);
+          return;
+        }
+
+        final verified = await _biometric.authenticate(
+          reason: 'authenticate_to_access'.tr,
+          requireEnabled: false,
+        );
+        if (!verified) {
+          Helpers.showSnackbar(
+            message: _biometric.failureMessage,
+            isError: true,
+          );
+          biometricId.value = false;
+          faceId.value = false;
+          await _biometric.setEnabled(false);
+          await _storage.saveBool('security_face_id', false);
+          return;
+        }
+      }
+
+      biometricId.value = enabled;
+      faceId.value = enabled;
+      await _biometric.setEnabled(enabled);
+      await _storage.saveBool('security_face_id', enabled);
+      await _syncSecuritySetting('biometricEnabled', enabled);
+      Helpers.showSnackbar(
+        message: enabled
+            ? 'Biometric lock enabled.'
+            : 'Biometric lock disabled.',
+      );
+    } finally {
+      isUpdatingBiometric.value = false;
+    }
   }
 
-  void toggleFaceId(bool val) {
-    debugPrint('[Settings] toggleFaceId: $val');
-    faceId.value = val;
-    _storage.saveBool('security_face_id', val);
+  Future<void> _syncSecuritySetting(String key, bool value) async {
+    try {
+      await _api.patch(ApiConstants.securitySettings, data: {key: value});
+    } catch (_) {
+      try {
+        await _api.patch(ApiConstants.usersMe, data: {key: value});
+      } catch (error) {
+        debugPrint('[Settings] Security setting sync failed for $key: $error');
+      }
+    }
   }
+
+  Future<void> toggleBiometric(bool val) => setBiometricLock(val);
+
+  Future<void> toggleFaceId(bool val) => setBiometricLock(val);
 
   void toggleSmsAuth(bool val) {
     debugPrint('[Settings] toggleSmsAuth: $val');
@@ -792,13 +1227,12 @@ class SettingsController extends GetxController {
       await _storage.clearAll();
 
       // Reset all local state
-      themeMode.value = 'dark';
-      Get.changeThemeMode(ThemeMode.dark);
+      themeMode.value = 'light';
+      Get.changeThemeMode(ThemeMode.light);
       showOnlineStatus.value = true;
       showDistance.value = true;
       showLastSeen.value = true;
       showAge.value = true;
-      privacyMode.value = false;
       visibility.value = 'everyone';
       receiveDMs.value = true;
       readReceipts.value = true;
@@ -814,6 +1248,9 @@ class SettingsController extends GetxController {
       for (final key in notifSettings.keys.toList()) {
         notifSettings[key] = true;
       }
+      localOnlyNotificationSettings.clear();
+      syncingNotificationSettings.clear();
+      isSyncingNotifSettings.value = false;
 
       Helpers.showSnackbar(message: 'app_data_reset_success'.tr);
       return true;

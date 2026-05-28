@@ -59,3 +59,32 @@ ios/Runner/GoogleService-Info.plist
 # Local release define files (keep example files only)
 env/release.json
 env/release.local.json
+
+# Build / analysis logs (do not commit)
+analyze_output.txt
+analyze*.txt
+build_output.txt
+tmp_bundle_release_stacktrace.txt
+hs_err_pid*.log
+replay_pid*.log
+java_pid*.hprof
+android/hs_err_pid*.log
+android/java_pid*.hprof
+
+# Editor / agent caches
+.gradle-agent/
+.vscode/
+tmp/
+output/
+
+# Local backups (do not commit)
+*.bak
+android/app/google-services.backup-*.json
+android/app/google-services.bak
+
+# Local internal helper trees not part of the mobile app
+methna_backend_fix/
+
+# Local LaTeX submission docs (keep markdown checklists in docs/)
+PLAY_STORE_SUBMISSION.tex
+docs/methna_full_uml.tex

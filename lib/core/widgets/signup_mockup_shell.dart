@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 
-const Color signupMockPurple = Color(0xFF9627FF);
-const Color signupMockPurpleEnd = Color(0xFF7B1FFF);
+const Color signupMockPrimary = Color(0xFF6E3DFB);
+const Color signupMockPrimaryEnd = Color(0xFF8B5CF6);
 const Color signupMockText = Color(0xFF25222D);
 const Color signupMockTextDark = Color(0xFFF0ECF6);
 const Color signupMockMuted = Color(0xFF8D8897);
@@ -15,8 +15,8 @@ const Color signupMockSurfaceDark = Color(0xFF252030);
 Color _mockText(bool d) => d ? signupMockTextDark : signupMockText;
 Color _mockMuted(bool d) => d ? signupMockMutedDark : signupMockMuted;
 Color _mockBorder(bool d) => d ? signupMockBorderDark : signupMockBorder;
-Color _mockBg(bool d) => d ? const Color(0xFF14101E) : Colors.white;
-Color _mockCardBg(bool d) => d ? signupMockSurfaceDark : Colors.white;
+Color _mockBg(bool d) => d ? const Color(0xFF14101E) : const Color(0xFFFFFBF5);
+Color _mockCardBg(bool d) => d ? signupMockSurfaceDark : const Color(0xFFFFF7EF);
 
 class SignupMockScaffold extends StatelessWidget {
   const SignupMockScaffold({
@@ -24,7 +24,7 @@ class SignupMockScaffold extends StatelessWidget {
     required this.progress,
     required this.onBack,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.body,
     required this.footer,
   });
@@ -32,15 +32,16 @@ class SignupMockScaffold extends StatelessWidget {
   final double progress;
   final VoidCallback onBack;
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final Widget body;
   final Widget footer;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
     return Scaffold(
-      backgroundColor: _mockBg(isDark),
+      backgroundColor: isDark ? const Color(0xFF14101E) : Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
@@ -49,25 +50,34 @@ class SignupMockScaffold extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  IconButton(
-                    onPressed: onBack,
-                    splashRadius: 18,
-                    icon: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 18,
-                      color: _mockText(isDark),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isDark ? signupMockSurfaceDark : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _mockBorder(isDark)),
+                    ),
+                    child: IconButton(
+                      onPressed: onBack,
+                      splashRadius: 18,
+                      icon: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 18,
+                        color: _mockText(isDark),
+                      ),
                     ),
                   ),
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(999),
                       child: SizedBox(
-                        height: 6,
+                        height: 8,
                         child: LinearProgressIndicator(
                           value: progress.clamp(0.0, 1.0),
                           backgroundColor: isDark ? const Color(0xFF3A3445) : const Color(0xFFE9E7ED),
                           valueColor: const AlwaysStoppedAnimation<Color>(
-                            signupMockPurple,
+                            signupMockPrimary,
                           ),
                         ),
                       ),
@@ -87,17 +97,19 @@ class SignupMockScaffold extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Text(
-                  subtitle,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    height: 1.55,
-                    color: _mockMuted(isDark),
+              if (hasSubtitle) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Text(
+                    subtitle!,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      height: 1.55,
+                      color: _mockMuted(isDark),
+                    ),
                   ),
                 ),
-              ),
+              ],
               const SizedBox(height: 22),
               Expanded(child: body),
               const SizedBox(height: 12),
@@ -127,15 +139,15 @@ class SignupMockPrimaryButton extends StatelessWidget {
     final enabled = onTap != null && !isLoading;
     return SizedBox(
       width: double.infinity,
-      height: 46,
+      height: 52,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(16),
           gradient: enabled
               ? const LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [signupMockPurple, signupMockPurpleEnd],
+                  colors: [signupMockPrimary, signupMockPrimaryEnd],
                 )
               : null,
           color: enabled ? null : const Color(0xFFD8D4E1),
@@ -144,7 +156,7 @@ class SignupMockPrimaryButton extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: enabled ? onTap : null,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(16),
             child: Center(
               child: isLoading
                   ? const SizedBox(
@@ -185,27 +197,24 @@ class SignupMockWideOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       width: double.infinity,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(18),
           child: Ink(
-            height: 48,
+            height: 54,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              gradient: selected
-                  ? const LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [signupMockPurple, signupMockPurpleEnd],
-                    )
-                  : null,
-              color: selected ? null : _mockCardBg(Theme.of(context).brightness == Brightness.dark),
+              borderRadius: BorderRadius.circular(18),
+              color: selected
+                  ? signupMockPrimary.withValues(alpha: isDark ? 0.22 : 0.08)
+                  : (isDark ? signupMockSurfaceDark : Colors.white),
               border: Border.all(
-                color: selected ? Colors.transparent : _mockBorder(Theme.of(context).brightness == Brightness.dark),
+                color: selected ? signupMockPrimary : _mockBorder(isDark),
+                width: selected ? 1.4 : 1,
               ),
             ),
             child: Center(
@@ -216,7 +225,7 @@ class SignupMockWideOption extends StatelessWidget {
                     label,
                     style: AppTextStyles.button.copyWith(
                       fontSize: 14,
-                      color: selected ? Colors.white : _mockText(Theme.of(context).brightness == Brightness.dark),
+                      color: selected ? signupMockPrimary : _mockText(isDark),
                     ),
                   ),
                   if (trailing != null) ...[
@@ -237,30 +246,34 @@ class SignupMockCardOption extends StatelessWidget {
   const SignupMockCardOption({
     super.key,
     required this.title,
-    required this.description,
+    this.description,
     required this.selected,
     required this.onTap,
   });
 
   final String title;
-  final String description;
+  final String? description;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasDescription = description != null && description!.trim().isNotEmpty;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         child: Ink(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
           decoration: BoxDecoration(
-            color: _mockCardBg(Theme.of(context).brightness == Brightness.dark),
-            borderRadius: BorderRadius.circular(12),
+            color: selected
+                ? signupMockPrimary.withValues(alpha: isDark ? 0.22 : 0.08)
+                : (isDark ? signupMockSurfaceDark : Colors.white),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: selected ? signupMockPurple : _mockBorder(Theme.of(context).brightness == Brightness.dark),
+              color: selected ? signupMockPrimary : _mockBorder(isDark),
               width: selected ? 1.4 : 1,
             ),
           ),
@@ -270,17 +283,19 @@ class SignupMockCardOption extends StatelessWidget {
               Text(
                 title,
                 style: AppTextStyles.titleSmall.copyWith(
-                  color: _mockText(Theme.of(context).brightness == Brightness.dark),
+                  color: selected ? signupMockPrimary : _mockText(isDark),
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                description,
-                style: AppTextStyles.bodySmall.copyWith(
-                  height: 1.5,
-                  color: _mockMuted(Theme.of(context).brightness == Brightness.dark),
+              if (hasDescription) ...[
+                const SizedBox(height: 6),
+                Text(
+                  description!,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    height: 1.5,
+                    color: _mockMuted(isDark),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -305,18 +320,21 @@ class SignupMockChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(16),
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? signupMockPurple : _mockCardBg(Theme.of(context).brightness == Brightness.dark),
-            borderRadius: BorderRadius.circular(999),
+            color: selected
+                ? signupMockPrimary.withValues(alpha: isDark ? 0.22 : 0.08)
+                : (isDark ? signupMockSurfaceDark : Colors.white),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? signupMockPurple : _mockBorder(Theme.of(context).brightness == Brightness.dark),
+              color: selected ? signupMockPrimary : _mockBorder(isDark),
             ),
           ),
           child: Row(
@@ -326,7 +344,7 @@ class SignupMockChip extends StatelessWidget {
                 label,
                 style: AppTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w500,
-                  color: selected ? Colors.white : _mockText(Theme.of(context).brightness == Brightness.dark),
+                  color: selected ? signupMockPrimary : _mockText(isDark),
                 ),
               ),
               if (trailing != null) ...[

@@ -1,0 +1,222 @@
+# =============================================================================
+# Codemagic CI/CD configuration for Methna
+#
+# Two workflows are defined:
+#   - ios-release        : builds and publishes to App Store Connect / TestFlight
+#   - android-release    : builds an .aab and (optionally) publishes to Play Store
+#
+# Prerequisites that must be configured in the Codemagic UI before running:
+#
+# iOS
+#   1. Team integrations -> Developer Portal -> add an App Store Connect API key
+#      under the integration name "AppStoreConnect_Methna".
+#   2. Codemagic.yaml settings -> Code signing identities:
+#         - Upload an iOS Distribution certificate (.p12) for distribution_type
+#           "app_store". Or rely on automatic fetch via App Store Connect API.
+#         - Upload a matching App Store provisioning profile for bundle id
+#           com.methna.app.
+#
+# Android
+#   1. Codemagic.yaml settings -> Environment variables -> create a group named
+#      "android_keystore" containing the following secure variables (mark as
+#      Secret):
+#         CM_KEYSTORE             - base64-encoded contents of release.jks
+#         CM_KEYSTORE_PASSWORD    - keystore password
+#         CM_KEY_ALIAS            - keystore key alias
+#         CM_KEY_PASSWORD         - alias password
+#   2. (Optional) Team integrations -> Google Play -> upload the service-account
+#      JSON to enable automatic publishing to Internal track.
+# =============================================================================
+
+definitions:
+  flutter_version: &flutter_version stable
+  xcode_version: &xcode_version 15.4
+  cocoapods_version: &cocoapods_version default
+
+workflows:
+  # ---------------------------------------------------------------------------
+  # iOS App Store / TestFlight workflow
+  # ---------------------------------------------------------------------------
+  ios-release:
+    name: iOS Release (App Store / TestFlight)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+
+    integrations:
+      app_store_connect: AppStoreConnect_Methna
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.methna.app
+      vars:
+        BUNDLE_ID: "com.methna.app"
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+        # Replace with the numeric Apple ID from App Store Connect after the
+        # first manual upload. Used to auto-increment the build number.
+        APP_STORE_APPLE_ID: 0000000000
+      flutter: *flutter_version
+      xcode: *xcode_version
+      cocoapods: *cocoapods_version
+
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+
+    scripts:
+      - name: Set Flutter build number from App Store Connect
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR"
+          if [ "$APP_STORE_APPLE_ID" != "0000000000" ]; then
+            LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" || echo 0)
+            echo "Latest App Store build number: $LATEST_BUILD_NUMBER"
+            NEW_BUILD_NUMBER=$(($LATEST_BUILD_NUMBER + 1))
+          else
+            NEW_BUILD_NUMBER=$BUILD_NUMBER
+            echo "APP_STORE_APPLE_ID not set; using Codemagic BUILD_NUMBER=$NEW_BUILD_NUMBER"
+          fi
+          echo "Using build number: $NEW_BUILD_NUMBER"
+          echo "FLUTTER_BUILD_NUMBER=$NEW_BUILD_NUMBER" >> $CM_ENV
+
+      - name: Flutter precache and dependencies
+        script: |
+          set -e
+          flutter --version
+          flutter precache --ios
+          flutter pub get
+
+      - name: Generate native splash screens
+        script: |
+          set -e
+          dart run flutter_native_splash:create
+
+      - name: Install CocoaPods
+        script: |
+          set -e
+          cd ios
+          pod install --repo-update
+
+      - name: Apply provisioning profiles to Xcode project
+        script: xcode-project use-profiles
+
+      - name: Build iOS IPA
+        script: |
+          set -e
+          # --no-tree-shake-icons is required because the project uses
+          # lucide_icons + Material icons together; tree-shaking has produced
+          # broken icon glyphs in past builds.
+          flutter build ipa --release \
+            --no-tree-shake-icons \
+            --build-name=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//') \
+            --build-number=${FLUTTER_BUILD_NUMBER:-$BUILD_NUMBER} \
+            --export-options-plist=/Users/builder/export_options.plist || true
+
+          # Fallback path: if --export-options-plist isn't generated yet, use
+          # xcode-project to package the IPA from the .xcarchive.
+          if [ ! -f build/ios/ipa/*.ipa ]; then
+            xcode-project build-ipa \
+              --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+              --scheme "$XCODE_SCHEME"
+          fi
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app.dSYM.zip
+      - flutter_drive.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # External tester groups – remove or rename to match your App Store
+        # Connect setup. Internal-only testers don't need a group here.
+        beta_groups:
+          - Internal Testers
+        # Set to true once the listing is fully prepared in App Store Connect
+        # and you want every tag-triggered build to go to App Store Review.
+        submit_to_app_store: false
+        cancel_previous_submissions: true
+        release_type: MANUAL
+      email:
+        recipients:
+          - methnasupport@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  # ---------------------------------------------------------------------------
+  # Android Play Store workflow
+  # ---------------------------------------------------------------------------
+  android-release:
+    name: Android Release (Play Store AAB)
+    max_build_duration: 90
+    instance_type: linux_x2
+
+    environment:
+      groups:
+        - android_keystore
+      vars:
+        PACKAGE_NAME: "com.methnapp.app"
+      flutter: *flutter_version
+
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+
+    scripts:
+      - name: Decode signing keystore
+        script: |
+          set -e
+          mkdir -p "$CM_BUILD_DIR/android/keystore"
+          echo "$CM_KEYSTORE" | base64 --decode > "$CM_BUILD_DIR/android/keystore/release.jks"
+          cat <<EOF > "$CM_BUILD_DIR/android/key.properties"
+          storeFile=$CM_BUILD_DIR/android/keystore/release.jks
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          keyPassword=$CM_KEY_PASSWORD
+          EOF
+
+      - name: Flutter dependencies
+        script: |
+          set -e
+          flutter --version
+          flutter pub get
+
+      - name: Generate native splash screens
+        script: |
+          set -e
+          dart run flutter_native_splash:create
+
+      - name: Build Android App Bundle
+        script: |
+          set -e
+          flutter build appbundle --release --no-tree-shake-icons
+
+    artifacts:
+      - build/**/outputs/**/*.aab
+      - build/**/outputs/**/mapping.txt
+      - flutter_drive.log
+
+    publishing:
+      email:
+        recipients:
+          - methnasupport@gmail.com
+        notify:
+          success: true
+          failure: true
+      # Uncomment once you've connected the Google Play service account in
+      # Codemagic Team integrations and verified the package is published once
+      # manually.
+      # google_play:
+      #   credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal
+      #   submit_as_draft: false

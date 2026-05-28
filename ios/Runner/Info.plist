@@ -23,7 +23,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>methna_app</string>
+		<string>Methna</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -83,6 +83,8 @@
 				</array>
 			</dict>
 		</array>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 		<key>GIDClientID</key>
 		<string>980830018700-06on5f7bccfu2a2l8t7n7cklq9dtqqot.apps.googleusercontent.com</string>
 	</dict>

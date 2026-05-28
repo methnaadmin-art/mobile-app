@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
@@ -306,8 +306,8 @@ class PermissionService extends GetxService {
       'Permission Denied',
       '$permissionName was not granted. Some features may not work.',
       snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.orange.shade100,
-      colorText: Colors.orange.shade900,
+      backgroundColor: const Color(0xFFF4F0FF),
+      colorText: const Color(0xFF4F26D9),
       margin: const EdgeInsets.all(12),
       borderRadius: 12,
       duration: const Duration(seconds: 3),

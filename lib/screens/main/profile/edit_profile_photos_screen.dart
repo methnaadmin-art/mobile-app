@@ -313,9 +313,9 @@ class _EditProfilePhotosScreenState extends State<EditProfilePhotosScreen> {
     try {
       final picked = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1080,
-        maxHeight: 1080,
-        imageQuality: 72,
+        maxWidth: 2560,
+        maxHeight: 2560,
+        imageQuality: 96,
       );
 
       if (picked == null) return;

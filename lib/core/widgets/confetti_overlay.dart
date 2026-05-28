@@ -1,4 +1,4 @@
-import 'package:confetti/confetti.dart';
+﻿import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 
@@ -126,7 +126,7 @@ class _MatchConfettiState extends State<MatchConfetti> {
         AppColors.primaryLight,
         AppColors.primaryDark,
         Colors.white,
-        Color(0xFF4CAF50),
+        Color(0xFF6E3DFB),
       ],
       createParticlePath: (size) {
         // Diamond shape

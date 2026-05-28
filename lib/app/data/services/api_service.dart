@@ -12,6 +12,7 @@ class ApiService extends GetxService {
   final StorageService _storage = Get.find<StorageService>();
   bool _isRedirecting = false;
   Future<bool>? _refreshFuture;
+  final RxInt activeInteractiveRequests = 0.obs;
   static const Set<String> _publicAuthPaths = {
     ApiConstants.login,
     ApiConstants.register,
@@ -122,7 +123,7 @@ class ApiService extends GetxService {
             final inTransition = route.contains('signup');
             
             if (!inTransition) {
-              await _storage.clearAll();
+              await _storage.clearAuthData();
               if (!_isRedirecting && route != AppRoutes.login) {
                 _isRedirecting = true;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -251,69 +252,137 @@ class ApiService extends GetxService {
     return _refreshFuture!;
   }
 
+  void _startInteractiveRequest(bool trackLoader) {
+    if (!trackLoader) return;
+    activeInteractiveRequests.value++;
+  }
+
+  void _finishInteractiveRequest(bool trackLoader) {
+    if (!trackLoader) return;
+    if (activeInteractiveRequests.value > 0) {
+      activeInteractiveRequests.value--;
+    }
+  }
+
+  Future<Response> _runTrackedRequest(
+    Future<Response> Function() request, {
+    required bool showLoader,
+  }) async {
+    _startInteractiveRequest(showLoader);
+    try {
+      return await request();
+    } finally {
+      _finishInteractiveRequest(showLoader);
+    }
+  }
+
   // ─── HTTP Methods ──────────────────────────────────────────
   Future<Response> get(
     String path, {
     Map<String, dynamic>? queryParameters,
     Options? options,
+    bool showLoader = false,
   }) =>
-      _dio.get(
-        path,
-        queryParameters: queryParameters,
-        options: (options ?? Options()).copyWith(
-          connectTimeout: options?.connectTimeout ?? _defaultConnectTimeout,
-          receiveTimeout: options?.receiveTimeout ?? _defaultReceiveTimeout,
+      _runTrackedRequest(
+        () => _dio.get(
+          path,
+          queryParameters: queryParameters,
+          options: (options ?? Options()).copyWith(
+            connectTimeout: options?.connectTimeout ?? _defaultConnectTimeout,
+            receiveTimeout: options?.receiveTimeout ?? _defaultReceiveTimeout,
+          ),
         ),
+        showLoader: showLoader,
       );
 
-  Future<Response> post(String path, {dynamic data, Map<String, dynamic>? queryParameters}) =>
-      _dio.post(
-        path,
-        data: data,
-        queryParameters: queryParameters,
-        options: Options(
-          connectTimeout: _defaultConnectTimeout,
-          sendTimeout: _defaultSendTimeout,
-          receiveTimeout: _writeReceiveTimeout,
+  Future<Response> post(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    bool showLoader = true,
+  }) =>
+      _runTrackedRequest(
+        () => _dio.post(
+          path,
+          data: data,
+          queryParameters: queryParameters,
+          options: Options(
+            connectTimeout: _defaultConnectTimeout,
+            sendTimeout: _defaultSendTimeout,
+            receiveTimeout: _writeReceiveTimeout,
+          ),
         ),
+        showLoader: showLoader,
       );
 
-  Future<Response> put(String path, {dynamic data}) =>
-      _dio.put(
-        path,
-        data: data,
-        options: Options(
-          connectTimeout: _defaultConnectTimeout,
-          sendTimeout: _defaultSendTimeout,
-          receiveTimeout: _writeReceiveTimeout,
+  Future<Response> put(
+    String path, {
+    dynamic data,
+    bool showLoader = true,
+  }) =>
+      _runTrackedRequest(
+        () => _dio.put(
+          path,
+          data: data,
+          options: Options(
+            connectTimeout: _defaultConnectTimeout,
+            sendTimeout: _defaultSendTimeout,
+            receiveTimeout: _writeReceiveTimeout,
+          ),
         ),
+        showLoader: showLoader,
       );
 
-  Future<Response> patch(String path, {dynamic data}) =>
-      _dio.patch(
-        path,
-        data: data,
-        options: Options(
-          connectTimeout: _defaultConnectTimeout,
-          sendTimeout: _defaultSendTimeout,
-          receiveTimeout: _writeReceiveTimeout,
+  Future<Response> patch(
+    String path, {
+    dynamic data,
+    bool showLoader = true,
+  }) =>
+      _runTrackedRequest(
+        () => _dio.patch(
+          path,
+          data: data,
+          options: Options(
+            connectTimeout: _defaultConnectTimeout,
+            sendTimeout: _defaultSendTimeout,
+            receiveTimeout: _writeReceiveTimeout,
+          ),
         ),
+        showLoader: showLoader,
       );
 
-  Future<Response> delete(String path, {dynamic data}) =>
-      _dio.delete(
-        path,
-        data: data,
-        options: Options(
-          connectTimeout: _defaultConnectTimeout,
-          receiveTimeout: _defaultReceiveTimeout,
+  Future<Response> delete(
+    String path, {
+    dynamic data,
+    bool showLoader = true,
+  }) =>
+      _runTrackedRequest(
+        () => _dio.delete(
+          path,
+          data: data,
+          options: Options(
+            connectTimeout: _defaultConnectTimeout,
+            receiveTimeout: _defaultReceiveTimeout,
+          ),
         ),
+        showLoader: showLoader,
       );
 
-  Future<Response> upload(String path, FormData formData) =>
-      _dio.post(path, data: formData, options: Options(
-        contentType: 'multipart/form-data',
-        receiveTimeout: const Duration(seconds: 60),
-        sendTimeout: const Duration(seconds: 60),
-      ));
+  Future<Response> upload(
+    String path,
+    FormData formData, {
+    bool showLoader = true,
+  }) =>
+      _runTrackedRequest(
+        () => _dio.post(
+          path,
+          data: formData,
+          options: Options(
+            contentType: 'multipart/form-data',
+            receiveTimeout: const Duration(seconds: 60),
+            sendTimeout: const Duration(seconds: 60),
+          ),
+        ),
+        showLoader: showLoader,
+      );
 }

@@ -5,6 +5,7 @@ import 'package:methna_app/app/controllers/categories_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/core/utils/cloudinary_url.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/animated_empty_state.dart';
 import 'package:methna_app/core/widgets/datify_shell.dart';
@@ -209,6 +210,10 @@ class _ProUserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayName = user.publicDisplayName.trim().isNotEmpty
+        ? user.publicDisplayName.trim()
+        : 'User';
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -232,7 +237,7 @@ class _ProUserCard extends StatelessWidget {
                 tag: 'user_${user.id}',
                 child: user.mainPhotoUrl != null
                     ? CachedNetworkImage(
-                        imageUrl: user.mainPhotoUrl!,
+                        imageUrl: CloudinaryUrl.medium(user.mainPhotoUrl),
                         fit: BoxFit.cover,
                         placeholder: (_, _) => Container(
                           color: isDark ? AppColors.cardDark : Colors.grey[200],
@@ -302,7 +307,7 @@ class _ProUserCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            user.firstName ?? user.username ?? 'User',
+                            displayName,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart' show Colors;
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'dart:async';
@@ -7,27 +8,96 @@ import 'dart:math' as math;
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
+import 'package:methna_app/app/controllers/chat_controller.dart';
 import 'package:methna_app/app/controllers/navigation_controller.dart';
 import 'package:methna_app/app/controllers/users_controller.dart';
 import 'package:methna_app/app/data/services/monetization_service.dart';
 import 'package:methna_app/app/data/services/notification_service.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
+import 'package:methna_app/app/utils/auth_navigation_resolver.dart';
 import 'package:methna_app/core/constants/api_constants.dart';
 import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/utils/match_found_presentation_guard.dart';
 import 'package:methna_app/core/services/trial_manager.dart';
+import 'package:methna_app/screens/main/home/match_found_screen.dart';
 
 import 'package:methna_app/app/data/services/location_service.dart';
 import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/data/models/category_model.dart';
 import 'package:methna_app/app/data/models/success_story_model.dart';
 
-class HomeController extends GetxController {
+class _RemovedSwipeCard {
+  const _RemovedSwipeCard({
+    required this.user,
+    required this.originalIndex,
+    this.nextUserId,
+    this.nextUser,
+  });
+
+  final UserModel user;
+  final int originalIndex;
+  final String? nextUserId;
+  final UserModel? nextUser;
+}
+
+class _SwipeHistoryEntry {
+  const _SwipeHistoryEntry({
+    required this.user,
+    required this.action,
+    required this.originalIndex,
+    required this.occurredAt,
+    this.nextUserId,
+    this.nextUser,
+    this.matchId,
+    this.matched = false,
+  });
+
+  final UserModel user;
+  final String action;
+  final int originalIndex;
+  final DateTime occurredAt;
+  final String? nextUserId;
+  final UserModel? nextUser;
+  final String? matchId;
+  final bool matched;
+}
+
+class HomeController extends GetxController with WidgetsBindingObserver {
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
   static const double distanceFilterMinKm = 20.0;
-  static const double distanceFilterUnlimitedKm = 500.0;
-  static const int _discoverPrefetchThreshold = 8;
+  static const double defaultDistanceFilterKm = 50.0;
+  static const double distanceFilterUnlimitedKm = 400.0;
+  static const int defaultMinAgeFilter = 18;
+  static const int defaultMaxAgeFilter = 90;
+  static const int _discoverInitialBufferSize = 20;
+  static const int _discoverPrefetchThreshold = 7;
+  static const int _discoverMaxEnsureAttempts = 2;
+  static const int _maxDiscoverExcludeIds = 300;
+  static const int _maxSwipeHistoryEntries = 60;
+  static const Duration _discoverRequestTimeout = Duration(seconds: 8);
+  static const String _discoverCurrentIndexStorageKey =
+      'discover_current_index_v1';
+  static const String _discoverNextCursorStorageKey = 'discover_next_cursor_v1';
+  static const String _discoverHasMoreStorageKey = 'discover_has_more_v1';
+  static const String _countryFilterUserSetKey = 'filter_country_user_set';
+  static const String _distanceFilterUserSetKey = 'filter_distance_user_set';
+  static const List<String> _timeFrameValues = <String>[
+    '',
+    'within_months',
+    'within_year',
+    'one_to_two_years',
+    'not_sure',
+    'just_exploring',
+  ];
+  static const Map<String, int> _legacyIntentToTimeFrameIndex = <String, int>{
+    'family_introduction': 1,
+    'serious_marriage': 2,
+    'exploring': 5,
+  };
 
   final ApiService _api = Get.find<ApiService>();
   final AuthService _auth = Get.find<AuthService>();
@@ -37,22 +107,42 @@ class HomeController extends GetxController {
   final NotificationService _notificationService =
       Get.find<NotificationService>();
 
-  void _presentMatchFound(UserModel? matchedUser) {
-    if (matchedUser == null) return;
-    if (Get.currentRoute == AppRoutes.matchFound) return;
-    if (!MatchFoundPresentationGuard.shouldPresent(matchedUser.id)) return;
-    Get.toNamed(AppRoutes.matchFound, arguments: {'user': matchedUser});
+  void _presentMatchFound(UserModel? matchedUser, {String? matchId}) {
+    if (matchedUser == null || matchedUser.id.isEmpty) return;
+    if (!MatchFoundPresentationGuard.beginPresentation(
+      matchId: matchId,
+      userId: matchedUser.id,
+    )) {
+      return;
+    }
+    debugPrint(
+      '[Home] Presenting match overlay for ${matchedUser.id} (matchId=${matchId ?? 'unknown'})',
+    );
+    // Preload the next batch of cards while the match overlay is visible,
+    // so the user never sees an empty deck when they dismiss the overlay.
+    unawaited(ensureDiscoverBufferReady());
+    unawaited(
+      MatchFoundScreen.showOverlay(matchedUser).then((displayed) async {
+        MatchFoundPresentationGuard.endPresentation(markDismissed: displayed);
+        // Safety net: refill again if the preload did not complete in time.
+        await ensureDiscoverBufferReady();
+      }),
+    );
   }
+
   final TrialManager trialManager = Get.find<TrialManager>();
 
   final CardSwiperController swiperController = CardSwiperController();
 
   final RxList<UserModel> discoverUsers = <UserModel>[].obs;
+  final Rx<Map<String, dynamic>?> featuredAd = Rx<Map<String, dynamic>?>(null);
+  final RxBool isLoadingFeaturedAd = false.obs;
   final RxList<CategoryModel> categories = <CategoryModel>[].obs;
   final RxList<SuccessStoryModel> successStories = <SuccessStoryModel>[].obs;
   final RxString selectedCategoryId = ''.obs;
 
   final RxBool isLoading = false.obs;
+  final RxBool isInitializing = false.obs;
   final RxBool isLoadingCategories = false.obs;
   final RxBool isLoadingStories = false.obs;
   final RxBool isEmpty = false.obs;
@@ -67,20 +157,27 @@ class HomeController extends GetxController {
   final RxMap<String, bool> cardDetailsExpanded = <String, bool>{}.obs;
 
   // Filter state
-  final RxInt minAge = 18.obs;
-  final RxInt maxAge = 90.obs;
-  final RxDouble maxDistance = 50.0.obs;
+  final RxInt minAge = defaultMinAgeFilter.obs;
+  final RxInt maxAge = defaultMaxAgeFilter.obs;
+  final RxDouble maxDistance = defaultDistanceFilterKm.obs;
+  final RxBool distanceFilterUserSet = false.obs;
   final RxString genderFilter = 'all'.obs;
   final RxString countryFilter = ''.obs;
+  final RxString countryCodeFilter = ''.obs;
+  final RxBool countryFilterUserSet = false.obs;
   final RxString cityFilter = ''.obs;
+  final RxString maritalStatusFilter = ''.obs;
+  final RxString ethnicityFilter = ''.obs;
   final RxString educationFilter = ''.obs;
   final RxString religiousLevelFilter = ''.obs;
   final RxString prayerFrequencyFilter = ''.obs;
   final RxString marriageIntentionFilter = ''.obs;
+  final RxInt timeFrameIndex = 0.obs;
   final RxString livingSituationFilter = ''.obs;
   final RxList<String> interestsFilter = <String>[].obs;
   final RxList<String> languagesFilter = <String>[].obs;
   final RxList<String> familyValuesFilter = <String>[].obs;
+  final RxList<String> communicationStylesFilter = <String>[].obs;
   final RxBool verifiedOnlyFilter = false.obs;
   final RxBool goGlobalFilter = false.obs;
   final RxBool useKm = true.obs;
@@ -88,15 +185,22 @@ class HomeController extends GetxController {
   final RxBool withPhotosOnlyFilter = false.obs;
   final RxInt minTrustScoreFilter = 0.obs;
   final RxBool backgroundCheckOnlyFilter = false.obs;
+  final RxBool isApplyingFilters = false.obs;
 
   // Pagination
   final RxInt _page = 1.obs;
   final RxBool _hasMore = true.obs;
   final RxBool _isLoadingMore = false.obs;
   final Set<String> _seenUserIds = {};
+  String? _discoverNextCursor;
+  bool _pendingForceRefreshAfterLoad = false;
+  Timer? _liveFilterRefreshTimer;
 
   // Rewind tracking
   final Rx<UserModel?> lastSwipedUser = Rx<UserModel?>(null);
+  final List<_SwipeHistoryEntry> _swipeHistoryStack = <_SwipeHistoryEntry>[];
+  Future<void> _swipeMutationQueue = Future<void>.value();
+  bool _isRewindInFlight = false;
 
   // Baraka Meter scores: userId -> {score, level}
   final RxMap<String, Map<String, dynamic>> barakaScores =
@@ -109,11 +213,15 @@ class HomeController extends GetxController {
   final RxString dailyInsightAuthor = ''.obs;
   final RxBool dailyInsightDismissed = false.obs;
   Worker? _currentUserWorker;
+  Worker? _passportLocationWorker;
   Timer? _startupRadarTimer;
   Timer? _swipeTutorialTimer;
   DateTime? _startupRadarStartedAt;
   bool _startupFlowHandled = false;
   bool _startupRadarDismissScheduled = false;
+  String? _lastViewerVerificationUserId;
+  bool? _lastViewerSelfieVerified;
+  String? _lastPassportDiscoverySignature;
 
   // Behavior-based recommendation signals (client-side learning)
   static const String _behaviorSignalsStorageKey =
@@ -121,6 +229,7 @@ class HomeController extends GetxController {
   static bool _startupRadarShownThisLaunch = false;
   final Map<String, double> _likedInterestWeights = <String, double>{};
   final Map<String, double> _passedInterestWeights = <String, double>{};
+  final Set<String> _trackedAdImpressions = <String>{};
   double _preferredAgeCenter = 0;
   double _preferredDistanceKm = 0;
   int _positiveSignalCount = 0;
@@ -161,8 +270,7 @@ class HomeController extends GetxController {
   void previousCardPhoto(String userId, int photoCount) {
     if (photoCount <= 1) return;
     final current = cardPhotoIndexFor(userId, photoCount);
-    cardPhotoIndices[userId] =
-        (current - 1 + photoCount) % photoCount;
+    cardPhotoIndices[userId] = (current - 1 + photoCount) % photoCount;
   }
 
   bool isCardDetailsExpanded(String userId) {
@@ -177,22 +285,59 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     debugPrint('[Home] onInit');
+    WidgetsBinding.instance.addObserver(this);
     _seenUserIds.addAll(_storage.getSeenDiscoverUserIds());
-    _currentUserWorker = ever<UserModel?>(_auth.currentUser, (_) {
+    _restorePersistedDiscoverDeckMeta();
+    _loadCachedUsersInstantly();
+    final initialViewer = _auth.currentUser.value;
+    _lastViewerVerificationUserId = initialViewer?.id.trim();
+    _lastViewerSelfieVerified = initialViewer?.selfieVerified;
+    _currentUserWorker = ever<UserModel?>(_auth.currentUser, (user) {
+      final normalizedViewerId = user?.id.trim();
+      final normalizedSelfieVerified = user?.selfieVerified ?? false;
+      final selfieVerificationChanged =
+          normalizedViewerId != null &&
+          normalizedViewerId.isNotEmpty &&
+          _lastViewerVerificationUserId == normalizedViewerId &&
+          _lastViewerSelfieVerified != null &&
+          _lastViewerSelfieVerified != normalizedSelfieVerified;
+
+      _lastViewerVerificationUserId = normalizedViewerId;
+      _lastViewerSelfieVerified = normalizedSelfieVerified;
+
       final sanitizedUsers = _sanitizeDiscoverUsers(discoverUsers);
       if (sanitizedUsers.length != discoverUsers.length) {
         discoverUsers.assignAll(sanitizedUsers);
         isEmpty.value = discoverUsers.isEmpty;
       }
 
+      if (selfieVerificationChanged) {
+        unawaited(_refreshDiscoveryForViewerVerificationChange());
+        return;
+      }
+
       if (discoverUsers.isEmpty && !isLoading.value) {
-        unawaited(fetchDiscoverUsers(forceRefresh: true));
+        unawaited(fetchDiscoverUsers());
       }
     });
+    _lastPassportDiscoverySignature = _passportDiscoverySignature(
+      _monetization.passportLocation.value,
+    );
+    _passportLocationWorker = ever<Map<String, dynamic>?>(
+      _monetization.passportLocation,
+      (location) {
+        final nextSignature = _passportDiscoverySignature(location);
+        if (_lastPassportDiscoverySignature == nextSignature) {
+          return;
+        }
+        _lastPassportDiscoverySignature = nextSignature;
+        unawaited(_refreshDiscoveryForPassportLocationChange());
+      },
+    );
     _loadFilters();
     _loadBehaviorSignals();
+    unawaited(fetchFeaturedAd());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadCachedUsersInstantly();
       unawaited(_bootstrapAfterAuthRestore());
     });
   }
@@ -209,10 +354,19 @@ class HomeController extends GetxController {
 
   @override
   void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _liveFilterRefreshTimer?.cancel();
     _startupRadarTimer?.cancel();
     _swipeTutorialTimer?.cancel();
     _currentUserWorker?.dispose();
+    _passportLocationWorker?.dispose();
     super.onClose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    unawaited(_recheckLocationAvailabilityOnResume());
   }
 
   bool _consumePendingSwipeTutorialFlag() {
@@ -235,6 +389,7 @@ class HomeController extends GetxController {
   void dismissSwipeTutorial() {
     _swipeTutorialTimer?.cancel();
     showSwipeTutorial.value = false;
+    unawaited(_storage.saveBool(AppConstants.swipeTutorialPendingKey, false));
   }
 
   /// Load cached discover users from local storage for instant display
@@ -248,12 +403,90 @@ class HomeController extends GetxController {
           ),
         );
         discoverUsers.assignAll(users);
-        isEmpty.value = false;
-        debugPrint('[Home] Loaded ${users.length} cached users instantly');
+        final persistedIndex =
+            int.tryParse(
+              _storage.getString(_discoverCurrentIndexStorageKey) ?? '',
+            ) ??
+            0;
+        currentCardIndex.value = persistedIndex.clamp(
+          0,
+          users.isEmpty ? 0 : users.length - 1,
+        );
+        isEmpty.value = users.isEmpty;
+        debugPrint(
+          '[Home] Loaded ${users.length} cached users instantly (index=${currentCardIndex.value})',
+        );
       }
     } catch (e) {
       debugPrint('[Home] Failed to load cached users: $e');
     }
+  }
+
+  Future<void> _persistDiscoverDeckState() async {
+    try {
+      await _storage.cacheDiscoverUsers(
+        discoverUsers.map((user) => user.toJson()).toList(),
+      );
+      await _storage.saveString(
+        _discoverCurrentIndexStorageKey,
+        currentCardIndex.value.toString(),
+      );
+      await _storage.saveString(
+        _discoverNextCursorStorageKey,
+        _discoverNextCursor ?? '',
+      );
+      await _storage.saveString(
+        _discoverHasMoreStorageKey,
+        _hasMore.value ? '1' : '0',
+      );
+    } catch (e) {
+      debugPrint('[Home] Failed to persist discover deck state: $e');
+    }
+  }
+
+  bool? _parseStoredBool(String? value) {
+    final normalized = (value ?? '').trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+    if (normalized == '1' || normalized == 'true' || normalized == 'yes') {
+      return true;
+    }
+    if (normalized == '0' || normalized == 'false' || normalized == 'no') {
+      return false;
+    }
+    return null;
+  }
+
+  void _restorePersistedDiscoverDeckMeta() {
+    final savedCursor =
+        (_storage.getString(_discoverNextCursorStorageKey) ?? '').trim();
+    _discoverNextCursor = savedCursor.isEmpty ? null : savedCursor;
+
+    final savedHasMore = _parseStoredBool(
+      _storage.getString(_discoverHasMoreStorageKey),
+    );
+    if (savedHasMore != null) {
+      _hasMore.value = savedHasMore;
+    }
+  }
+
+  Future<void> ensureDiscoverBufferReady({bool forceRefresh = false}) async {
+    if (discoverUsers.isEmpty) {
+      isEmpty.value = true;
+      if (!_hasMore.value && !forceRefresh) {
+        unawaited(_persistDiscoverDeckState());
+        return;
+      }
+      if (!isLoading.value) {
+        debugPrint(
+          '[Home] Discover buffer empty after popup/navigation. Fetching a fresh page...',
+        );
+        await fetchDiscoverUsers(forceRefresh: forceRefresh);
+      }
+      return;
+    }
+
+    _prefetchDiscoverBufferIfNeeded();
+    unawaited(_persistDiscoverDeckState());
   }
 
   Future<void> _waitForSessionRestoreIfNeeded() async {
@@ -269,7 +502,7 @@ class HomeController extends GetxController {
     });
 
     try {
-      await completer.future.timeout(const Duration(seconds: 10));
+      await completer.future.timeout(const Duration(seconds: 3));
     } catch (_) {
       worker.dispose();
     }
@@ -287,7 +520,7 @@ class HomeController extends GetxController {
       showLocationGate.value = false;
       showStartupRadar.value = false;
       if (discoverUsers.isEmpty && !isLoading.value) {
-        unawaited(fetchDiscoverUsers(forceRefresh: true));
+        unawaited(fetchDiscoverUsers());
       }
       _showSwipeTutorialOverlay();
       return;
@@ -301,7 +534,7 @@ class HomeController extends GetxController {
       showLocationGate.value = true;
       showStartupRadar.value = false;
       if (discoverUsers.isEmpty && !isLoading.value) {
-        unawaited(fetchDiscoverUsers(forceRefresh: true));
+        unawaited(fetchDiscoverUsers());
       }
       return;
     }
@@ -310,7 +543,7 @@ class HomeController extends GetxController {
       showLocationGate.value = false;
       showStartupRadar.value = false;
       if (discoverUsers.isEmpty && !isLoading.value) {
-        unawaited(fetchDiscoverUsers(forceRefresh: true));
+        unawaited(fetchDiscoverUsers());
       }
       return;
     }
@@ -323,19 +556,18 @@ class HomeController extends GetxController {
   Future<void> _startStartupRadarFlow() async {
     _startupRadarShownThisLaunch = true;
     showLocationGate.value = false;
-    showStartupRadar.value = true;
+    showStartupRadar.value = false;
     _startupRadarDismissScheduled = false;
-    _startupRadarStartedAt = DateTime.now();
+    _startupRadarStartedAt = null;
 
     _startupRadarTimer?.cancel();
-    _startupRadarTimer = Timer(const Duration(seconds: 10), () {
-      showStartupRadar.value = false;
-    });
 
     if (!isLoading.value) {
-      await fetchDiscoverUsers(forceRefresh: true);
-    } else {
-      _dismissStartupRadarIfReady();
+      if (discoverUsers.isEmpty) {
+        await fetchDiscoverUsers();
+      } else {
+        _prefetchDiscoverBufferIfNeeded();
+      }
     }
   }
 
@@ -362,6 +594,36 @@ class HomeController extends GetxController {
 
   void dismissLocationGate() {
     showLocationGate.value = false;
+  }
+
+  Future<void> _recheckLocationAvailabilityOnResume() async {
+    final ready = await _location.isLocationReady();
+    locationGranted.value = ready;
+    await _storage.saveBool('location_permission_granted', ready);
+
+    if (!ready) {
+      showStartupRadar.value = false;
+      if (Get.currentRoute == AppRoutes.main &&
+          Get.isRegistered<NavigationController>()) {
+        final navigation = Get.find<NavigationController>();
+        if (navigation.currentIndex.value != 0) {
+          navigation.goToHome();
+        }
+      }
+      showLocationGate.value = true;
+      return;
+    }
+
+    showLocationGate.value = false;
+
+    if (discoverUsers.isEmpty && !isLoading.value) {
+      await fetchDiscoverUsers(forceRefresh: true);
+      return;
+    }
+
+    if (discoverUsers.isNotEmpty) {
+      _prefetchDiscoverBufferIfNeeded();
+    }
   }
 
   void _dismissStartupRadarIfReady() {
@@ -493,52 +755,122 @@ class HomeController extends GetxController {
     });
   }
 
+  List<String> _readStoredList(String key) {
+    final raw = _storage.getString(key) ?? '';
+    if (raw.trim().isEmpty) return const <String>[];
+    return raw
+        .split('||')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
+
+  int _resolveTimeFrameIndex({
+    required String savedTimeFrame,
+    required String savedMarriageIntention,
+    required String legacyIntentMode,
+  }) {
+    final normalizedTimeFrame = savedTimeFrame.trim().toLowerCase();
+    if (normalizedTimeFrame.isNotEmpty) {
+      final parsedIndex = int.tryParse(normalizedTimeFrame);
+      if (parsedIndex != null) {
+        return parsedIndex.clamp(0, _timeFrameValues.length - 1).toInt();
+      }
+
+      final timeFrameIndex = _timeFrameValues.indexOf(normalizedTimeFrame);
+      if (timeFrameIndex >= 0) {
+        return timeFrameIndex;
+      }
+    }
+
+    final normalizedMarriage = savedMarriageIntention.trim().toLowerCase();
+    if (normalizedMarriage.isNotEmpty) {
+      final marriageIndex = _timeFrameValues.indexOf(normalizedMarriage);
+      if (marriageIndex >= 0) {
+        return marriageIndex;
+      }
+    }
+
+    return _legacyIntentToTimeFrameIndex[legacyIntentMode
+            .trim()
+            .toLowerCase()] ??
+        0;
+  }
+
   void _loadFilters() {
     final loadedMinAge = _storage.getString('filter_minAge') != null
-      ? int.tryParse(_storage.getString('filter_minAge')!)
-      : null;
+        ? int.tryParse(_storage.getString('filter_minAge')!)
+        : null;
     final loadedMaxAge = _storage.getString('filter_maxAge') != null
-      ? int.tryParse(_storage.getString('filter_maxAge')!)
-      : null;
-    final normalizedMin = (loadedMinAge ?? 18).clamp(18, 90).toInt();
-    final normalizedMax = (loadedMaxAge ?? 90).clamp(18, 90).toInt();
+        ? int.tryParse(_storage.getString('filter_maxAge')!)
+        : null;
+    final normalizedMin = (loadedMinAge ?? defaultMinAgeFilter)
+        .clamp(defaultMinAgeFilter, defaultMaxAgeFilter)
+        .toInt();
+    final normalizedMax = (loadedMaxAge ?? defaultMaxAgeFilter)
+        .clamp(defaultMinAgeFilter, defaultMaxAgeFilter)
+        .toInt();
     minAge.value = math.min(normalizedMin, normalizedMax);
     maxAge.value = math.max(normalizedMin, normalizedMax);
 
     final loadedDistance = _storage.getString('filter_maxDistance') != null
-      ? double.tryParse(_storage.getString('filter_maxDistance')!)
-      : null;
-    maxDistance.value = (loadedDistance ?? 50.0).clamp(
+        ? double.tryParse(_storage.getString('filter_maxDistance')!)
+        : null;
+    maxDistance.value = (loadedDistance ?? defaultDistanceFilterKm).clamp(
       distanceFilterMinKm,
       distanceFilterUnlimitedKm,
     );
-    genderFilter.value = _storage.getString('filter_gender') ?? 'all';
-    countryFilter.value = _storage.getString('filter_country') ?? '';
+    distanceFilterUserSet.value =
+        _storage.getBool(_distanceFilterUserSetKey) ?? false;
+    final fallbackGender = defaultDiscoveryGender;
+    genderFilter.value = fallbackGender;
+    countryFilter.value = (_storage.getString('filter_country') ?? '').trim();
+    countryCodeFilter.value = (_storage.getString('filter_countryCode') ?? '')
+        .trim()
+        .toUpperCase();
+    countryFilterUserSet.value =
+        _storage.getBool(_countryFilterUserSetKey) ?? false;
+    if (!countryFilterUserSet.value && countryFilter.value.trim().isNotEmpty) {
+      countryFilter.value = '';
+      countryCodeFilter.value = '';
+      unawaited(_storage.saveString('filter_country', ''));
+      unawaited(_storage.saveString('filter_countryCode', ''));
+    }
     cityFilter.value = _storage.getString('filter_city') ?? '';
+    maritalStatusFilter.value =
+        _storage.getString('filter_maritalStatus') ?? '';
+    ethnicityFilter.value = _storage.getString('filter_ethnicity') ?? '';
     educationFilter.value = _storage.getString('filter_education') ?? '';
     religiousLevelFilter.value =
         _storage.getString('filter_religiousLevel') ?? '';
     prayerFrequencyFilter.value =
         _storage.getString('filter_prayerFrequency') ?? '';
-    marriageIntentionFilter.value =
-        _storage.getString('filter_marriageIntention') ?? '';
+    final savedMarriageIntention =
+        (_storage.getString('filter_marriageIntention') ?? '').trim();
+    final savedTimeFrame = (_storage.getString('filter_timeFrame') ?? '')
+        .trim();
+    final legacyIntentMode = (_storage.getString('filter_intentMode') ?? '')
+        .trim();
+    final resolvedTimeFrameIndex = _resolveTimeFrameIndex(
+      savedTimeFrame: savedTimeFrame,
+      savedMarriageIntention: savedMarriageIntention,
+      legacyIntentMode: legacyIntentMode,
+    );
+    timeFrameIndex.value = resolvedTimeFrameIndex;
+    final resolvedTimeFrameValue = _timeFrameValues[resolvedTimeFrameIndex];
+    marriageIntentionFilter.value = resolvedTimeFrameValue.isNotEmpty
+        ? resolvedTimeFrameValue
+        : savedMarriageIntention;
     livingSituationFilter.value =
         _storage.getString('filter_livingSituation') ?? '';
-    final savedLanguages = _storage.getString('filter_languages') ?? '';
-    languagesFilter.assignAll(
-      savedLanguages.isEmpty
-          ? const <String>[]
-          : savedLanguages
-                .split('||')
-                .where((value) => value.trim().isNotEmpty),
-    );
-    final savedFamilyValues = _storage.getString('filter_familyValues') ?? '';
-    familyValuesFilter.assignAll(
-      savedFamilyValues.isEmpty
-          ? const <String>[]
-          : savedFamilyValues
-                .split('||')
-                .where((value) => value.trim().isNotEmpty),
+    interestsFilter.assignAll(_readStoredList('filter_interests'));
+    languagesFilter.assignAll(_readStoredList('filter_languages'));
+    familyValuesFilter.assignAll(_readStoredList('filter_familyValues'));
+    communicationStylesFilter.assignAll(
+      _readStoredList(
+        'filter_communicationStyles',
+      ).map(_toCommunicationStyleEnum),
     );
     verifiedOnlyFilter.value = _storage.getBool('filter_verifiedOnly') ?? false;
     goGlobalFilter.value = _storage.getBool('filter_goGlobal') ?? false;
@@ -552,19 +884,48 @@ class HomeController extends GetxController {
         _storage.getBool('filter_backgroundCheckOnly') ?? false;
     locationGranted.value =
         _storage.getBool('location_permission_granted') ?? false;
+    _enforceFreeTierFilterPolicy();
     debugPrint('[Home] _loadFilters: loaded all filters from storage');
   }
 
   Future<void> saveFilters() async {
+    _enforceFreeTierFilterPolicy();
+    final normalizedCommunicationStyles = communicationStylesFilter
+        .map(_toCommunicationStyleEnum)
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final selectedTimeFrame = timeFrameValue;
+    final effectiveMarriageIntention = selectedTimeFrame.isNotEmpty
+        ? selectedTimeFrame
+        : marriageIntentionFilter.value.trim();
+
     await _storage.saveString('filter_minAge', minAge.value.toString());
     await _storage.saveString('filter_maxAge', maxAge.value.toString());
     await _storage.saveString(
       'filter_maxDistance',
       maxDistance.value.toString(),
     );
-    await _storage.saveString('filter_gender', genderFilter.value);
-    await _storage.saveString('filter_country', countryFilter.value);
+    await _storage.saveBool(
+      _distanceFilterUserSetKey,
+      distanceFilterUserSet.value,
+    );
+    await _storage.saveString(
+      'filter_gender',
+      defaultDiscoveryGender,
+    );
+    await _storage.saveString('filter_country', countryFilter.value.trim());
+    await _storage.saveString('filter_countryCode', countryCodeFilter.value);
+    await _storage.saveBool(
+      _countryFilterUserSetKey,
+      countryFilterUserSet.value,
+    );
     await _storage.saveString('filter_city', cityFilter.value);
+    await _storage.saveString(
+      'filter_maritalStatus',
+      maritalStatusFilter.value,
+    );
+    await _storage.saveString('filter_ethnicity', ethnicityFilter.value);
     await _storage.saveString('filter_education', educationFilter.value);
     await _storage.saveString(
       'filter_religiousLevel',
@@ -574,18 +935,28 @@ class HomeController extends GetxController {
       'filter_prayerFrequency',
       prayerFrequencyFilter.value,
     );
+    await _storage.saveString('filter_timeFrame', selectedTimeFrame);
     await _storage.saveString(
       'filter_marriageIntention',
-      marriageIntentionFilter.value,
+      effectiveMarriageIntention,
+    );
+    await _storage.saveString(
+      'filter_intentMode',
+      _legacyIntentForTimeFrame(effectiveMarriageIntention) ?? '',
     );
     await _storage.saveString(
       'filter_livingSituation',
       livingSituationFilter.value,
     );
+    await _storage.saveString('filter_interests', interestsFilter.join('||'));
     await _storage.saveString('filter_languages', languagesFilter.join('||'));
     await _storage.saveString(
       'filter_familyValues',
       familyValuesFilter.join('||'),
+    );
+    await _storage.saveString(
+      'filter_communicationStyles',
+      normalizedCommunicationStyles.join('||'),
     );
     await _storage.saveBool('filter_verifiedOnly', verifiedOnlyFilter.value);
     await _storage.saveBool('filter_goGlobal', goGlobalFilter.value);
@@ -608,6 +979,462 @@ class HomeController extends GetxController {
     debugPrint('[Home] saveFilters: persisted all filters');
   }
 
+  String get timeFrameValue {
+    final normalizedIndex = timeFrameIndex.value
+        .clamp(0, _timeFrameValues.length - 1)
+        .toInt();
+    return _timeFrameValues[normalizedIndex];
+  }
+
+  String get timeFrameLabel {
+    final value = timeFrameValue;
+    return value.isEmpty ? 'all'.tr : value.tr;
+  }
+
+  void onTimeFrameChanged(int index) {
+    final normalizedIndex = index.clamp(0, _timeFrameValues.length - 1).toInt();
+    timeFrameIndex.value = normalizedIndex;
+    marriageIntentionFilter.value = _timeFrameValues[normalizedIndex];
+  }
+
+  String? _legacyIntentForTimeFrame(String timeFrame) {
+    switch (timeFrame.trim().toLowerCase()) {
+      case 'within_months':
+        return 'family_introduction';
+      case 'within_year':
+      case 'one_to_two_years':
+        return 'serious_marriage';
+      case 'just_exploring':
+        return 'exploring';
+      default:
+        return null;
+    }
+  }
+
+  void setCountryFilter(
+    String country, {
+    String? countryCode,
+    bool isUserAction = true,
+  }) {
+    final normalizedCountry = country.trim();
+    countryFilter.value = normalizedCountry;
+    countryCodeFilter.value = (countryCode ?? countryCodeFilter.value)
+        .trim()
+        .toUpperCase();
+
+    if (normalizedCountry.isEmpty) {
+      cityFilter.value = '';
+      countryCodeFilter.value = '';
+    }
+
+    countryFilterUserSet.value = isUserAction;
+  }
+
+  void clearCountryFilter({bool isUserAction = true}) {
+    setCountryFilter('', isUserAction: isUserAction);
+  }
+
+  bool get _hasAdvancedFilterAccess =>
+      _monetization.hasAdvancedFiltersAccess || hasPaidPremiumPlan;
+
+  bool get hasAdvancedFilterAccess => _hasAdvancedFilterAccess;
+
+  bool _hasAdvancedFiltersSelected() {
+    return goGlobalFilter.value ||
+        educationFilter.value.trim().isNotEmpty ||
+        religiousLevelFilter.value.trim().isNotEmpty ||
+        prayerFrequencyFilter.value.trim().isNotEmpty ||
+        interestsFilter.isNotEmpty ||
+        languagesFilter.isNotEmpty ||
+        familyValuesFilter.isNotEmpty ||
+        communicationStylesFilter.isNotEmpty;
+  }
+
+  void _clearAdvancedFilterState() {
+    educationFilter.value = '';
+    religiousLevelFilter.value = '';
+    prayerFrequencyFilter.value = '';
+    interestsFilter.clear();
+    languagesFilter.clear();
+    familyValuesFilter.clear();
+    communicationStylesFilter.clear();
+    goGlobalFilter.value = false;
+  }
+
+  void _enforceFreeTierFilterPolicy({bool showNotice = false}) {
+    if (_hasAdvancedFilterAccess) return;
+
+    final hadAdvancedFilters = _hasAdvancedFiltersSelected();
+    _clearAdvancedFilterState();
+
+    if (showNotice && hadAdvancedFilters) {
+      Helpers.showSnackbar(
+        message:
+            'Free users can only use basic filters. Upgrade to unlock advanced filters.',
+      );
+    }
+  }
+
+  void _resetFilterStateToDefaults() {
+    genderFilter.value = defaultDiscoveryGender;
+    minAge.value = defaultMinAgeFilter;
+    maxAge.value = defaultMaxAgeFilter;
+    maxDistance.value = defaultDistanceFilterKm;
+    distanceFilterUserSet.value = false;
+    clearCountryFilter(isUserAction: false);
+    cityFilter.value = '';
+    maritalStatusFilter.value = '';
+    ethnicityFilter.value = '';
+    educationFilter.value = '';
+    religiousLevelFilter.value = '';
+    prayerFrequencyFilter.value = '';
+    marriageIntentionFilter.value = '';
+    onTimeFrameChanged(0);
+    livingSituationFilter.value = '';
+    interestsFilter.clear();
+    languagesFilter.clear();
+    familyValuesFilter.clear();
+    communicationStylesFilter.clear();
+    verifiedOnlyFilter.value = false;
+    goGlobalFilter.value = false;
+    recentlyActiveOnlyFilter.value = false;
+    withPhotosOnlyFilter.value = false;
+    minTrustScoreFilter.value = 0;
+    backgroundCheckOnlyFilter.value = false;
+  }
+
+  Future<void> _clearDiscoverDeckForFilterRefresh({
+    bool clearSeenHistory = true,
+  }) async {
+    discoverUsers.clear();
+    cardPhotoIndices.clear();
+    cardDetailsExpanded.clear();
+    currentCardIndex.value = 0;
+    lastSwipedUser.value = null;
+    _swipeHistoryStack.clear();
+    _discoverNextCursor = null;
+    _page.value = 1;
+    _hasMore.value = true;
+    isEmpty.value = false;
+    _pendingForceRefreshAfterLoad = false;
+    if (clearSeenHistory) {
+      _seenUserIds.clear();
+      await _storage.clearSeenDiscoverUserIds();
+    }
+    await _storage.clearDiscoverCache();
+    await _persistDiscoverDeckState();
+  }
+
+  Future<void> _refreshDiscoveryForViewerVerificationChange() async {
+    debugPrint(
+      '[Home] Viewer selfie verification changed. Refreshing discovery deck so photo lock state updates immediately.',
+    );
+    if (isLoading.value) {
+      _pendingForceRefreshAfterLoad = true;
+      return;
+    }
+
+    await _clearDiscoverDeckForFilterRefresh(clearSeenHistory: false);
+    await fetchDiscoverUsers(forceRefresh: true);
+  }
+
+  Future<void> _refreshDiscoveryForPassportLocationChange() async {
+    debugPrint(
+      '[Home] Passport location changed. Refreshing discovery deck for the updated discovery scope.',
+    );
+    if (isLoading.value) {
+      _pendingForceRefreshAfterLoad = true;
+      return;
+    }
+
+    await _clearDiscoverDeckForFilterRefresh(clearSeenHistory: false);
+    await fetchDiscoverUsers(forceRefresh: true);
+  }
+
+  Future<void> _clearSeenDiscoverHistory() async {
+    _seenUserIds.clear();
+    await _storage.clearSeenDiscoverUserIds();
+  }
+
+  bool get _canUseIncomingLikesAsDiscoverFallback {
+    final hasExplicitCountry =
+        countryFilterUserSet.value && countryFilter.value.trim().isNotEmpty;
+    return !hasExplicitCountry &&
+        !distanceFilterUserSet.value &&
+        cityFilter.value.trim().isEmpty &&
+        maritalStatusFilter.value.trim().isEmpty &&
+        ethnicityFilter.value.trim().isEmpty &&
+        educationFilter.value.trim().isEmpty &&
+        religiousLevelFilter.value.trim().isEmpty &&
+        prayerFrequencyFilter.value.trim().isEmpty &&
+        timeFrameValue.isEmpty &&
+        livingSituationFilter.value.trim().isEmpty &&
+        interestsFilter.isEmpty &&
+        languagesFilter.isEmpty &&
+        familyValuesFilter.isEmpty &&
+        communicationStylesFilter.isEmpty &&
+        !verifiedOnlyFilter.value &&
+        !goGlobalFilter.value &&
+        !recentlyActiveOnlyFilter.value &&
+        !withPhotosOnlyFilter.value &&
+        !backgroundCheckOnlyFilter.value &&
+        minTrustScoreFilter.value <= 0 &&
+        maxDistance.value <= defaultDistanceFilterKm &&
+        minAge.value <= 18 &&
+        maxAge.value >= 90;
+  }
+
+  String? get _effectiveDiscoveryCountry {
+    final passportCountry =
+        _monetization.passportLocation.value?['country']?.toString().trim() ??
+        '';
+    if (passportCountry.isNotEmpty) {
+      return passportCountry;
+    }
+
+    final profileCountry = currentUser?.profile?.country?.trim() ?? '';
+    return profileCountry.isEmpty ? null : profileCountry;
+  }
+
+  double? get _effectiveDiscoveryLatitude {
+    final passportLatitude = _safeLocationCoordinate(
+      _monetization.passportLocation.value?['latitude'],
+    );
+    if (passportLatitude != null) {
+      return passportLatitude;
+    }
+    return currentUser?.profile?.latitude;
+  }
+
+  double? get _effectiveDiscoveryLongitude {
+    final passportLongitude = _safeLocationCoordinate(
+      _monetization.passportLocation.value?['longitude'],
+    );
+    if (passportLongitude != null) {
+      return passportLongitude;
+    }
+    return currentUser?.profile?.longitude;
+  }
+
+  double? _safeLocationCoordinate(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  String? _passportDiscoverySignature(Map<String, dynamic>? location) {
+    if (location == null) return null;
+    final latitude = _safeLocationCoordinate(location['latitude']);
+    final longitude = _safeLocationCoordinate(location['longitude']);
+    final city = location['city']?.toString().trim() ?? '';
+    final country = location['country']?.toString().trim() ?? '';
+    return '$latitude|$longitude|$city|$country';
+  }
+
+  double? _distanceKmFromEffectiveDiscoveryLocation(UserModel candidate) {
+    final viewerLat = _effectiveDiscoveryLatitude;
+    final viewerLon = _effectiveDiscoveryLongitude;
+    final candidateLat = candidate.profile?.latitude;
+    final candidateLon = candidate.profile?.longitude;
+    if (viewerLat == null ||
+        viewerLon == null ||
+        candidateLat == null ||
+        candidateLon == null) {
+      return null;
+    }
+
+    const earthRadiusKm = 6371.0;
+    final dLat = _toRadians(candidateLat - viewerLat);
+    final dLon = _toRadians(candidateLon - viewerLon);
+    final originLat = _toRadians(viewerLat);
+    final targetLat = _toRadians(candidateLat);
+
+    final hav =
+        math.pow(math.sin(dLat / 2), 2) +
+        math.cos(originLat) *
+            math.cos(targetLat) *
+            math.pow(math.sin(dLon / 2), 2);
+    final c = 2 * math.atan2(math.sqrt(hav), math.sqrt(1 - hav));
+    return earthRadiusKm * c;
+  }
+
+  bool _matchesFallbackDiscoveryScope(UserModel candidate) {
+    if (goGlobalFilter.value) {
+      return true;
+    }
+
+    final targetCountry = _effectiveDiscoveryCountry?.trim().toLowerCase() ?? '';
+    final candidateCountry =
+        candidate.profile?.country?.trim().toLowerCase() ?? '';
+    if (targetCountry.isNotEmpty &&
+        candidateCountry.isNotEmpty &&
+        candidateCountry != targetCountry) {
+      return false;
+    }
+
+    if (!locationGranted.value) {
+      if (targetCountry.isEmpty) {
+        return false;
+      }
+      return candidateCountry == targetCountry;
+    }
+
+    final distanceKm = _distanceKmFromEffectiveDiscoveryLocation(candidate);
+    if (distanceKm == null) {
+      return false;
+    }
+
+    return distanceKm <= maxDistance.value;
+  }
+
+  Future<List<UserModel>> _recoverDiscoverUsersAfterEmptyFetch() async {
+    final persistedSeenIds = _storage.getSeenDiscoverUserIds();
+    final hadSeenHistory =
+        _seenUserIds.isNotEmpty || persistedSeenIds.isNotEmpty;
+
+    if (hadSeenHistory) {
+      debugPrint(
+        '[Home] Empty discover deck after fetch. Clearing stale seen history and retrying.',
+      );
+      await _clearSeenDiscoverHistory();
+      _discoverNextCursor = null;
+      _page.value = 1;
+      _hasMore.value = true;
+
+      var retriedUsers = await _fetchPage(1, forceRefresh: true).timeout(
+        _discoverRequestTimeout,
+        onTimeout: () {
+          throw TimeoutException(
+            'Request timeout while recovering discover users',
+          );
+        },
+      );
+
+      var attempts = 1;
+      while (retriedUsers.isEmpty &&
+          _hasMore.value &&
+          attempts < _discoverMaxEnsureAttempts) {
+        attempts++;
+        retriedUsers = await _fetchPage(attempts, forceRefresh: false).timeout(
+          _discoverRequestTimeout,
+          onTimeout: () {
+            throw TimeoutException(
+              'Request timeout while recovering discover users',
+            );
+          },
+        );
+      }
+
+      if (retriedUsers.isNotEmpty) {
+        return retriedUsers;
+      }
+    }
+
+    if (!_canUseIncomingLikesAsDiscoverFallback ||
+        !Get.isRegistered<UsersController>()) {
+      return const <UserModel>[];
+    }
+
+    final usersController = Get.find<UsersController>();
+    await usersController.fetchWhoLikedMe();
+
+    final actionableLikedUsers = usersController.likesReceived
+        .where((item) => !item.isBlurred)
+        .map((item) => item.user)
+        .where((candidate) => candidate.id.trim().isNotEmpty)
+        .toList(growable: false);
+
+    if (actionableLikedUsers.isEmpty) {
+      return const <UserModel>[];
+    }
+
+    final likerIds = actionableLikedUsers
+        .map((user) => user.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    if (likerIds.isNotEmpty) {
+      _seenUserIds.removeWhere(likerIds.contains);
+      final remainingSeenIds = _storage.getSeenDiscoverUserIds()
+        ..removeAll(likerIds);
+      await _storage.saveSeenDiscoverUserIds(remainingSeenIds);
+    }
+
+    final fallbackUsers = _sanitizeDiscoverUsers(
+      actionableLikedUsers.where(_matchesFallbackDiscoveryScope).toList(),
+    );
+    if (fallbackUsers.isNotEmpty) {
+      debugPrint(
+        '[Home] Using ${fallbackUsers.length} incoming-like users as discover fallback.',
+      );
+    }
+    return fallbackUsers;
+  }
+
+  Future<void> applyFiltersAndRefresh({bool closeAfterApply = true}) async {
+    if (isApplyingFilters.value) return;
+
+    _liveFilterRefreshTimer?.cancel();
+    isApplyingFilters.value = true;
+    try {
+      _enforceFreeTierFilterPolicy(showNotice: true);
+      await saveFilters();
+      await _clearDiscoverDeckForFilterRefresh();
+      await fetchDiscoverUsers(forceRefresh: true);
+      if (closeAfterApply) {
+        Get.back();
+      }
+    } finally {
+      isApplyingFilters.value = false;
+    }
+  }
+
+  Future<void> resetFiltersAndRefresh({bool closeAfterApply = false}) async {
+    if (isApplyingFilters.value) return;
+
+    _liveFilterRefreshTimer?.cancel();
+    isApplyingFilters.value = true;
+    try {
+      _resetFilterStateToDefaults();
+      _enforceFreeTierFilterPolicy();
+      await saveFilters();
+      await _clearDiscoverDeckForFilterRefresh();
+
+      final refreshTasks = <Future<void>>[
+        fetchDiscoverUsers(forceRefresh: true),
+      ];
+
+      if (Get.isRegistered<UsersController>()) {
+        refreshTasks.add(
+          Get.find<UsersController>().resetDiscoveryFeedForFilterRefresh(
+            clearSeenHistory: true,
+          ),
+        );
+      }
+
+      await Future.wait(refreshTasks);
+
+      if (closeAfterApply) {
+        Get.back();
+      }
+    } finally {
+      isApplyingFilters.value = false;
+    }
+  }
+
+  void scheduleLiveFilterRefresh({
+    Duration delay = const Duration(milliseconds: 320),
+  }) {
+    _liveFilterRefreshTimer?.cancel();
+    _liveFilterRefreshTimer = Timer(delay, () {
+      if (isApplyingFilters.value) {
+        scheduleLiveFilterRefresh(delay: delay);
+        return;
+      }
+      unawaited(applyFiltersAndRefresh(closeAfterApply: false));
+    });
+  }
+
   /// Called from the "Enable Location" button ط£آ¢أ¢â€ڑآ¬أ¢â‚¬â€Œ requests permission with
   /// user feedback dialogs, then fetches discover users.
   Future<void> requestLocationAndFetch() async {
@@ -615,7 +1442,7 @@ class HomeController extends GetxController {
     if (position != null) {
       locationGranted.value = true;
       await _storage.saveBool('location_permission_granted', true);
-      fetchDiscoverUsers();
+      await fetchDiscoverUsers(forceRefresh: true);
       return;
     }
     locationGranted.value = false;
@@ -624,34 +1451,88 @@ class HomeController extends GetxController {
 
   Map<String, dynamic> get _filterParams {
     final requiredOppositeGender = _requiredOppositeGender;
+    final allowAdvancedFilters = _hasAdvancedFilterAccess;
+    final effectiveTimeFrame = timeFrameValue.isNotEmpty
+        ? timeFrameValue
+        : marriageIntentionFilter.value.trim();
+    final legacyIntentMode = allowAdvancedFilters
+        ? _legacyIntentForTimeFrame(effectiveTimeFrame)
+        : null;
+    final normalizedCountry = countryFilter.value.trim();
+    final normalizedCity = cityFilter.value.trim();
+    final resolvedGender =
+        requiredOppositeGender ?? _normalizeBinaryGender(genderFilter.value);
+    final hasExplicitNonDistanceFilters =
+        (countryFilterUserSet.value && normalizedCountry.isNotEmpty) ||
+        normalizedCity.isNotEmpty ||
+        maritalStatusFilter.value.trim().isNotEmpty ||
+        ethnicityFilter.value.trim().isNotEmpty ||
+        educationFilter.value.trim().isNotEmpty ||
+        religiousLevelFilter.value.trim().isNotEmpty ||
+        prayerFrequencyFilter.value.trim().isNotEmpty ||
+        effectiveTimeFrame.isNotEmpty ||
+        livingSituationFilter.value.trim().isNotEmpty ||
+        interestsFilter.isNotEmpty ||
+        languagesFilter.isNotEmpty ||
+        familyValuesFilter.isNotEmpty ||
+        communicationStylesFilter.isNotEmpty ||
+        verifiedOnlyFilter.value ||
+        recentlyActiveOnlyFilter.value ||
+        withPhotosOnlyFilter.value ||
+        backgroundCheckOnlyFilter.value ||
+        minTrustScoreFilter.value > 0 ||
+        minAge.value > defaultMinAgeFilter ||
+        maxAge.value < defaultMaxAgeFilter;
+    final shouldApplyDistanceFilter =
+        !(allowAdvancedFilters && goGlobalFilter.value) &&
+        locationGranted.value &&
+        (distanceFilterUserSet.value || !hasExplicitNonDistanceFilters);
+    final shouldApplyCountryFilter =
+        normalizedCountry.isNotEmpty &&
+        (countryFilterUserSet.value ||
+            !(allowAdvancedFilters && goGlobalFilter.value));
+    final normalizedCommunicationStyles = allowAdvancedFilters
+        ? communicationStylesFilter
+              .map(_toCommunicationStyleEnum)
+              .where((value) => value.isNotEmpty)
+              .toSet()
+              .toList(growable: false)
+        : const <String>[];
     return {
-      'limit': 20,
-      if (requiredOppositeGender != null)
-        'gender': requiredOppositeGender
-      else if (genderFilter.value != 'all')
-        'gender': genderFilter.value,
+      'limit': _discoverInitialBufferSize,
+      if (resolvedGender != null) 'gender': resolvedGender,
       'minAge': minAge.value,
       'maxAge': maxAge.value,
-      if (!goGlobalFilter.value && locationGranted.value)
-        if (maxDistance.value < distanceFilterUnlimitedKm)
-          'maxDistance': maxDistance.value.round(),
-      if (countryFilter.value.trim().isNotEmpty)
-        'country': countryFilter.value.trim(),
-      if (cityFilter.value.trim().isNotEmpty)
-        'city': cityFilter.value.trim(),
-      if (educationFilter.value.isNotEmpty) 'education': educationFilter.value,
-      if (religiousLevelFilter.value.isNotEmpty)
+      if (allowAdvancedFilters && goGlobalFilter.value) 'goGlobal': true,
+      if (shouldApplyDistanceFilter) 'maxDistance': maxDistance.value.round(),
+      if (distanceFilterUserSet.value) 'distanceUserSet': true,
+      if (shouldApplyCountryFilter) 'country': normalizedCountry,
+      if (normalizedCity.isNotEmpty && shouldApplyCountryFilter)
+        'city': normalizedCity,
+      if (maritalStatusFilter.value.isNotEmpty)
+        'maritalStatus': maritalStatusFilter.value,
+      if (ethnicityFilter.value.isNotEmpty) 'ethnicity': ethnicityFilter.value,
+      if (allowAdvancedFilters && educationFilter.value.isNotEmpty)
+        'education': educationFilter.value,
+      if (allowAdvancedFilters && religiousLevelFilter.value.isNotEmpty)
         'religiousLevel': religiousLevelFilter.value,
-      if (prayerFrequencyFilter.value.isNotEmpty)
+      if (allowAdvancedFilters && prayerFrequencyFilter.value.isNotEmpty)
         'prayerFrequency': prayerFrequencyFilter.value,
-      if (marriageIntentionFilter.value.isNotEmpty)
-        'marriageIntention': marriageIntentionFilter.value,
+      if (effectiveTimeFrame.isNotEmpty)
+        'timeFrame': effectiveTimeFrame,
+      if (effectiveTimeFrame.isNotEmpty)
+        'marriageIntention': effectiveTimeFrame,
+      ...?legacyIntentMode == null ? null : {'intentMode': legacyIntentMode},
       if (livingSituationFilter.value.isNotEmpty)
         'livingSituation': livingSituationFilter.value,
-      if (interestsFilter.isNotEmpty) 'interests': interestsFilter.toList(),
-      if (languagesFilter.isNotEmpty) 'languages': languagesFilter.toList(),
-      if (familyValuesFilter.isNotEmpty)
+      if (allowAdvancedFilters && interestsFilter.isNotEmpty)
+        'interests': interestsFilter.toList(),
+      if (allowAdvancedFilters && languagesFilter.isNotEmpty)
+        'languages': languagesFilter.toList(),
+      if (allowAdvancedFilters && familyValuesFilter.isNotEmpty)
         'familyValues': familyValuesFilter.map(_toBackendEnumValue).toList(),
+      if (allowAdvancedFilters && normalizedCommunicationStyles.isNotEmpty)
+        'communicationStyles': normalizedCommunicationStyles,
       if (verifiedOnlyFilter.value) 'verifiedOnly': true,
       if (recentlyActiveOnlyFilter.value) 'recentlyActiveOnly': true,
       if (withPhotosOnlyFilter.value) 'withPhotosOnly': true,
@@ -661,6 +1542,80 @@ class HomeController extends GetxController {
     };
   }
 
+  Map<String, dynamic> buildDiscoverSearchParams({int? page, int? limit}) {
+    return _buildDiscoverQueryParameters(
+      page: page,
+      limit: limit,
+      forceRefresh: false,
+      cursor: page == null ? _discoverNextCursor : null,
+      includeDeckMeta: true,
+    );
+  }
+
+  List<String> _discoverExcludeIdsForQuery() {
+    final exclusions = _discoverExclusionIds().toList(growable: false);
+    if (exclusions.length <= _maxDiscoverExcludeIds) {
+      return exclusions;
+    }
+
+    // Keep the most recently inserted IDs to minimize payload size while
+    // preserving strict exclusion for recently seen cards.
+    return exclusions.sublist(exclusions.length - _maxDiscoverExcludeIds);
+  }
+
+  Map<String, dynamic> _buildDiscoverQueryParameters({
+    int? page,
+    int? limit,
+    bool forceRefresh = false,
+    String? cursor,
+    bool includeDeckMeta = false,
+  }) {
+    final params = Map<String, dynamic>.from(_filterParams);
+
+    if (limit != null) {
+      params['limit'] = limit;
+    }
+
+    final normalizedCursor = cursor?.trim();
+    if (!forceRefresh &&
+        normalizedCursor != null &&
+        normalizedCursor.isNotEmpty) {
+      params['cursor'] = normalizedCursor;
+    } else if (page != null) {
+      params['page'] = page;
+    }
+
+    if (forceRefresh) {
+      params['forceRefresh'] = true;
+    }
+
+    if (includeDeckMeta) {
+      params['includeDeckMeta'] = true;
+    }
+
+    final excludeIds = _discoverExcludeIdsForQuery();
+    if (excludeIds.isNotEmpty) {
+      params['excludeIds'] = excludeIds;
+    }
+
+    return params;
+  }
+
+  bool? _parseDynamicBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    return null;
+  }
+
   String _toBackendEnumValue(String value) => value
       .trim()
       .toLowerCase()
@@ -668,6 +1623,32 @@ class HomeController extends GetxController {
       .replaceAll(RegExp(r"[^a-z0-9]+"), '_')
       .replaceAll(RegExp(r'_+'), '_')
       .replaceAll(RegExp(r'^_|_$'), '');
+
+  String _toCommunicationStyleEnum(String value) {
+    final normalized = _toBackendEnumValue(value);
+    switch (normalized) {
+      case 'chatty_cathy':
+      case 'storyteller':
+      case 'expressive':
+        return 'expressive';
+      case 'listener':
+      case 'deep_thinker':
+      case 'reserved':
+        return 'reserved';
+      case 'joker':
+      case 'sarcastic_wit':
+      case 'humorous':
+        return 'humorous';
+      case 'easygoing':
+      case 'gentle':
+        return 'gentle';
+      case 'straight_shooter':
+      case 'direct':
+        return 'direct';
+      default:
+        return normalized;
+    }
+  }
 
   String? _normalizeBinaryGender(String? value) {
     final normalized = (value ?? '').trim().toLowerCase();
@@ -710,6 +1691,20 @@ class HomeController extends GetxController {
     if (mine == 'male') return 'female';
     if (mine == 'female') return 'male';
     return null;
+  }
+
+  String get defaultDiscoveryGender {
+    final requiredGender = _requiredOppositeGender;
+    if (requiredGender != null) return requiredGender;
+
+    final savedGender = _normalizeBinaryGender(
+      _storage.getString('filter_gender'),
+    );
+    if (savedGender != null) return savedGender;
+
+    // Keep the default narrow rather than falling back to "all" when a legacy
+    // account is missing gender metadata.
+    return 'female';
   }
 
   bool _isOppositeGenderUser(UserModel user) {
@@ -765,16 +1760,108 @@ class HomeController extends GetxController {
     return false;
   }
 
+  Set<String> _discoverExclusionIds() {
+    final excluded = <String>{}
+      ..addAll(_seenUserIds)
+      ..addAll(_storage.getSeenDiscoverUserIds().map((id) => id.trim()));
+
+    if (Get.isRegistered<UsersController>()) {
+      final usersController = Get.find<UsersController>();
+      excluded.addAll(usersController.likedUsers.map((user) => user.id.trim()));
+      excluded.addAll(
+        usersController.passedUsers.map((user) => user.id.trim()),
+      );
+      excluded.addAll(usersController.matches.map((user) => user.id.trim()));
+    }
+
+    excluded.removeWhere((id) => id.isEmpty);
+    return excluded;
+  }
+
   List<UserModel> _sanitizeDiscoverUsers(Iterable<UserModel> users) {
-    _seenUserIds.addAll(_storage.getSeenDiscoverUserIds());
+    final exclusionIds = _discoverExclusionIds();
+    final blockedIds = _storage.getBlockedUserIds();
     final seen = <String>{};
     return users.where((u) {
-      if (u.id.isEmpty) return false;
+      final normalizedId = u.id.trim();
+      if (normalizedId.isEmpty) return false;
       if (_isCurrentUser(u)) return false;
+      if (_isStatusExcluded(u)) return false;
       if (!_isOppositeGenderUser(u)) return false;
-      if (_seenUserIds.contains(u.id.trim())) return false;
-      return seen.add(u.id);
+      if (blockedIds.contains(normalizedId)) return false;
+      if (exclusionIds.contains(normalizedId)) return false;
+      return seen.add(normalizedId);
     }).toList();
+  }
+
+  void evictUsersByIds(Iterable<String> userIds) {
+    final blockedIds = userIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (blockedIds.isEmpty) return;
+
+    final removedBeforeCurrent = discoverUsers
+        .take(currentCardIndex.value)
+        .where((user) => blockedIds.contains(user.id))
+        .length;
+
+    discoverUsers.removeWhere((user) => blockedIds.contains(user.id));
+    cardPhotoIndices.removeWhere((key, _) => blockedIds.contains(key));
+    cardDetailsExpanded.removeWhere((key, _) => blockedIds.contains(key));
+
+    if (lastSwipedUser.value != null &&
+        blockedIds.contains(lastSwipedUser.value!.id)) {
+      lastSwipedUser.value = null;
+    }
+
+    _swipeHistoryStack.removeWhere(
+      (entry) => blockedIds.contains(entry.user.id),
+    );
+    _updateLastSwipedUserFromHistory();
+
+    if (removedBeforeCurrent > 0) {
+      currentCardIndex.value = math.max(
+        0,
+        currentCardIndex.value - removedBeforeCurrent,
+      );
+    }
+
+    if (currentCardIndex.value >= discoverUsers.length) {
+      currentCardIndex.value = discoverUsers.isEmpty
+          ? 0
+          : discoverUsers.length - 1;
+    }
+    isEmpty.value = discoverUsers.isEmpty;
+    unawaited(_persistDiscoverDeckState());
+  }
+
+  void resetForLogout() {
+    discoverUsers.clear();
+    featuredAd.value = null;
+    _trackedAdImpressions.clear();
+    categories.clear();
+    successStories.clear();
+    recommendedUsers.clear();
+    selectedCategoryId.value = '';
+    currentCardIndex.value = 0;
+    isEmpty.value = true;
+    hasError.value = false;
+    lastSwipedUser.value = null;
+    showLocationGate.value = false;
+    showStartupRadar.value = false;
+    showSwipeTutorial.value = false;
+    swipeButtonCue.value = '';
+    cardPhotoIndices.clear();
+    cardDetailsExpanded.clear();
+    _seenUserIds.clear();
+    _discoverNextCursor = null;
+    _page.value = 1;
+    _hasMore.value = true;
+    _swipeHistoryStack.clear();
+    _swipeMutationQueue = Future<void>.value();
+    _isRewindInFlight = false;
+    unawaited(_persistDiscoverDeckState());
   }
 
   Set<String> _normalizedTokenSet(List<String>? values) {
@@ -1266,9 +2353,6 @@ class HomeController extends GetxController {
     if (user.isShadowBanned) return false;
     if (_isBackgroundRejected(user)) return false;
 
-    final completion = user.profile?.profileCompletionPercentage ?? 0;
-    if (completion > 0 && completion < 20) return false;
-
     if (user.lastLoginAt != null) {
       final inactiveForDays = DateTime.now()
           .difference(user.lastLoginAt!)
@@ -1397,6 +2481,88 @@ class HomeController extends GetxController {
     return _applyDiversityOrdering(scored);
   }
 
+  void _trimSwipeHistory() {
+    if (_swipeHistoryStack.length <= _maxSwipeHistoryEntries) return;
+    final removeCount = _swipeHistoryStack.length - _maxSwipeHistoryEntries;
+    _swipeHistoryStack.removeRange(0, removeCount);
+  }
+
+  void _updateLastSwipedUserFromHistory() {
+    lastSwipedUser.value = _swipeHistoryStack.isEmpty
+        ? null
+        : _swipeHistoryStack.last.user;
+  }
+
+  void _pushSwipeHistoryEntry(
+    UserModel user,
+    String action, {
+    required int originalIndex,
+    String? nextUserId,
+    UserModel? nextUser,
+    bool matched = false,
+    String? matchId,
+  }) {
+    _swipeHistoryStack.add(
+      _SwipeHistoryEntry(
+        user: user,
+        action: action,
+        originalIndex: originalIndex,
+        occurredAt: DateTime.now(),
+        nextUserId: nextUserId,
+        nextUser: nextUser,
+        matched: matched,
+        matchId: matchId,
+      ),
+    );
+    _trimSwipeHistory();
+    _updateLastSwipedUserFromHistory();
+  }
+
+  _SwipeHistoryEntry? _popHistoryEntryForRewind({String? targetUserId}) {
+    if (_swipeHistoryStack.isEmpty) return null;
+
+    final normalizedTarget = (targetUserId ?? '').trim();
+    if (normalizedTarget.isNotEmpty) {
+      for (var index = _swipeHistoryStack.length - 1; index >= 0; index--) {
+        final candidate = _swipeHistoryStack[index];
+        if (candidate.user.id == normalizedTarget) {
+          final removed = _swipeHistoryStack.removeAt(index);
+          _updateLastSwipedUserFromHistory();
+          return removed;
+        }
+      }
+    }
+
+    final removed = _swipeHistoryStack.removeLast();
+    _updateLastSwipedUserFromHistory();
+    return removed;
+  }
+
+  Future<T> _enqueueSwipeMutation<T>(Future<T> Function() task) {
+    final completer = Completer<T>();
+
+    _swipeMutationQueue = _swipeMutationQueue
+        .catchError((_) {
+          // Keep the queue alive after a previous failure.
+        })
+        .then((_) async {
+          try {
+            final result = await task();
+            completer.complete(result);
+          } catch (error, stackTrace) {
+            completer.completeError(error, stackTrace);
+          }
+        });
+
+    return completer.future;
+  }
+
+  Future<void> _waitForSwipeMutations() async {
+    await _swipeMutationQueue.catchError((_) {
+      // Ignore previous mutation errors when draining queue.
+    });
+  }
+
   void _rememberSeenUserId(String userId) {
     final normalized = userId.trim();
     if (normalized.isEmpty) return;
@@ -1407,10 +2573,8 @@ class HomeController extends GetxController {
   bool hasInteractedWith(String userId) {
     final normalized = userId.trim();
     if (normalized.isEmpty) return false;
-    if (_seenUserIds.contains(normalized)) return true;
-
-    final persistedSeen = _storage.getSeenDiscoverUserIds();
-    if (persistedSeen.contains(normalized)) {
+    final exclusionIds = _discoverExclusionIds();
+    if (exclusionIds.contains(normalized)) {
       _seenUserIds.add(normalized);
       return true;
     }
@@ -1418,17 +2582,200 @@ class HomeController extends GetxController {
     return false;
   }
 
+  Future<void> fetchFeaturedAd({bool forceRefresh = false}) async {
+    if (isLoadingFeaturedAd.value) return;
+    if (!forceRefresh && featuredAd.value != null) return;
+
+    isLoadingFeaturedAd.value = true;
+    try {
+      final response = await _api.get(
+        ApiConstants.adsFeed,
+        queryParameters: {'limit': 1},
+      );
+      final resolvedAd = _extractFeaturedAd(response.data);
+      if (resolvedAd != null) {
+        featuredAd.value = resolvedAd;
+        final adId = (resolvedAd['id'] ?? '').toString().trim();
+        if (adId.isNotEmpty) {
+          unawaited(trackAdImpression(adId));
+        }
+      }
+    } catch (e) {
+      debugPrint('[Home] fetchFeaturedAd error: $e');
+    } finally {
+      isLoadingFeaturedAd.value = false;
+    }
+  }
+
+  Future<void> trackAdImpression(String adId) async {
+    final normalized = adId.trim();
+    if (normalized.isEmpty || _trackedAdImpressions.contains(normalized)) {
+      return;
+    }
+
+    _trackedAdImpressions.add(normalized);
+    try {
+      await _api.post(ApiConstants.adImpression(normalized));
+    } catch (e) {
+      debugPrint('[Home] trackAdImpression error: $e');
+      _trackedAdImpressions.remove(normalized);
+    }
+  }
+
+  Future<void> trackAdClick(String adId) async {
+    final normalized = adId.trim();
+    if (normalized.isEmpty) return;
+
+    try {
+      await _api.post(ApiConstants.adClick(normalized));
+    } catch (e) {
+      debugPrint('[Home] trackAdClick error: $e');
+    }
+  }
+
+  Map<String, dynamic>? _extractFeaturedAd(dynamic raw) {
+    final root = _mapOrEmpty(raw);
+    final data = _mapOrEmpty(root['data']);
+
+    final listCandidates = <dynamic>[
+      root['items'],
+      root['results'],
+      root['ads'],
+      root['data'],
+      data['items'],
+      data['results'],
+      data['ads'],
+      data['data'],
+      raw,
+    ];
+
+    for (final candidate in listCandidates) {
+      if (candidate is! List || candidate.isEmpty) {
+        continue;
+      }
+      for (final item in candidate) {
+        final normalized = _normalizeAdPayload(item);
+        if (normalized != null) {
+          return normalized;
+        }
+      }
+    }
+
+    final singleCandidates = <dynamic>[
+      root['ad'],
+      data['ad'],
+      root['item'],
+      data['item'],
+    ];
+
+    for (final candidate in singleCandidates) {
+      final normalized = _normalizeAdPayload(candidate);
+      if (normalized != null) {
+        return normalized;
+      }
+    }
+
+    return null;
+  }
+
+  Map<String, dynamic>? _normalizeAdPayload(dynamic raw) {
+    final map = _mapOrEmpty(raw);
+    if (map.isEmpty) return null;
+
+    final id = _firstAdString(map, const ['id', '_id', 'adId', 'ad_id']);
+    if (id == null || id.isEmpty) return null;
+
+    final title =
+        _firstAdString(map, const ['title', 'headline', 'name']) ?? 'Sponsored';
+    final description = _firstAdString(map, const [
+      'description',
+      'subtitle',
+      'body',
+      'text',
+    ]);
+    final imageUrl = _firstAdString(map, const [
+      'imageUrl',
+      'image_url',
+      'image',
+      'thumbnail',
+      'cover',
+    ]);
+    final link = _firstAdString(map, const [
+      'link',
+      'url',
+      'buttonLink',
+      'button_link',
+      'ctaUrl',
+    ]);
+    final buttonText =
+        _firstAdString(map, const ['buttonText', 'ctaText', 'ctaLabel']) ??
+        'Learn more';
+
+    if (title.trim().isEmpty && (imageUrl == null || imageUrl.trim().isEmpty)) {
+      return null;
+    }
+
+    return {
+      'id': id,
+      'title': title,
+      'description': ?description,
+      'imageUrl': ?imageUrl,
+      'link': ?link,
+      if (buttonText.trim().isNotEmpty) 'buttonText': buttonText,
+    };
+  }
+
+  Map<String, dynamic> _mapOrEmpty(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return <String, dynamic>{};
+  }
+
+  String? _firstAdString(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = source[key]?.toString().trim();
+      if (value != null && value.isNotEmpty && value.toLowerCase() != 'null') {
+        return value;
+      }
+    }
+    return null;
+  }
+
   Future<void> refreshDiscoverUsers() => fetchDiscoverUsers(forceRefresh: true);
 
   bool get isLoadingMoreUsers => _isLoadingMore.value;
 
   Future<void> fetchDiscoverUsers({bool forceRefresh = false}) async {
-    if (isLoading.value) return; // Prevent duplicate calls
-    isLoading.value = true;
+    if (isLoading.value) {
+      if (forceRefresh) {
+        _pendingForceRefreshAfterLoad = true;
+      }
+      return;
+    }
+    final hasVisibleDeck = discoverUsers.isNotEmpty;
+    final shouldBlockUi = !hasVisibleDeck;
+    if (shouldBlockUi) {
+      isLoading.value = true;
+    }
     hasError.value = false;
-    // Keep previous data visible while loading (don't clear discoverUsers)
+
+    if (!forceRefresh && discoverUsers.isNotEmpty) {
+      debugPrint(
+        '[Home] fetchDiscoverUsers: deck already hydrated locally, skipping hard reload',
+      );
+      isEmpty.value = false;
+      _prefetchDiscoverBufferIfNeeded();
+      unawaited(_persistDiscoverDeckState());
+      isLoading.value = false;
+      return;
+    }
+
     _page.value = 1;
-    _hasMore.value = true;
+    if (forceRefresh) {
+      _hasMore.value = true;
+      _discoverNextCursor = null;
+      currentCardIndex.value = 0;
+    }
     debugPrint(
       '[Home] fetchDiscoverUsers: starting (forceRefresh=$forceRefresh)...',
     );
@@ -1445,6 +2792,7 @@ class HomeController extends GetxController {
       return;
     }
     debugPrint('[Home] fetchDiscoverUsers: auth token present');
+    unawaited(fetchFeaturedAd(forceRefresh: forceRefresh));
 
     // Check location but do NOT block discovery ط£آ¢أ¢â€ڑآ¬أ¢â‚¬â€Œ fetch users regardless
     debugPrint(
@@ -1452,95 +2800,61 @@ class HomeController extends GetxController {
     );
 
     try {
+      final initialForceRefresh =
+          forceRefresh ||
+          (_discoverNextCursor == null && discoverUsers.isEmpty);
+
       // Add timeout to prevent hanging
-      var users = await _fetchPage(1, forceRefresh: forceRefresh).timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          throw TimeoutException('Request timeout while fetching users');
-        },
-      );
+      var users = await _fetchPage(1, forceRefresh: initialForceRefresh)
+          .timeout(
+            _discoverRequestTimeout,
+            onTimeout: () {
+              throw TimeoutException('Request timeout while fetching users');
+            },
+          );
 
-      // Fallback: if no users found with filters, retry without distance/age filters
-      if (users.isEmpty && locationGranted.value) {
-        final requiredOppositeGender = _requiredOppositeGender;
-        debugPrint(
-          '[Home] fetchDiscoverUsers: 0 users with filters, retrying without distance...',
-        );
-        final fallbackResponse = await _api
-            .get(
-              ApiConstants.search,
-              queryParameters: {
-                'limit': 20,
-                'page': 1,
-                if (requiredOppositeGender case final requiredGender)
-                  'gender': requiredGender,
-                if (forceRefresh) 'forceRefresh': true,
-              },
-            )
-            .timeout(
-              const Duration(seconds: 15),
-              onTimeout: () {
-                throw TimeoutException('Fallback request timeout');
-              },
-            );
-        final fbData = fallbackResponse.data;
-        List<dynamic> fbList;
-        if (fbData is List) {
-          fbList = fbData;
-        } else if (fbData is Map) {
-          final nested = fbData['data'];
-          final candidate =
-              fbData['users'] ??
-              fbData['results'] ??
-              (nested is List
-                  ? nested
-                  : (nested is Map ? nested['users'] : null)) ??
-              <dynamic>[];
-          fbList = candidate is List ? candidate : <dynamic>[];
-        } else {
-          fbList = [];
-        }
-        users = _sanitizeDiscoverUsers(
-          fbList.whereType<Map>().map(UserModel.fromApiEntry).toList(),
-        );
-        debugPrint(
-          '[Home] fetchDiscoverUsers: fallback returned ${users.length} users',
+      var attempts = 1;
+      while (users.isEmpty &&
+          _hasMore.value &&
+          attempts < _discoverMaxEnsureAttempts) {
+        attempts++;
+        users = await _fetchPage(attempts, forceRefresh: false).timeout(
+          _discoverRequestTimeout,
+          onTimeout: () {
+            throw TimeoutException('Request timeout while fetching users');
+          },
         );
       }
 
-      if (users.isNotEmpty || discoverUsers.isEmpty) {
-        // Only replace if we got new data, OR if the screen was genuinely completely empty
-        final sanitizedUsers = _sanitizeDiscoverUsers(users);
-        discoverUsers.assignAll(_rankDiscoverUsers(sanitizedUsers));
-        currentCardIndex.value = 0;
+      var deckUsers = users;
+      if (deckUsers.isEmpty) {
+        deckUsers = await _recoverDiscoverUsersAfterEmptyFetch();
       }
+
+      discoverUsers.assignAll(_rankDiscoverUsers(deckUsers));
+      currentCardIndex.value = 0;
 
       isEmpty.value = discoverUsers.isEmpty;
       _dismissStartupRadarIfReady();
       debugPrint(
-        '[Home] fetchDiscoverUsers: loaded ${users.length} users, total on screen: ${discoverUsers.length}',
+        '[Home] fetchDiscoverUsers: loaded ${deckUsers.length} users, total on screen: ${discoverUsers.length}',
       );
 
       if (discoverUsers.isNotEmpty) {
         final userIds = discoverUsers.map((u) => u.id).toList(growable: false);
-        await Future.wait([
-          // Cache users locally for instant display on next app launch
+        // Keep first paint responsive: score hydration and reranking happen in background.
+        unawaited(
           _storage
               .cacheDiscoverUsers(discoverUsers.map((u) => u.toJson()).toList())
               .catchError((_) {}),
-          // Fetch Baraka scores for loaded users
-          _fetchBulkBaraka(userIds).catchError((e) {
-            debugPrint('[Home] Failed to fetch Baraka scores: $e');
-          }),
-          // Fetch compatibility scores in parallel
-          _fetchBulkCompatibility(userIds).catchError((_) {}),
-        ]);
-
-        discoverUsers.assignAll(
-          _rankDiscoverUsers(discoverUsers.toList(growable: false)),
         );
-        isEmpty.value = discoverUsers.isEmpty;
         _prefetchDiscoverBufferIfNeeded();
+        unawaited(_persistDiscoverDeckState());
+        unawaited(_hydrateDiscoverScores(userIds));
+      } else if (_hasMore.value) {
+        // Keep filling in the background when the first server slice is fully
+        // filtered by local seen/exclusion constraints.
+        unawaited(_loadMoreUsersAppended(reason: 'initial_empty_retry'));
       }
     } catch (e, stackTrace) {
       debugPrint('[Home] fetchDiscoverUsers ERROR: $e');
@@ -1560,10 +2874,21 @@ class HomeController extends GetxController {
 
         // Show user-friendly error message
         if (e.response?.statusCode == 401) {
-          Helpers.showSnackbar(
-            message: 'Session expired. Please login again.',
-            isError: true,
-          );
+          final onAuthRoute =
+              Get.currentRoute == AppRoutes.login ||
+              Get.currentRoute == AppRoutes.onboarding ||
+              Get.currentRoute == AppRoutes.splash;
+          final shouldShowSessionExpired =
+              _auth.isLoggedIn.value &&
+              !_auth.isLoggingOut.value &&
+              !onAuthRoute;
+
+          if (shouldShowSessionExpired) {
+            Helpers.showSnackbar(
+              message: 'Session expired. Please login again.',
+              isError: true,
+            );
+          }
         } else if (e.type == DioExceptionType.connectionError ||
             e.type == DioExceptionType.connectionTimeout) {
           Helpers.showSnackbar(
@@ -1579,7 +2904,42 @@ class HomeController extends GetxController {
         isEmpty.value = true;
       }
     } finally {
-      isLoading.value = false;
+      if (shouldBlockUi) {
+        isLoading.value = false;
+      }
+
+      if (_pendingForceRefreshAfterLoad) {
+        _pendingForceRefreshAfterLoad = false;
+        unawaited(fetchDiscoverUsers(forceRefresh: true));
+      }
+    }
+  }
+
+  Future<void> _hydrateDiscoverScores(List<String> userIds) async {
+    if (userIds.isEmpty) return;
+
+    try {
+      await Future.wait([
+        _fetchBulkBaraka(userIds),
+        _fetchBulkCompatibility(userIds),
+      ]);
+
+      discoverUsers.assignAll(
+        _rankDiscoverUsers(
+          _sanitizeDiscoverUsers(discoverUsers.toList(growable: false)),
+        ),
+      );
+
+      if (currentCardIndex.value >= discoverUsers.length) {
+        currentCardIndex.value = discoverUsers.isEmpty
+            ? 0
+            : discoverUsers.length - 1;
+      }
+      isEmpty.value = discoverUsers.isEmpty;
+      _prefetchDiscoverBufferIfNeeded();
+      unawaited(_persistDiscoverDeckState());
+    } catch (e) {
+      debugPrint('[Home] score hydration failed: $e');
     }
   }
 
@@ -1587,31 +2947,49 @@ class HomeController extends GetxController {
     int page, {
     bool forceRefresh = false,
   }) async {
-    debugPrint('[Home] _fetchPage($page): params=$_filterParams');
+    final requestCursor = forceRefresh
+        ? null
+        : (_discoverNextCursor?.trim().isNotEmpty == true
+              ? _discoverNextCursor!.trim()
+              : null);
+    final usesCursor = requestCursor != null && requestCursor.isNotEmpty;
+    final queryParameters = _buildDiscoverQueryParameters(
+      page: usesCursor ? null : page,
+      limit: _discoverInitialBufferSize,
+      forceRefresh: forceRefresh,
+      cursor: requestCursor,
+      includeDeckMeta: true,
+    );
+    debugPrint('[Home] _fetchPage($page): params=$queryParameters');
     final response = await _api.get(
       ApiConstants.search,
-      queryParameters: {
-        ..._filterParams,
-        'page': page,
-        if (forceRefresh) 'forceRefresh': true,
-      },
+      queryParameters: queryParameters,
     );
     final data = response.data;
     debugPrint('[Home] _fetchPage($page): response type=${data.runtimeType}');
 
     // Robustly extract the users list from various response shapes
     List<dynamic> list;
+    Map<String, dynamic>? rootMap;
+    Map<String, dynamic>? nestedMap;
     if (data is List) {
       list = data;
     } else if (data is Map) {
-      final nested = data['data'];
+      rootMap = data.map((key, value) => MapEntry(key.toString(), value));
+
+      final nested = rootMap['data'];
+      if (nested is Map) {
+        nestedMap = nested.map((key, value) => MapEntry(key.toString(), value));
+      }
+
       final candidate =
-          data['users'] ??
-          data['results'] ??
-          data['profiles'] ??
-          (nested is List
-              ? nested
-              : (nested is Map ? nested['users'] : null)) ??
+          rootMap['users'] ??
+          rootMap['results'] ??
+          rootMap['profiles'] ??
+          nestedMap?['users'] ??
+          nestedMap?['results'] ??
+          nestedMap?['profiles'] ??
+          (nested is List ? nested : (nestedMap?['users'])) ??
           <dynamic>[];
       list = candidate is List ? candidate : <dynamic>[];
     } else {
@@ -1623,78 +3001,115 @@ class HomeController extends GetxController {
       list.whereType<Map>().map(UserModel.fromApiEntry).toList(),
     );
 
-    // Deduplicate and filter out already seen users
-    users.removeWhere((u) => _seenUserIds.contains(u.id));
-    if (users.isEmpty) _hasMore.value = false;
+    final parsedHasMore = _parseDynamicBool(
+      rootMap?['hasMore'] ?? nestedMap?['hasMore'],
+    );
+    final nextCursorRaw = rootMap?['nextCursor'] ?? nestedMap?['nextCursor'];
+    final normalizedNextCursor = (nextCursorRaw is String)
+        ? nextCursorRaw.trim().isEmpty
+              ? null
+              : nextCursorRaw.trim()
+        : null;
+
+    final expectsDeckMeta =
+        queryParameters['includeDeckMeta'] == true ||
+        usesCursor ||
+        forceRefresh;
+    if (parsedHasMore != null || nextCursorRaw != null || expectsDeckMeta) {
+      _discoverNextCursor = normalizedNextCursor;
+      if (parsedHasMore != null) {
+        _hasMore.value = parsedHasMore;
+      } else if (normalizedNextCursor != null) {
+        _hasMore.value = true;
+      } else {
+        _hasMore.value = users.isNotEmpty;
+      }
+    } else if (users.isEmpty) {
+      _hasMore.value = false;
+    }
+
     debugPrint(
-      '[Home] _fetchPage($page): parsed ${users.length} users after filtering',
+      '[Home] _fetchPage($page): parsed ${users.length} users after filtering, hasMore=${_hasMore.value}, nextCursor=${_discoverNextCursor ?? 'null'}',
     );
     return users;
   }
 
   Future<void> loadMoreUsers() async {
-    if (_isLoadingMore.value || !_hasMore.value) return;
-    _isLoadingMore.value = true;
-    debugPrint('[Home] loadMoreUsers: page=${_page.value + 1}');
-    try {
-      _page.value++;
-      final moreUsers = await _fetchPage(_page.value);
-      final existingIds = discoverUsers.map((u) => u.id).toSet();
-      final uniqueMoreUsers = moreUsers
-          .where((u) => !existingIds.contains(u.id))
-          .toList(growable: false);
-
-      if (uniqueMoreUsers.isNotEmpty) {
-        discoverUsers.addAll(uniqueMoreUsers);
-        debugPrint(
-          '[Home] loadMoreUsers: loaded ${uniqueMoreUsers.length} more users',
-        );
-
-        final ids = uniqueMoreUsers.map((u) => u.id).toList(growable: false);
-        await Future.wait([
-          _fetchBulkBaraka(ids),
-          _fetchBulkCompatibility(ids),
-        ]);
-
-        discoverUsers.assignAll(
-          _rankDiscoverUsers(discoverUsers.toList(growable: false)),
-        );
-        isEmpty.value = discoverUsers.isEmpty;
-      }
-    } catch (e) {
-      debugPrint('[Home] loadMoreUsers ERROR: $e');
-      // Revert page increment on failure so retry fetches the same page
-      _page.value--;
-    } finally {
-      _isLoadingMore.value = false;
-    }
+    await _loadMoreUsersAppended(reason: 'manual_load_more');
   }
 
-  Future<bool> likeUser(String userId) async {
+  bool _redirectToAccountStatusIfRestricted(dynamic error) {
+    if (error is! DioException) {
+      return false;
+    }
+
+    final raw = error.response?.data;
+    final restrictedStatus = extractRestrictedAccountStatus(raw);
+    if (restrictedStatus == null) {
+      return false;
+    }
+
+    // Suspended users are allowed to use the app and see non-blocking UI.
+    if (restrictedStatus == 'suspended') {
+      return false;
+    }
+
+    final args = buildRestrictedAccountArguments(
+      _auth.currentUser.value,
+      fallbackStatus: restrictedStatus,
+      fallbackReason: extractRestrictedAccountReason(raw),
+      fallbackSupportMessage: extractRestrictedAccountSupportMessage(raw),
+      fallbackActionRequired: extractRestrictedAccountActionRequired(raw),
+      fallbackStaffMessage: extractRestrictedAccountStaffMessage(raw),
+      fallbackExpiresAt: extractRestrictedAccountExpiresAt(raw),
+    );
+
+    if (args == null) {
+      return false;
+    }
+
+    final targetRoute = restrictedStatus == 'banned'
+        ? AppRoutes.contactSupport
+        : AppRoutes.accountStatus;
+
+    if (Get.currentRoute != targetRoute) {
+      Get.offAllNamed(targetRoute, arguments: args);
+    }
+    return true;
+  }
+
+  Future<bool> likeUser(
+    String userId, {
+    int? swiperCurrentIndex,
+    UserModel? fallbackUser,
+  }) async {
     debugPrint('[Home] likeUser: $userId');
     if (userId.isEmpty) {
       return false;
     }
     triggerSwipeButtonCue('like');
-    final selectedUser = discoverUsers.firstWhereOrNull((u) => u.id == userId);
-    if ((selectedUser != null && _isCurrentUser(selectedUser)) ||
+    final discoverUser = discoverUsers.firstWhereOrNull((u) => u.id == userId);
+    final effectiveUser = discoverUser ?? fallbackUser;
+    if ((effectiveUser != null && _isCurrentUser(effectiveUser)) ||
         _isCurrentUserId(userId)) {
       Helpers.showSnackbar(
         message: 'You cannot like your own profile.',
         isError: true,
       );
-      _removeUserById(userId);
+      if (discoverUser != null) {
+        _processSwipedUser(userId, swiperCurrentIndex: swiperCurrentIndex);
+      }
       return false;
     }
-    if (selectedUser != null && !_isOppositeGenderUser(selectedUser)) {
-      _removeUserById(userId);
+    if (effectiveUser != null && !_isOppositeGenderUser(effectiveUser)) {
+      if (discoverUser != null) {
+        _processSwipedUser(userId, swiperCurrentIndex: swiperCurrentIndex);
+      }
       return false;
     }
 
-    final hasUnlimitedLikes =
-        trialManager.isTrialActive || _monetization.isUnlimitedLikes.value;
-    final canUseLike =
-        hasUnlimitedLikes || _monetization.remainingLikes.value > 0;
+    final hasUnlimitedLikes = _monetization.isUnlimitedLikes.value;
+    final canUseLike = _monetization.canUseLikes || hasPaidPremiumPlan;
     if (!canUseLike) {
       Helpers.showSnackbar(
         message: 'No likes remaining for today. Upgrade for unlimited likes.',
@@ -1704,38 +3119,58 @@ class HomeController extends GetxController {
       return false;
     }
 
-    final swipedUser = _removeUserById(userId);
+    final removedSwipe = discoverUser == null
+        ? null
+        : _processSwipedUser(userId, swiperCurrentIndex: swiperCurrentIndex);
+    final swipedUser = removedSwipe?.user ?? effectiveUser;
     try {
-      final response = await _api.post(
-        ApiConstants.swipe,
-        data: {'targetUserId': userId, 'action': 'like'},
+      final response = await _enqueueSwipeMutation(
+        () => _api.post(
+          ApiConstants.swipe,
+          data: {'targetUserId': userId, 'action': 'like'},
+        ),
       );
-      _rememberSeenUserId(userId);
-      if (selectedUser != null) {
-        _recordSwipeBehavior(selectedUser, positive: true);
+      if (effectiveUser != null) {
+        _recordSwipeBehavior(effectiveUser, positive: true);
       }
       if (!hasUnlimitedLikes && _monetization.remainingLikes.value > 0) {
         _monetization.remainingLikes.value--;
       }
+      unawaited(_monetization.fetchEntitlements());
       final isMatch = response.data?['matched'] ?? false;
+      final matchId = MatchFoundPresentationGuard.extractMatchId(response.data);
       if (swipedUser != null) {
+        if (removedSwipe != null) {
+          _pushSwipeHistoryEntry(
+            swipedUser,
+            'like',
+            originalIndex: removedSwipe.originalIndex,
+            nextUserId: removedSwipe.nextUserId,
+            nextUser: removedSwipe.nextUser,
+            matched: isMatch == true,
+            matchId: matchId,
+          );
+        }
         _syncUsersInteractions(
           swipedUser,
           action: 'like',
           matched: isMatch,
+          matchId: matchId,
         );
       }
       debugPrint('[Home] likeUser response: matched=$isMatch');
       if (isMatch) {
         final matchedUser = swipedUser ?? lastSwipedUser.value;
-        _presentMatchFound(matchedUser);
+        _presentMatchFound(matchedUser, matchId: matchId);
       }
+      _refreshRelationshipSurfaces(includeChat: isMatch == true);
+      unawaited(ensureDiscoverBufferReady());
       return true;
     } catch (e) {
+      _restoreSwipedUser(removedSwipe);
       debugPrint('[Home] likeUser ERROR: $e');
-      if (swipedUser != null) {
-        discoverUsers.insert(0, swipedUser);
-        isEmpty.value = false;
+      if (_redirectToAccountStatusIfRestricted(e)) {
+        return false;
       }
       Helpers.showSnackbar(
         message: Helpers.extractErrorMessage(e),
@@ -1745,42 +3180,66 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<bool> passUser(String userId) async {
+  Future<bool> passUser(
+    String userId, {
+    int? swiperCurrentIndex,
+    UserModel? fallbackUser,
+  }) async {
     debugPrint('[Home] passUser: $userId');
     if (userId.isNotEmpty) {
       triggerSwipeButtonCue('pass');
     }
-    final selectedUser = discoverUsers.firstWhereOrNull((u) => u.id == userId);
+    final discoverUser = discoverUsers.firstWhereOrNull((u) => u.id == userId);
+    final effectiveUser = discoverUser ?? fallbackUser;
     if (userId.isEmpty ||
         _isCurrentUserId(userId) ||
-        (selectedUser != null && _isCurrentUser(selectedUser))) {
-      _removeUserById(userId);
+        (effectiveUser != null && _isCurrentUser(effectiveUser))) {
+      if (discoverUser != null) {
+        _processSwipedUser(userId, swiperCurrentIndex: swiperCurrentIndex);
+      }
       return false;
     }
-    if (selectedUser != null && !_isOppositeGenderUser(selectedUser)) {
-      _removeUserById(userId);
+    if (effectiveUser != null && !_isOppositeGenderUser(effectiveUser)) {
+      if (discoverUser != null) {
+        _processSwipedUser(userId, swiperCurrentIndex: swiperCurrentIndex);
+      }
       return false;
     }
 
-    final swipedUser = _removeUserById(userId);
+    final removedSwipe = discoverUser == null
+        ? null
+        : _processSwipedUser(userId, swiperCurrentIndex: swiperCurrentIndex);
+    final swipedUser = removedSwipe?.user ?? effectiveUser;
     try {
-      await _api.post(
-        ApiConstants.swipe,
-        data: {'targetUserId': userId, 'action': 'pass'},
+      await _enqueueSwipeMutation(
+        () => _api.post(
+          ApiConstants.swipe,
+          data: {'targetUserId': userId, 'action': 'pass'},
+        ),
       );
-      _rememberSeenUserId(userId);
-      if (selectedUser != null) {
-        _recordSwipeBehavior(selectedUser, positive: false);
+      if (effectiveUser != null) {
+        _recordSwipeBehavior(effectiveUser, positive: false);
       }
       if (swipedUser != null) {
+        if (removedSwipe != null) {
+          _pushSwipeHistoryEntry(
+            swipedUser,
+            'pass',
+            originalIndex: removedSwipe.originalIndex,
+            nextUserId: removedSwipe.nextUserId,
+            nextUser: removedSwipe.nextUser,
+          );
+        }
         _syncUsersInteractions(swipedUser, action: 'pass');
       }
+      unawaited(_monetization.fetchEntitlements());
+      unawaited(ensureDiscoverBufferReady());
       return true;
     } catch (e) {
+      _restoreSwipedUser(removedSwipe);
       debugPrint('[Home] passUser ERROR: $e');
-      if (swipedUser != null) {
-        discoverUsers.insert(0, swipedUser);
-        isEmpty.value = false;
+      if (_redirectToAccountStatusIfRestricted(e)) {
+        return false;
       }
       Helpers.showSnackbar(
         message: Helpers.extractErrorMessage(e),
@@ -1790,7 +3249,12 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<bool> complimentUser(String userId, String message) async {
+  Future<bool> complimentUser(
+    String userId,
+    String message, {
+    int? swiperCurrentIndex,
+    UserModel? fallbackUser,
+  }) async {
     debugPrint('[Home] complimentUser: $userId');
     if (userId.isEmpty) {
       return false;
@@ -1804,121 +3268,298 @@ class HomeController extends GetxController {
       return false;
     }
     triggerSwipeButtonCue('compliment');
-    final selectedUser = discoverUsers.firstWhereOrNull((u) => u.id == userId);
-    if ((selectedUser != null && _isCurrentUser(selectedUser)) ||
+    final discoverUser = discoverUsers.firstWhereOrNull((u) => u.id == userId);
+    final effectiveUser = discoverUser ?? fallbackUser;
+    if ((effectiveUser != null && _isCurrentUser(effectiveUser)) ||
         _isCurrentUserId(userId)) {
       Helpers.showSnackbar(
         message: 'You cannot send a compliment to your own profile.',
         isError: true,
       );
-      _removeUserById(userId);
+      if (discoverUser != null) {
+        _processSwipedUser(userId, swiperCurrentIndex: swiperCurrentIndex);
+      }
       return false;
     }
-    if (selectedUser != null && !_isOppositeGenderUser(selectedUser)) {
-      _removeUserById(userId);
+    if (effectiveUser != null && !_isOppositeGenderUser(effectiveUser)) {
+      if (discoverUser != null) {
+        _processSwipedUser(userId, swiperCurrentIndex: swiperCurrentIndex);
+      }
       return false;
     }
 
     final hasComplimentAccess =
-        trialManager.isEffectivePremium ||
-        trialManager.isTrialActive ||
-        _monetization.remainingCompliments.value > 0;
+        _monetization.canUseCompliments || hasPaidPremiumPlan;
     if (!hasComplimentAccess) {
-      Helpers.showSnackbar(
-        message: 'No compliments remaining. Upgrade to send more compliments.',
-        isError: true,
-      );
-      Get.toNamed(AppRoutes.subscription);
+      await _showComplimentsExhaustedDialog();
       return false;
     }
 
-    final swipedUser = _removeUserById(userId);
+    final removedSwipe = discoverUser == null
+        ? null
+        : _processSwipedUser(userId, swiperCurrentIndex: swiperCurrentIndex);
+    final swipedUser = removedSwipe?.user ?? effectiveUser;
     try {
-      final response = await _api.post(
-        ApiConstants.swipe,
-        data: {
-          'targetUserId': userId,
-          'action': 'compliment',
-          'complimentMessage': normalizedMessage,
-        },
+      final response = await _enqueueSwipeMutation(
+        () => _api.post(
+          ApiConstants.swipe,
+          data: {
+            'targetUserId': userId,
+            'action': 'compliment',
+            'complimentMessage': normalizedMessage,
+          },
+        ),
       );
-      _rememberSeenUserId(userId);
-      if (selectedUser != null) {
-        _recordSwipeBehavior(selectedUser, positive: true);
+      if (effectiveUser != null) {
+        _recordSwipeBehavior(effectiveUser, positive: true);
       }
-      if (!trialManager.isEffectivePremium &&
-          !trialManager.isTrialActive &&
-          _monetization.remainingCompliments.value > 0) {
+      if (_monetization.remainingCompliments.value > 0) {
         _monetization.remainingCompliments.value--;
       }
+      unawaited(_monetization.fetchEntitlements());
       final isMatch = response.data?['matched'] ?? false;
+      final matchId = MatchFoundPresentationGuard.extractMatchId(response.data);
       if (swipedUser != null) {
+        if (removedSwipe != null) {
+          _pushSwipeHistoryEntry(
+            swipedUser,
+            'compliment',
+            originalIndex: removedSwipe.originalIndex,
+            nextUserId: removedSwipe.nextUserId,
+            nextUser: removedSwipe.nextUser,
+            matched: isMatch == true,
+            matchId: matchId,
+          );
+        }
         _syncUsersInteractions(
           swipedUser,
           action: 'compliment',
           matched: isMatch,
+          matchId: matchId,
         );
       }
       debugPrint('[Home] complimentUser response: matched=$isMatch');
       if (isMatch) {
         final matchedUser = swipedUser ?? lastSwipedUser.value;
-        _presentMatchFound(matchedUser);
+        _presentMatchFound(matchedUser, matchId: matchId);
       }
+      _refreshRelationshipSurfaces(includeChat: isMatch == true);
+      unawaited(ensureDiscoverBufferReady());
       return true;
     } catch (e) {
+      _restoreSwipedUser(removedSwipe);
       debugPrint('[Home] complimentUser ERROR: $e');
-      if (swipedUser != null) {
-        discoverUsers.insert(0, swipedUser);
-        isEmpty.value = false;
+      if (_redirectToAccountStatusIfRestricted(e)) {
+        return false;
       }
-      Helpers.showSnackbar(
-        message: Helpers.extractErrorMessage(e),
-        isError: true,
-      );
+      final message = Helpers.extractErrorMessage(e);
+      if (_shouldOpenComplimentShop(message)) {
+        await _showComplimentsExhaustedDialog();
+        return false;
+      }
+      Helpers.showSnackbar(message: message, isError: true);
       return false;
     }
   }
 
-  UserModel? _removeUserById(String userId) {
+  _RemovedSwipeCard? _processSwipedUser(
+    String userId, {
+    int? swiperCurrentIndex,
+  }) {
     if (discoverUsers.isEmpty) return null;
 
     final idx = discoverUsers.indexWhere((u) => u.id == userId);
     if (idx == -1) return null;
 
-    final removedUser = discoverUsers[idx];
-    lastSwipedUser.value = removedUser;
-    discoverUsers.removeAt(idx);
+    final swipedUser = discoverUsers.removeAt(idx);
+    final nextUser = discoverUsers.isNotEmpty ? discoverUsers.first : null;
+    final nextUserId = nextUser?.id;
+    _rememberSeenUserId(swipedUser.id);
+    cardPhotoIndices.remove(swipedUser.id);
+    cardDetailsExpanded.remove(swipedUser.id);
+    currentCardIndex.value = 0;
+    isEmpty.value = discoverUsers.isEmpty;
 
-    if (currentCardIndex.value >= discoverUsers.length &&
-        discoverUsers.isNotEmpty) {
-      currentCardIndex.value = discoverUsers.length - 1;
-    }
-
-    if (discoverUsers.isEmpty) {
-      if (_hasMore.value) {
-        isEmpty.value = false;
-        unawaited(loadMoreUsers());
-      } else {
+    if (discoverUsers.length <= _discoverPrefetchThreshold) {
+      if (_hasMore.value && !_isLoadingMore.value) {
+        unawaited(_loadMoreUsersAppended(reason: 'swipe_threshold_prefetch'));
+      } else if (!_hasMore.value && discoverUsers.isEmpty) {
         isEmpty.value = true;
       }
-    } else {
-      isEmpty.value = false;
-      _prefetchDiscoverBufferIfNeeded();
     }
 
-    return removedUser;
+    debugPrint(
+      '[Home] swipe processed: user=${swipedUser.id}, remainingDeck=${discoverUsers.length}, nextIndex=${currentCardIndex.value}',
+    );
+    unawaited(_persistDiscoverDeckState());
+    return _RemovedSwipeCard(
+      user: swipedUser,
+      originalIndex: idx,
+      nextUserId: nextUserId,
+      nextUser: nextUser,
+    );
+  }
+
+  void _restoreSwipedUser(_RemovedSwipeCard? removedSwipe) {
+    if (removedSwipe == null) return;
+
+    final userId = removedSwipe.user.id.trim();
+    if (userId.isEmpty) return;
+
+    if (!discoverUsers.any((candidate) => candidate.id == userId)) {
+      final anchorId = removedSwipe.nextUserId?.trim() ?? '';
+      var anchorResolved = false;
+      var insertionIndex = removedSwipe.originalIndex.clamp(
+        0,
+        discoverUsers.length,
+      );
+      if (anchorId.isNotEmpty) {
+        final anchorIndex = discoverUsers.indexWhere(
+          (candidate) => candidate.id == anchorId,
+        );
+        if (anchorIndex >= 0) {
+          insertionIndex = anchorIndex;
+          anchorResolved = true;
+        }
+      }
+      discoverUsers.insert(insertionIndex, removedSwipe.user);
+
+      final fallbackAnchor = removedSwipe.nextUser;
+      final fallbackAnchorId = fallbackAnchor?.id.trim() ?? '';
+      if (anchorResolved ||
+          fallbackAnchor == null ||
+          fallbackAnchorId.isEmpty ||
+          fallbackAnchorId == userId) {
+        // Explicit anchor already restored or no valid fallback snapshot available.
+      } else if (!discoverUsers.any(
+        (candidate) => candidate.id == fallbackAnchorId,
+      )) {
+        discoverUsers.insert(
+          (insertionIndex + 1).clamp(0, discoverUsers.length),
+          fallbackAnchor,
+        );
+      }
+    }
+
+    _seenUserIds.remove(userId);
+    currentCardIndex.value = 0;
+    isEmpty.value = false;
+    unawaited(_storage.removeSeenDiscoverUserId(userId));
+    unawaited(_persistDiscoverDeckState());
+  }
+
+  void _restoreRewoundUserAsActive(
+    UserModel rewoundUser,
+    _SwipeHistoryEntry? rewoundEntry,
+  ) {
+    final rewoundUserId = rewoundUser.id.trim();
+    if (rewoundUserId.isEmpty) return;
+
+    discoverUsers.removeWhere((candidate) => candidate.id == rewoundUserId);
+
+    final anchorId = rewoundEntry?.nextUserId?.trim() ?? '';
+    UserModel? anchorUser;
+    if (anchorId.isNotEmpty && anchorId != rewoundUserId) {
+      final anchorIndex = discoverUsers.indexWhere(
+        (candidate) => candidate.id == anchorId,
+      );
+      if (anchorIndex >= 0) {
+        anchorUser = discoverUsers.removeAt(anchorIndex);
+      }
+    }
+
+    if (anchorUser == null) {
+      final fallbackAnchor = rewoundEntry?.nextUser;
+      final fallbackAnchorId = fallbackAnchor?.id.trim() ?? '';
+      if (fallbackAnchor != null &&
+          fallbackAnchorId.isNotEmpty &&
+          fallbackAnchorId != rewoundUserId) {
+        final existingFallbackIndex = discoverUsers.indexWhere(
+          (candidate) => candidate.id == fallbackAnchorId,
+        );
+        if (existingFallbackIndex >= 0) {
+          anchorUser = discoverUsers.removeAt(existingFallbackIndex);
+        } else {
+          anchorUser = fallbackAnchor;
+        }
+      }
+    }
+
+    discoverUsers.insert(0, rewoundUser);
+    if (anchorUser != null && anchorUser.id != rewoundUserId) {
+      discoverUsers.insert(1, anchorUser);
+    }
+
+    currentCardIndex.value = 0;
+    isEmpty.value = false;
+  }
+
+  Future<void> _loadMoreUsersAppended({String reason = 'prefetch'}) async {
+    if (_isLoadingMore.value || !_hasMore.value) return;
+    _isLoadingMore.value = true;
+    debugPrint(
+      '[Home] _loadMoreUsersAppended($reason): page=${_page.value + 1}, cursor=${_discoverNextCursor ?? 'null'}',
+    );
+    try {
+      var attempts = 0;
+      var appendedAny = false;
+
+      while (attempts < _discoverMaxEnsureAttempts && _hasMore.value) {
+        attempts++;
+        _page.value++;
+        final moreUsers = await _fetchPage(_page.value);
+        final existingIds = discoverUsers.map((u) => u.id).toSet();
+        final uniqueMoreUsers = moreUsers
+            .where((u) => !existingIds.contains(u.id))
+            .toList(growable: false);
+
+        if (uniqueMoreUsers.isEmpty) {
+          if (!_hasMore.value) {
+            break;
+          }
+          continue;
+        }
+
+        appendedAny = true;
+
+        // APPEND ONLY. Do NOT call assignAll() or rank over the entire active array
+        // as that forces Obx to instantly rebuild the Swiper, destroying animation states.
+        discoverUsers.addAll(uniqueMoreUsers);
+
+        // Fetch scores silently in the background
+        final ids = uniqueMoreUsers.map((u) => u.id).toList(growable: false);
+        unawaited(
+          Future.wait([_fetchBulkBaraka(ids), _fetchBulkCompatibility(ids)]),
+        );
+
+        unawaited(_persistDiscoverDeckState());
+        break;
+      }
+
+      if (!appendedAny && !_hasMore.value && discoverUsers.isEmpty) {
+        isEmpty.value = true;
+      }
+    } catch (e) {
+      debugPrint('[Home] _loadMoreUsersAppended ERROR: $e');
+      _page.value--;
+    } finally {
+      _isLoadingMore.value = false;
+    }
   }
 
   void _prefetchDiscoverBufferIfNeeded() {
     if (_isLoadingMore.value || !_hasMore.value) return;
-    if (discoverUsers.length > _discoverPrefetchThreshold) return;
-    unawaited(loadMoreUsers());
+    if (discoverUsers.length > _discoverPrefetchThreshold) {
+      return;
+    }
+    unawaited(_loadMoreUsersAppended(reason: 'threshold_prefetch'));
   }
 
   void _syncUsersInteractions(
     UserModel user, {
     required String action,
     bool matched = false,
+    String? matchId,
   }) {
     if (!Get.isRegistered<UsersController>()) return;
 
@@ -1926,29 +3567,77 @@ class HomeController extends GetxController {
       user,
       action: action,
       matched: matched,
+      matchId: matchId,
       occurredAt: DateTime.now(),
     );
   }
 
+  void _refreshRelationshipSurfaces({bool includeChat = false}) {
+    if (Get.isRegistered<UsersController>()) {
+      unawaited(Get.find<UsersController>().ensureUsersTabData(force: true));
+    }
+
+    if (includeChat && Get.isRegistered<ChatController>()) {
+      unawaited(Get.find<ChatController>().fetchConversations());
+    }
+  }
+
   Future<void> rewindLastSwipe() async {
-    if (lastSwipedUser.value == null) {
+    if (_isRewindInFlight) {
+      return;
+    }
+
+    if (_swipeHistoryStack.isEmpty && lastSwipedUser.value == null) {
       Helpers.showSnackbar(message: 'No swipe to undo');
       return;
     }
+
+    _isRewindInFlight = true;
     try {
+      // Ensure rewind always targets the latest persisted swipe on the backend.
+      await _waitForSwipeMutations();
+
       final result = await _monetization.useRewind();
       if (result != null) {
-        final rewoundUser = lastSwipedUser.value!;
+        final undoneSwipe = result['undoneSwipe'] is Map<String, dynamic>
+            ? result['undoneSwipe'] as Map<String, dynamic>
+            : null;
+        final undoneTargetId = (undoneSwipe?['targetUserId'] ?? '')
+            .toString()
+            .trim();
+
+        final rewoundEntry = _popHistoryEntryForRewind(
+          targetUserId: undoneTargetId,
+        );
+        final rewoundUser = rewoundEntry?.user ?? lastSwipedUser.value;
+        if (rewoundUser == null) {
+          Helpers.showSnackbar(message: 'No swipe to undo');
+          return;
+        }
+
         _seenUserIds.remove(rewoundUser.id);
         unawaited(_storage.removeSeenDiscoverUserId(rewoundUser.id));
-        // Re-insert the user at the top of the stack
-        discoverUsers.insert(0, rewoundUser);
-        isEmpty.value = false;
-        lastSwipedUser.value = null;
+
+        if (Get.isRegistered<UsersController>()) {
+          final usersController = Get.find<UsersController>();
+          usersController.undoOutgoingSwipe(rewoundUser.id);
+          unawaited(usersController.fetchInteractions());
+          unawaited(usersController.fetchMatches());
+        }
+
+        // Tinder-style rewind: the restored profile must become the active card,
+        // and its prior successor must remain directly behind it.
+        _restoreRewoundUserAsActive(rewoundUser, rewoundEntry);
+        _updateLastSwipedUserFromHistory();
+        unawaited(_monetization.fetchEntitlements());
+        unawaited(ensureDiscoverBufferReady());
+        unawaited(_persistDiscoverDeckState());
         Helpers.showSnackbar(message: 'Swipe undone!');
       }
     } catch (e) {
       Helpers.showSnackbar(message: 'Cannot rewind right now', isError: true);
+    } finally {
+      _isRewindInFlight = false;
     }
   }
 
@@ -2232,7 +3921,10 @@ class HomeController extends GetxController {
   }
 
   Future<void> fetchUsersByCategory(String categoryId) async {
-    isLoading.value = true;
+    final hadDeck = discoverUsers.isNotEmpty;
+    if (!hadDeck) {
+      isLoading.value = true;
+    }
     _page.value = 1;
     try {
       final response = await _api.get(ApiConstants.categoryUsers(categoryId));
@@ -2257,7 +3949,9 @@ class HomeController extends GetxController {
       debugPrint('[Home] fetchUsersByCategory error: $e');
       hasError.value = true;
     } finally {
-      isLoading.value = false;
+      if (!hadDeck) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -2267,6 +3961,7 @@ class HomeController extends GetxController {
 
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ Profile View Recording ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
   Future<void> recordProfileView(String userId) async {
+    if (!_uuidPattern.hasMatch(userId.trim())) return;
     try {
       await _api.post(ApiConstants.recordProfileView(userId));
     } catch (_) {}
@@ -2286,25 +3981,22 @@ class HomeController extends GetxController {
 
   bool get canRewind =>
       hasRewindAccess &&
-      _monetization.canRewind.value &&
-      lastSwipedUser.value != null;
+      _monetization.canUseRewind &&
+      (_swipeHistoryStack.isNotEmpty || lastSwipedUser.value != null);
   bool get hasPaidPremiumPlan =>
       _monetization.isPremium || (currentUser?.isPremium ?? false);
-  bool get hasRewindAccess => hasPaidPremiumPlan;
+  bool get hasRewindAccess =>
+      _monetization.hasRewindFeatureAccess || hasPaidPremiumPlan;
   bool get canSendCompliment =>
-      trialManager.isEffectivePremium ||
-      trialManager.isTrialActive ||
-      _monetization.remainingCompliments.value > 0;
-  bool get hasBoostAccess => hasPaidPremiumPlan;
-  int get remainingLikes =>
-      trialManager.isTrialActive ? 999999 : _monetization.remainingLikes.value;
-  bool get isUnlimitedLikes =>
-      trialManager.isTrialActive || _monetization.isUnlimitedLikes.value;
+      _monetization.canUseCompliments || hasPaidPremiumPlan;
+  bool get hasBoostAccess =>
+      _monetization.hasBoostAccess ||
+      (currentUser?.profileBoostsCount ?? 0) > 0;
+  int get remainingLikes => _monetization.remainingLikes.value;
+  bool get isUnlimitedLikes => _monetization.isUnlimitedLikes.value;
   bool get isPremium {
     try {
-      return trialManager.isEffectivePremium ||
-          _monetization.isPremium ||
-          (currentUser?.isPremium ?? false);
+      return _monetization.isPremium || (currentUser?.isPremium ?? false);
     } catch (_) {
       return currentUser?.isPremium ?? false;
     }
@@ -2314,34 +4006,135 @@ class HomeController extends GetxController {
   Duration get trialTimeRemaining => trialManager.trialTimeRemaining;
   UserModel? get currentUser => _auth.currentUser.value;
 
-  Future<void> boostProfile() async {
-    if (!hasBoostAccess) {
-      Get.toNamed(AppRoutes.subscription);
+  bool _hasBoostInventory(int? rawCount) {
+    final count = rawCount ?? 0;
+    return count == -1 || count > 0;
+  }
+
+  Future<void> _openBoostShop() async {
+    if (Get.currentRoute == AppRoutes.shop) return;
+    await Get.toNamed(
+      AppRoutes.shop,
+      arguments: const {'initialType': 'boosts_pack'},
+    );
+  }
+
+  Future<void> _showBoostZeroStateDialog() async {
+    if (Get.isDialogOpen ?? false) {
+      Helpers.showSnackbar(
+        message:
+            'You have 0 boosts remaining. Open the Shop to buy a boost pack.',
+        isError: true,
+      );
       return;
     }
 
-    try {
-      var activated = await _monetization.purchaseBoost(durationMinutes: 30);
-      if (!activated) {
-        try {
-          await _api.post(ApiConstants.boostActivate);
-          activated = true;
-        } catch (_) {
-          activated = false;
-        }
-      }
+    await Get.defaultDialog<void>(
+      title: '0 boosts remaining',
+      middleText:
+          'You have 0 boosts remaining. Open the Shop to buy a boost pack and activate your profile again.',
+      textCancel: 'Later',
+      textConfirm: 'Open Shop',
+      confirmTextColor: Colors.white,
+      onConfirm: () {
+        Get.back<void>();
+        unawaited(_openBoostShop());
+      },
+    );
+  }
 
+  Future<void> _openComplimentsShop() async {
+    if (Get.currentRoute == AppRoutes.shop) return;
+    await Get.toNamed(
+      AppRoutes.shop,
+      arguments: const {'initialType': 'compliments_pack'},
+    );
+  }
+
+  Future<void> _showComplimentsExhaustedDialog() async {
+    if (Get.isDialogOpen ?? false) {
+      Helpers.showSnackbar(
+        message: 'No compliments left today. Buy a pack from the shop.',
+        isError: true,
+      );
+      return;
+    }
+
+    await Get.defaultDialog<void>(
+      title: 'No compliments left',
+      middleText:
+          'You have no compliments remaining today. Buy 3x, 10x, or 20x compliment packs to keep sending thoughtful messages.',
+      textCancel: 'Later',
+      textConfirm: 'View packs',
+      confirmTextColor: Colors.white,
+      onConfirm: () {
+        Get.back<void>();
+        unawaited(_openComplimentsShop());
+      },
+    );
+  }
+
+  bool _shouldOpenBoostUpgrade(String message) {
+    final normalized = message.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return normalized.contains('no boosts remaining') ||
+        normalized.contains('insufficient boosts') ||
+        normalized.contains('not available on your current plan');
+  }
+
+  bool _shouldOpenComplimentShop(String message) {
+    final normalized = message.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return normalized.contains('no compliments') ||
+        normalized.contains('compliments remaining') ||
+        normalized.contains('insufficient compliments') ||
+        normalized.contains('compliment credits');
+  }
+
+  Future<bool> boostProfile() async {
+    var remainingBoosts = currentUser?.profileBoostsCount ?? 0;
+    if (!_hasBoostInventory(remainingBoosts)) {
+      try {
+        await _auth.fetchMe();
+      } catch (_) {}
+
+      remainingBoosts = currentUser?.profileBoostsCount ?? 0;
+      if (!_hasBoostInventory(remainingBoosts)) {
+        await _showBoostZeroStateDialog();
+        return false;
+      }
+    }
+
+    try {
+      final activated = await _monetization.purchaseBoost(durationMinutes: 30);
       if (!activated) {
         Helpers.showSnackbar(message: 'something_went_wrong'.tr, isError: true);
-        return;
+        return false;
       }
 
       _monetization.isBoosted.value = true;
       unawaited(_monetization.fetchBoostStatus());
+      unawaited(_monetization.fetchEntitlements());
       Helpers.showSnackbar(message: 'profile_boosted_msg'.tr);
+      return true;
     } catch (e) {
       debugPrint('[Home] boostProfile error: $e');
-      Helpers.showSnackbar(message: 'something_went_wrong'.tr, isError: true);
+      final message = Helpers.extractErrorMessage(e);
+      if (_shouldOpenBoostUpgrade(message)) {
+        final normalized = message.toLowerCase();
+        if (normalized.contains('no boosts remaining') ||
+            normalized.contains('insufficient boosts')) {
+          await _showBoostZeroStateDialog();
+        } else {
+          unawaited(Get.toNamed(AppRoutes.subscription));
+        }
+        return false;
+      }
+      Helpers.showSnackbar(
+        message: message.isNotEmpty ? message : 'something_went_wrong'.tr,
+        isError: true,
+      );
+      return false;
     }
   }
 }

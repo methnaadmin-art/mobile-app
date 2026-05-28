@@ -199,10 +199,13 @@ class _PhotoSlot extends StatelessWidget {
             ),
             if (index > 0)
               ListTile(
-                leading: const Icon(LucideIcons.trash2, color: Colors.red),
+                leading: const Icon(
+                  LucideIcons.trash2,
+                  color: AppColors.primaryDark,
+                ),
                 title: Text(
                   'delete_photo'.tr,
-                  style: TextStyle(color: Colors.red),
+                  style: const TextStyle(color: AppColors.primaryDark),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -232,7 +235,9 @@ class _PhotoSlot extends StatelessWidget {
               Navigator.pop(context);
               Get.toNamed(AppRoutes.editProfilePhotos);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primaryDark,
+            ),
             child: Text('delete'.tr),
           ),
         ],

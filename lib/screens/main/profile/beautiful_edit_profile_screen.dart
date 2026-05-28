@@ -1,4 +1,5 @@
-import 'package:cached_network_image/cached_network_image.dart';
+﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -9,6 +10,7 @@ import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/utils/cloudinary_url.dart';
 import 'package:methna_app/core/utils/google_fonts_stub.dart';
 import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/core/utils/profile_option_icons.dart';
 
 class BeautifulEditProfileScreen extends StatefulWidget {
   const BeautifulEditProfileScreen({super.key});
@@ -27,14 +29,19 @@ class _BeautifulEditProfileScreenState
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _bioCtrl;
   late final TextEditingController _heightCtrl;
+  late final TextEditingController _weightCtrl;
   late final TextEditingController _jobTitleCtrl;
   late final TextEditingController _companyCtrl;
+  late final TextEditingController _idealSpouseCtrl;
 
   String? _country;
+  String? _nationality;
   String? _city;
   String? _gender;
   String? _maritalStatus;
   String? _education;
+  String? _skinComplexion;
+  String? _bodyBuild;
   String? _sect;
   String? _religiousLevel;
   String? _prayerFrequency;
@@ -51,6 +58,7 @@ class _BeautifulEditProfileScreenState
   String? _socialMediaUsage;
   bool? _hasPets;
   String? _petPreference;
+  bool? _willingToRelocate;
   DateTime? _dateOfBirth;
   List<String> _selectedInterests = [];
   List<String> _selectedLanguages = [];
@@ -236,14 +244,19 @@ class _BeautifulEditProfileScreenState
   ];
 
   static const List<_ChoiceOption> _communicationOptions = [
-    _ChoiceOption(label: 'Chatty Cathy', value: 'expressive'),
-    _ChoiceOption(label: 'Listener', value: 'reserved'),
-    _ChoiceOption(label: 'Joker', value: 'humorous'),
-    _ChoiceOption(label: 'Deep Thinker', value: 'gentle'),
-    _ChoiceOption(label: 'Sarcastic Wit', value: 'humorous'),
-    _ChoiceOption(label: 'Easygoing', value: 'gentle'),
-    _ChoiceOption(label: 'Straight Shooter', value: 'direct'),
-    _ChoiceOption(label: 'Storyteller', value: 'expressive'),
+    _ChoiceOption(label: 'Chatty Cathy', value: 'chatty_cathy'),
+    _ChoiceOption(label: 'Listener', value: 'listener'),
+    _ChoiceOption(label: 'Joker', value: 'joker'),
+    _ChoiceOption(label: 'Deep Thinker', value: 'deep_thinker'),
+    _ChoiceOption(label: 'Sarcastic Wit', value: 'sarcastic_wit'),
+    _ChoiceOption(label: 'Easygoing', value: 'easygoing'),
+    _ChoiceOption(label: 'Straight Shooter', value: 'straight_shooter'),
+    _ChoiceOption(label: 'Storyteller', value: 'storyteller'),
+  ];
+
+  static const List<_ChoiceOption> _willingToRelocateOptions = [
+    _ChoiceOption(label: 'Yes', value: true),
+    _ChoiceOption(label: 'No', value: false),
   ];
 
   static const List<_ChoiceOption> _bloodTypeOptions = [
@@ -291,14 +304,31 @@ class _BeautifulEditProfileScreenState
     _ChoiceOption(label: 'Active on All', value: 'very_active'),
     _ChoiceOption(label: 'Active on Some', value: 'moderate'),
     _ChoiceOption(label: 'Minimal Social Media Presence', value: 'minimal'),
-    _ChoiceOption(label: 'Social Media Influencer', value: 'very_active'),
+    _ChoiceOption(label: 'Social Media Influencer', value: 'influencer'),
   ];
 
   static const List<_ChoiceOption> _sleepOptions = [
     _ChoiceOption(label: 'Early Bird', value: 'early_bird'),
     _ChoiceOption(label: 'Night Owl', value: 'night_owl'),
     _ChoiceOption(label: 'Regular Sleeper', value: 'flexible'),
-    _ChoiceOption(label: 'Insomniac', value: 'night_owl'),
+    _ChoiceOption(label: 'Insomniac', value: 'insomniac'),
+  ];
+
+  static const List<_ChoiceOption> _skinComplexionOptions = [
+    _ChoiceOption(label: 'Very Fair', value: 'very_fair'),
+    _ChoiceOption(label: 'Fair', value: 'fair'),
+    _ChoiceOption(label: 'Medium', value: 'medium'),
+    _ChoiceOption(label: 'Olive', value: 'olive'),
+    _ChoiceOption(label: 'Dark', value: 'dark'),
+    _ChoiceOption(label: 'Prefer not to say', value: 'prefer_not_to_say'),
+  ];
+
+  static const List<_ChoiceOption> _bodyBuildOptions = [
+    _ChoiceOption(label: 'Slim', value: 'slim'),
+    _ChoiceOption(label: 'Average', value: 'average'),
+    _ChoiceOption(label: 'Athletic', value: 'athletic'),
+    _ChoiceOption(label: 'Curvy', value: 'curvy'),
+    _ChoiceOption(label: 'Prefer not to say', value: 'prefer_not_to_say'),
   ];
 
   @override
@@ -318,28 +348,38 @@ class _BeautifulEditProfileScreenState
     _heightCtrl = TextEditingController(
       text: profile?.height?.toString() ?? '',
     );
+    _weightCtrl = TextEditingController(
+      text: profile?.weight?.toString() ?? '',
+    );
     _jobTitleCtrl = TextEditingController(text: profile?.jobTitle ?? '');
     _companyCtrl = TextEditingController(text: profile?.company ?? '');
+    _idealSpouseCtrl = TextEditingController(
+      text: profile?.aboutPartner ?? '',
+    );
 
     _country = profile?.country;
+    _nationality = profile?.nationality;
     _city = profile?.city;
     _gender = profile?.gender;
     _maritalStatus = profile?.maritalStatus;
     _education = profile?.education;
+    _skinComplexion = profile?.skinComplexion;
+    _bodyBuild = profile?.bodyBuild;
     _sect = profile?.sect;
     _religiousLevel = profile?.religiousLevel;
     _prayerFrequency = profile?.prayerFrequency;
     _dietary = profile?.dietary;
     _alcohol = profile?.alcohol;
     _familyPlans = profile?.familyPlans;
-    _communicationStyle = profile?.communicationStyle;
+    _communicationStyle = _normalizeCommunicationStyle(profile?.communicationStyle);
     _vaccinationStatus = profile?.vaccinationStatus;
     _bloodType = profile?.bloodType;
     _workoutFrequency = profile?.workoutFrequency;
-    _sleepSchedule = profile?.sleepSchedule;
-    _socialMediaUsage = profile?.socialMediaUsage;
+    _sleepSchedule = _normalizeSleepSchedule(profile?.sleepSchedule);
+    _socialMediaUsage = _normalizeSocialMediaUsage(profile?.socialMediaUsage);
     _hasPets = profile?.hasPets;
     _petPreference = profile?.petPreference;
+    _willingToRelocate = profile?.willingToRelocate;
     _dateOfBirth = profile?.dateOfBirth;
     _selectedInterests = List<String>.from(profile?.interests ?? const []);
     _selectedLanguages = List<String>.from(profile?.languages ?? const []);
@@ -357,8 +397,10 @@ class _BeautifulEditProfileScreenState
     _phoneCtrl.dispose();
     _bioCtrl.dispose();
     _heightCtrl.dispose();
+    _weightCtrl.dispose();
     _jobTitleCtrl.dispose();
     _companyCtrl.dispose();
+    _idealSpouseCtrl.dispose();
     super.dispose();
   }
 
@@ -370,7 +412,7 @@ class _BeautifulEditProfileScreenState
     return Scaffold(
       backgroundColor: isDark
           ? const Color(0xFF0F0D14)
-          : const Color(0xFFF7F4FB),
+          : AppColors.smoothBeige,
       body: SafeArea(
         child: user == null
             ? const Center(
@@ -475,18 +517,20 @@ class _BeautifulEditProfileScreenState
                             Expanded(
                               child: _SelectFieldTile(
                                 label: 'Country',
-                                value: _displayOrPlaceholder(
+                                value: _countryDisplayValue(
                                   _country,
                                   placeholder: 'Select',
                                 ),
-                                onTap: () => _showSimpleOptions(
-                                  title: 'Country',
-                                  options: SignupData.arabicCountries,
-                                  current: _country,
-                                  onSelected: (value) {
+                                onTap: () => _pickCountry(
+                                  onSelect: (country) {
                                     setState(() {
-                                      _country = value;
-                                      _city = null;
+                                      final selected = _normalizeCountryAlias(
+                                        country.name,
+                                      );
+                                      if (_country != selected) {
+                                        _city = null;
+                                      }
+                                      _country = selected;
                                     });
                                   },
                                 ),
@@ -503,20 +547,27 @@ class _BeautifulEditProfileScreenState
                                 enabled: _country != null,
                                 onTap: _country == null
                                     ? null
-                                    : () => _showSimpleOptions(
-                                        title: 'City',
-                                        options:
-                                            SignupData
-                                                .countryCities[_country!] ??
-                                            const [],
-                                        current: _city,
-                                        onSelected: (value) {
-                                          setState(() => _city = value);
-                                        },
-                                      ),
+                                    : _pickCity,
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 10),
+                        _SelectFieldTile(
+                          label: 'Nationality',
+                          value: _countryDisplayValue(
+                            _nationality,
+                            placeholder: 'Select',
+                          ),
+                          onTap: () => _pickCountry(
+                            onSelect: (country) {
+                              setState(
+                                () => _nationality = _normalizeCountryAlias(
+                                  country.name,
+                                ),
+                              );
+                            },
+                          ),
                         ),
                         const SizedBox(height: 10),
                         Row(
@@ -535,6 +586,22 @@ class _BeautifulEditProfileScreenState
                             const SizedBox(width: 10),
                             Expanded(
                               child: _EditFieldTile(
+                                label: 'Weight',
+                                child: TextField(
+                                  controller: _weightCtrl,
+                                  keyboardType: TextInputType.number,
+                                  style: _fieldValueStyle(),
+                                  decoration: _inputDecoration(hint: 'Weight'),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _EditFieldTile(
                                 label: 'Job Title',
                                 child: TextField(
                                   controller: _jobTitleCtrl,
@@ -548,31 +615,23 @@ class _BeautifulEditProfileScreenState
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _EditFieldTile(
-                                label: 'Company',
-                                child: TextField(
-                                  controller: _companyCtrl,
-                                  style: _fieldValueStyle(),
-                                  decoration: _inputDecoration(hint: 'Company'),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _EditFieldTile(
-                                label: 'Phone',
-                                child: TextField(
-                                  controller: _phoneCtrl,
-                                  keyboardType: TextInputType.phone,
-                                  style: _fieldValueStyle(),
-                                  decoration: _inputDecoration(hint: 'Phone'),
-                                ),
-                              ),
-                            ),
-                          ],
+                        _EditFieldTile(
+                          label: 'Company',
+                          child: TextField(
+                            controller: _companyCtrl,
+                            style: _fieldValueStyle(),
+                            decoration: _inputDecoration(hint: 'Company'),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _EditFieldTile(
+                          label: 'Phone',
+                          child: TextField(
+                            controller: _phoneCtrl,
+                            keyboardType: TextInputType.phone,
+                            style: _fieldValueStyle(),
+                            decoration: _inputDecoration(hint: 'Phone'),
+                          ),
                         ),
                         const SizedBox(height: 18),
                         _SectionRowHeader(
@@ -587,9 +646,22 @@ class _BeautifulEditProfileScreenState
                           children: _interestPreview().map((interest) {
                             return _PreviewChip(
                               label: interest,
-                              icon: LucideIcons.sparkles,
+                              icon: interestOptionIcon(interest),
                             );
                           }).toList(),
+                        ),
+                        const SizedBox(height: 18),
+                        _EditFieldTile(
+                          label: 'Describe ideal spouse',
+                          large: true,
+                          child: TextField(
+                            controller: _idealSpouseCtrl,
+                            maxLines: 4,
+                            style: _fieldValueStyle(),
+                            decoration: _inputDecoration(
+                              hint: 'What are you looking for in a spouse?',
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 18),
                         const _SectionRowHeader(
@@ -617,6 +689,66 @@ class _BeautifulEditProfileScreenState
                                 placeholder: 'Select religion',
                               ),
                               onTap: _openReligionPicker,
+                            ),
+                            _SettingsRow(
+                              title: 'Skin Complexion',
+                              value: _displayOptionValue(
+                                _skinComplexionOptions,
+                                _skinComplexion,
+                                placeholder: 'Select',
+                              ),
+                              onTap: () => _showSimpleOptions(
+                                title: 'Skin Complexion',
+                                options: _skinComplexionOptions
+                                    .map((option) => option.label)
+                                    .toList(),
+                                current: _displayOptionValue(
+                                  _skinComplexionOptions,
+                                  _skinComplexion,
+                                  placeholder: '',
+                                ),
+                                onSelected: (value) {
+                                  final selected = _skinComplexionOptions
+                                      .firstWhereOrNull(
+                                        (option) => option.label == value,
+                                      );
+                                  if (selected == null) return;
+                                  setState(
+                                    () => _skinComplexion =
+                                        selected.value as String,
+                                  );
+                                },
+                              ),
+                            ),
+                            _SettingsRow(
+                              title: 'Build',
+                              value: _displayOptionValue(
+                                _bodyBuildOptions,
+                                _bodyBuild,
+                                placeholder: 'Select',
+                              ),
+                              onTap: () => _showSimpleOptions(
+                                title: 'Build',
+                                options: _bodyBuildOptions
+                                    .map((option) => option.label)
+                                    .toList(),
+                                current: _displayOptionValue(
+                                  _bodyBuildOptions,
+                                  _bodyBuild,
+                                  placeholder: '',
+                                ),
+                                onSelected: (value) {
+                                  final selected = _bodyBuildOptions
+                                      .firstWhereOrNull(
+                                        (option) => option.label == value,
+                                      );
+                                  if (selected == null) return;
+                                  setState(
+                                    () => _bodyBuild =
+                                        selected.value as String,
+                                  );
+                                },
+                              ),
                             ),
                             _SettingsRow(
                               title: 'Basics',
@@ -755,7 +887,7 @@ class _BeautifulEditProfileScreenState
         color: isDark ? const Color(0xFF827B91) : const Color(0xFFA7A0B2),
       ),
       filled: true,
-      fillColor: isDark ? const Color(0xFF16121E) : const Color(0xFFF8F4FF),
+      fillColor: isDark ? const Color(0xFF16121E) : const Color(0xFFF4F0FF),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(
@@ -791,6 +923,36 @@ class _BeautifulEditProfileScreenState
       return placeholder;
     }
     return _prettyLabel(value);
+  }
+
+  String _normalizeCountryAlias(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '';
+
+    final normalized = trimmed.toLowerCase();
+    switch (normalized) {
+      case 'uae':
+        return 'United Arab Emirates';
+      case 'uk':
+        return 'United Kingdom';
+      case 'usa':
+        return 'United States';
+      default:
+        return trimmed;
+    }
+  }
+
+  String _countryDisplayValue(String? value, {required String placeholder}) {
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) return placeholder;
+
+    final normalized = _normalizeCountryAlias(raw);
+    final country = Country.tryParse(normalized);
+    if (country == null) {
+      return _prettyLabel(normalized);
+    }
+
+    return '${country.flagEmoji} ${country.name}';
   }
 
   String _prettyLabel(String value) {
@@ -851,7 +1013,8 @@ class _BeautifulEditProfileScreenState
     if (_vaccinationStatus != null) count++;
     if (_communicationStyle != null && _communicationStyle!.isNotEmpty) count++;
     if (_bloodType != null && _bloodType!.isNotEmpty) count++;
-    return '$count/5';
+    if (_willingToRelocate != null) count++;
+    return '$count/6';
   }
 
   String _lifestyleSummary() {
@@ -902,6 +1065,71 @@ class _BeautifulEditProfileScreenState
 
     if (selected != null) {
       setState(() => _dateOfBirth = selected);
+    }
+  }
+
+  Future<void> _pickCountry({required ValueChanged<Country> onSelect}) async {
+    showCountryPicker(
+      context: context,
+      showPhoneCode: false,
+      countryListTheme: CountryListThemeData(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      onSelect: onSelect,
+    );
+  }
+
+  Future<void> _pickCity() async {
+    final selectedCountry = _country?.trim() ?? '';
+    if (selectedCountry.isEmpty) return;
+
+    final options =
+        SignupData.countryCities[_normalizeCountryAlias(selectedCountry)] ??
+        SignupData.countryCities[selectedCountry] ??
+        const <String>[];
+
+    if (options.isNotEmpty) {
+      await _showSimpleOptions(
+        title: 'City',
+        options: options,
+        current: _city,
+        onSelected: (value) {
+          setState(() => _city = value);
+        },
+      );
+      return;
+    }
+
+    final cityController = TextEditingController(text: _city ?? '');
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('City'),
+        content: TextField(
+          controller: cityController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            hintText: 'Enter city',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(cityController.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    cityController.dispose();
+
+    if (value != null) {
+      setState(() => _city = value.trim());
     }
   }
 
@@ -974,7 +1202,7 @@ class _BeautifulEditProfileScreenState
               : [_sectChoiceFromValue(_sect!)],
           maxSelection: 1,
           showSearch: false,
-          iconForLabel: (_) => LucideIcons.sparkles,
+          iconForLabel: (_) => faithOptionIcon('sect'),
           confirmLabel: 'OK',
         ),
       ),
@@ -1018,7 +1246,7 @@ class _BeautifulEditProfileScreenState
             _PreferenceSectionConfig(
               key: 'education',
               title: 'Education',
-              icon: Icons.school_outlined,
+              icon: profilePreferenceSectionIcon('education'),
               options: const [
                 _ChoiceOption(label: 'High School', value: 'high_school'),
                 _ChoiceOption(label: 'Bachelors', value: 'bachelors'),
@@ -1031,26 +1259,32 @@ class _BeautifulEditProfileScreenState
             _PreferenceSectionConfig(
               key: 'familyPlans',
               title: 'Family Plans',
-              icon: Icons.family_restroom_outlined,
+              icon: profilePreferenceSectionIcon('family plans'),
               options: _familyPlansOptions,
             ),
             _PreferenceSectionConfig(
               key: 'vaccinationStatus',
               title: 'COVID Vaccine',
-              icon: Icons.verified_user_outlined,
+              icon: profilePreferenceSectionIcon('vaccination status'),
               options: _vaccinationOptions,
             ),
             _PreferenceSectionConfig(
               key: 'communicationStyle',
               title: 'Communication Style',
-              icon: Icons.forum_outlined,
+              icon: profilePreferenceSectionIcon('communication style'),
               options: _communicationOptions,
             ),
             _PreferenceSectionConfig(
               key: 'bloodType',
               title: 'Blood Type',
-              icon: Icons.water_drop_outlined,
+              icon: profilePreferenceSectionIcon('blood type'),
               options: _bloodTypeOptions,
+            ),
+            _PreferenceSectionConfig(
+              key: 'willingToRelocate',
+              title: 'Willing to Relocate',
+              icon: profilePreferenceSectionIcon('location'),
+              options: _willingToRelocateOptions,
             ),
           ],
           initialValues: {
@@ -1059,6 +1293,7 @@ class _BeautifulEditProfileScreenState
             'vaccinationStatus': _vaccinationStatus,
             'communicationStyle': _communicationStyle,
             'bloodType': _bloodType,
+            'willingToRelocate': _willingToRelocate,
           },
         ),
       ),
@@ -1071,6 +1306,7 @@ class _BeautifulEditProfileScreenState
         _vaccinationStatus = selected['vaccinationStatus'] as bool?;
         _communicationStyle = selected['communicationStyle'] as String?;
         _bloodType = selected['bloodType'] as String?;
+        _willingToRelocate = selected['willingToRelocate'] as bool?;
       });
     }
   }
@@ -1084,37 +1320,37 @@ class _BeautifulEditProfileScreenState
             _PreferenceSectionConfig(
               key: 'petPreference',
               title: 'Pets',
-              icon: Icons.pets_outlined,
+              icon: profilePreferenceSectionIcon('pet preference'),
               options: _petsOptions,
             ),
             _PreferenceSectionConfig(
               key: 'alcohol',
               title: 'Alcohol Preference',
-              icon: Icons.local_bar_outlined,
+              icon: profilePreferenceSectionIcon('alcohol'),
               options: _drinkingOptions,
             ),
             _PreferenceSectionConfig(
               key: 'workoutFrequency',
               title: 'Workout',
-              icon: Icons.fitness_center_rounded,
+              icon: profilePreferenceSectionIcon('workout frequency'),
               options: _workoutOptions,
             ),
             _PreferenceSectionConfig(
               key: 'dietary',
               title: 'Dietary Preferences',
-              icon: Icons.restaurant_menu_rounded,
+              icon: profilePreferenceSectionIcon('dietary'),
               options: _dietaryOptions,
             ),
             _PreferenceSectionConfig(
               key: 'socialMediaUsage',
               title: 'Social Media Presence',
-              icon: Icons.smartphone_outlined,
+              icon: profilePreferenceSectionIcon('social media usage'),
               options: _socialMediaOptions,
             ),
             _PreferenceSectionConfig(
               key: 'sleepSchedule',
               title: 'Sleeping Habits',
-              icon: Icons.dark_mode_outlined,
+              icon: profilePreferenceSectionIcon('sleep schedule'),
               options: _sleepOptions,
             ),
           ],
@@ -1147,34 +1383,73 @@ class _BeautifulEditProfileScreenState
   }
 
   IconData _chipIconForInterest(String label) {
-    final lower = label.toLowerCase();
-    if (lower.contains('travel') || lower.contains('adventure')) {
-      return Icons.flight_takeoff_rounded;
+    return interestOptionIcon(label);
+  }
+
+  String? _normalizeCommunicationStyle(String? value) {
+    final normalized = (value ?? '').trim();
+    switch (normalized) {
+      case '':
+        return null;
+      case 'expressive':
+        return 'chatty_cathy';
+      case 'reserved':
+        return 'listener';
+      case 'humorous':
+        return 'joker';
+      case 'gentle':
+        return 'easygoing';
+      case 'direct':
+        return 'straight_shooter';
+      default:
+        return normalized;
     }
-    if (lower.contains('movie') || lower.contains('film')) {
-      return Icons.movie_creation_outlined;
+  }
+
+  String? _normalizeSleepSchedule(String? value) {
+    switch ((value ?? '').trim()) {
+      case 'insomniac':
+        return 'night_owl';
+      default:
+        return value;
     }
-    if (lower.contains('art') || lower.contains('painting')) {
-      return Icons.palette_outlined;
+  }
+
+  String? _normalizeSocialMediaUsage(String? value) {
+    switch ((value ?? '').trim()) {
+      case 'influencer':
+        return 'very_active';
+      default:
+        return value;
     }
-    if (lower.contains('tech')) {
-      return Icons.memory_rounded;
+  }
+
+  String? _communicationStyleToBackend(String? value) {
+    final normalized = (value ?? '').trim();
+    switch (normalized) {
+      case '':
+        return null;
+      case 'chatty_cathy':
+      case 'storyteller':
+      case 'expressive':
+        return 'expressive';
+      case 'listener':
+      case 'deep_thinker':
+      case 'reserved':
+        return 'reserved';
+      case 'joker':
+      case 'sarcastic_wit':
+      case 'humorous':
+        return 'humorous';
+      case 'easygoing':
+      case 'gentle':
+        return 'gentle';
+      case 'straight_shooter':
+      case 'direct':
+        return 'direct';
+      default:
+        return normalized;
     }
-    if (lower.contains('music') || lower.contains('karaoke')) {
-      return Icons.music_note_rounded;
-    }
-    if (lower.contains('sport') ||
-        lower.contains('fitness') ||
-        lower.contains('yoga')) {
-      return Icons.fitness_center_rounded;
-    }
-    if (lower.contains('food') || lower.contains('cooking')) {
-      return Icons.restaurant_menu_rounded;
-    }
-    if (lower.contains('nature') || lower.contains('gardening')) {
-      return Icons.eco_outlined;
-    }
-    return Icons.auto_awesome_rounded;
   }
 
   String _sectChoiceFromValue(String value) {
@@ -1208,6 +1483,9 @@ class _BeautifulEditProfileScreenState
 
     try {
       final selectedGoal = _goalOptionForValue(_relationshipGoal);
+      final communicationStyle = _communicationStyleToBackend(
+        _communicationStyle,
+      );
       final profileData = {
         'bio': _bioCtrl.text.trim(),
         'gender': _gender?.trim().toLowerCase(),
@@ -1218,23 +1496,29 @@ class _BeautifulEditProfileScreenState
         'company': _companyCtrl.text.trim(),
         'city': _city,
         'country': _country,
+        'nationality': _nationality,
         'height': int.tryParse(_heightCtrl.text),
+        'weight': int.tryParse(_weightCtrl.text),
+        'skinComplexion': _skinComplexion,
+        'build': _bodyBuild,
         'religiousLevel': _religiousLevel,
         'prayerFrequency': _prayerFrequency,
         'sect': _sect,
         'dietary': _dietary,
         'alcohol': _alcohol,
         'familyPlans': _familyPlans,
-        'communicationStyle': _communicationStyle,
+        'communicationStyle': communicationStyle,
         'vaccinationStatus': _vaccinationStatus,
         'bloodType': _bloodType,
         'workoutFrequency': _workoutFrequency,
-        'sleepSchedule': _sleepSchedule,
-        'socialMediaUsage': _socialMediaUsage,
+        'sleepSchedule': _normalizeSleepSchedule(_sleepSchedule),
+        'socialMediaUsage': _normalizeSocialMediaUsage(_socialMediaUsage),
         'hasPets': _hasPets,
         'petPreference': _petPreference,
+        'willingToRelocate': _willingToRelocate,
         'interests': _selectedInterests,
         'languages': _selectedLanguages,
+        'aboutPartner': _idealSpouseCtrl.text.trim(),
         if (selectedGoal != null) 'intentMode': selectedGoal.intentMode,
         if ((selectedGoal?.marriageIntention ?? _marriageIntention) != null)
           'marriageIntention':
@@ -1255,13 +1539,12 @@ class _BeautifulEditProfileScreenState
       if (!mounted) return;
 
       if (success) {
-        Get.back();
-        Helpers.showSnackbar(message: 'Profile updated successfully');
-      } else {
-        Helpers.showSnackbar(
-          message: 'Failed to update profile',
-          isError: true,
-        );
+        await controller.refreshProfile();
+        // Dismiss the edit screen and reveal the underlying profile screen.
+        // Do NOT wipe the stack (offAllNamed) or force-switch tabs.
+        if (mounted && Get.key.currentState?.canPop() == true) {
+          Get.back(result: true);
+        }
       }
     } catch (e) {
       Helpers.showSnackbar(
@@ -1408,7 +1691,7 @@ class _PhotoStrip extends StatelessWidget {
                   borderRadius: BorderRadius.circular(9),
                   child: hasPhoto
                       ? CachedNetworkImage(
-                          imageUrl: CloudinaryUrl.thumbnail(photos[index].url),
+                          imageUrl: CloudinaryUrl.medium(photos[index].url),
                           fit: BoxFit.cover,
                           errorWidget: (_, _, _) =>
                               _PhotoPlaceholder(isDark: isDark),
@@ -1470,7 +1753,7 @@ class _EditFieldTile extends StatelessWidget {
         boxShadow: [
           if (!isDark)
             BoxShadow(
-              color: const Color(0xFFB18EFF).withValues(alpha: 0.08),
+              color: const Color(0xFFC4B5FD).withValues(alpha: 0.08),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -1530,7 +1813,7 @@ class _SelectFieldTile extends StatelessWidget {
             boxShadow: [
               if (!isDark)
                 BoxShadow(
-                  color: const Color(0xFFB18EFF).withValues(alpha: 0.08),
+                  color: const Color(0xFFC4B5FD).withValues(alpha: 0.08),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
@@ -1559,7 +1842,7 @@ class _SelectFieldTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isDark
                       ? const Color(0xFF16121E)
-                      : const Color(0xFFF8F4FF),
+                      : const Color(0xFFF4F0FF),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: isDark
@@ -1815,7 +2098,7 @@ class _BottomSaveBar extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
-                colors: [Color(0xFFA020F9), Color(0xFF7C1EFF)],
+                colors: [Color(0xFF6E3DFB), Color(0xFF8B5CF6)],
               ),
               borderRadius: BorderRadius.circular(999),
             ),
@@ -1929,7 +2212,7 @@ class _ChipPickerPageState extends State<_ChipPickerPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.smoothBeige,
       body: SafeArea(
         child: Column(
           children: [
@@ -2020,7 +2303,7 @@ class _ChipPickerPageState extends State<_ChipPickerPage> {
                       gradient: const LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
-                        colors: [Color(0xFFA020F9), Color(0xFF7C1EFF)],
+                        colors: [Color(0xFF6E3DFB), Color(0xFF8B5CF6)],
                       ),
                       borderRadius: BorderRadius.circular(999),
                     ),
@@ -2090,7 +2373,7 @@ class _GoalPickerPageState extends State<_GoalPickerPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.smoothBeige,
       body: SafeArea(
         child: Column(
           children: [
@@ -2126,7 +2409,7 @@ class _GoalPickerPageState extends State<_GoalPickerPage> {
                       gradient: const LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
-                        colors: [Color(0xFFA020F9), Color(0xFF7C1EFF)],
+                        colors: [Color(0xFF6E3DFB), Color(0xFF8B5CF6)],
                       ),
                       borderRadius: BorderRadius.circular(999),
                     ),
@@ -2174,7 +2457,7 @@ class _SimpleOptionPage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.smoothBeige,
       body: SafeArea(
         child: Column(
           children: [
@@ -2190,7 +2473,9 @@ class _SimpleOptionPage extends StatelessWidget {
                   return Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () => Navigator.of(context).pop(option),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pop(selected ? null : option),
                       borderRadius: BorderRadius.circular(14),
                       child: Ink(
                         padding: const EdgeInsets.symmetric(
@@ -2467,7 +2752,7 @@ class _PreferenceSectionsPageState extends State<_PreferenceSectionsPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.smoothBeige,
       body: SafeArea(
         child: Column(
           children: [
@@ -2503,7 +2788,7 @@ class _PreferenceSectionsPageState extends State<_PreferenceSectionsPage> {
                       gradient: const LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
-                        colors: [Color(0xFFA020F9), Color(0xFF7C1EFF)],
+                        colors: [Color(0xFF6E3DFB), Color(0xFF8B5CF6)],
                       ),
                       borderRadius: BorderRadius.circular(999),
                     ),

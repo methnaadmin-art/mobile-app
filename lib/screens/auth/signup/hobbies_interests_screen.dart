@@ -54,7 +54,7 @@ class _HobbiesInterestsScreenState extends State<HobbiesInterestsScreen> {
           primaryLabel: selectedCount > 0
               ? '${'continue_text'.tr} ($selectedCount/${SignupController.maxHobbiesSelection})'
               : 'continue_text'.tr,
-          onPrimary: selectedCount > 0 && !busy
+          onPrimary: !busy
               ? controller.goToNextStep
               : null,
           isLoading: busy,
@@ -68,18 +68,7 @@ class _HobbiesInterestsScreenState extends State<HobbiesInterestsScreen> {
               badge: '08 / 12',
               icon: LucideIcons.sparkles,
               title: 'discover_like_minded'.tr,
-              description: 'discover_like_minded_desc'.tr,
-              preview: Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  SignupInfoPill(
-                    icon: LucideIcons.heart,
-                    label:
-                        '${'select_hobbies'.tr} (${SignupController.maxHobbiesSelection})',
-                  ),
-                ],
-              ),
+              description: '',
             ),
             const SizedBox(height: AppSpacing.xl),
             SignupSurfaceCard(
@@ -87,6 +76,15 @@ class _HobbiesInterestsScreenState extends State<HobbiesInterestsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SignupSectionLabel(text: 'hobbies_interests'.tr),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '$selectedCount/${SignupController.maxHobbiesSelection}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white70
+                          : Colors.black54,
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                   Wrap(
                     spacing: AppSpacing.sm,
@@ -95,12 +93,13 @@ class _HobbiesInterestsScreenState extends State<HobbiesInterestsScreen> {
                       final selected = controller.selectedHobbies.contains(
                         interest,
                       );
-                      return SignupOptionChip(
-                        label: interest,
-                        selected: selected,
-                        icon: _iconForInterest(interest),
-                        onTap: () => controller.toggleHobby(interest),
-                      );
+                        return SignupOptionChip(
+                          label: interest,
+                          selected: selected,
+                          icon: _interestIcon(interest),
+                          translateLabel: false,
+                          onTap: () => controller.toggleHobby(interest),
+                        );
                     }).toList(),
                   ),
                 ],
@@ -112,46 +111,84 @@ class _HobbiesInterestsScreenState extends State<HobbiesInterestsScreen> {
     });
   }
 
-  IconData _iconForInterest(String interest) {
-    switch (interest) {
-      case 'Travel':
+  IconData _interestIcon(String value) {
+    switch (value.trim().toLowerCase()) {
+      case 'travel':
         return Icons.flight_takeoff_rounded;
-      case 'Cooking':
+      case 'cooking':
         return Icons.restaurant_menu_rounded;
-      case 'Hiking':
+      case 'hiking':
         return Icons.terrain_rounded;
-      case 'Yoga':
+      case 'yoga':
         return Icons.self_improvement_rounded;
-      case 'Gaming':
+      case 'gaming':
         return Icons.sports_esports_rounded;
-      case 'Movies':
+      case 'movies':
         return Icons.movie_creation_outlined;
-      case 'Photography':
+      case 'photography':
         return Icons.photo_camera_outlined;
-      case 'Music':
+      case 'music':
         return Icons.music_note_rounded;
-      case 'Pets':
+      case 'pets':
         return Icons.pets_outlined;
-      case 'Painting':
-      case 'Art':
+      case 'art':
+      case 'painting':
         return Icons.palette_outlined;
-      case 'Fitness':
-      case 'Sports':
+      case 'fitness':
+      case 'sports':
         return Icons.fitness_center_rounded;
-      case 'Reading':
+      case 'reading':
         return Icons.menu_book_rounded;
-      case 'Dancing':
-        return Icons.nightlife_rounded;
-      case 'Board Games':
-        return Icons.casino_outlined;
-      case 'Technology':
+      case 'dancing':
+        return Icons.theater_comedy_outlined;
+      case 'technology':
         return Icons.memory_rounded;
-      case 'Fashion':
+      case 'fashion':
         return Icons.checkroom_rounded;
-      case 'Motorcycling':
+      case 'motorcycling':
         return Icons.two_wheeler_rounded;
+      case 'board games':
+        return Icons.casino_outlined;
       default:
         return Icons.auto_awesome_rounded;
     }
   }
+
+  String _interestEmoji(String value) {
+    switch (value.trim().toLowerCase()) {
+      case 'travel':
+        return '✈️';
+      case 'cooking':
+        return '🍳';
+      case 'hiking':
+        return '🥾';
+      case 'yoga':
+        return '🧘';
+      case 'gaming':
+        return '🎮';
+      case 'movies':
+        return '🎬';
+      case 'photography':
+        return '📸';
+      case 'music':
+        return '🎵';
+      case 'pets':
+        return '🐾';
+      case 'art':
+      case 'painting':
+        return '🎨';
+      case 'fitness':
+      case 'sports':
+        return '🏃';
+      case 'reading':
+        return '📚';
+      case 'dancing':
+        return '💃';
+      case 'technology':
+        return '💻';
+      default:
+        return '✨';
+    }
+  }
+
 }

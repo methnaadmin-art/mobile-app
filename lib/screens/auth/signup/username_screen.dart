@@ -53,17 +53,7 @@ class UsernameScreen extends GetView<SignupController> {
               color: signupText(isDark),
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'username_identity_desc'.tr,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              height: 1.55,
-              color: signupMuted(isDark),
-            ),
-          ),
-          const SizedBox(height: 26),
+          const SizedBox(height: 18),
           ExactSignupTextField(
             controller: controller.usernameController,
             hint: 'nickname'.tr,

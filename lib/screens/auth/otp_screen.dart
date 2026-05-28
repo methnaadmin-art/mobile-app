@@ -95,8 +95,7 @@ class _OtpScreenState extends State<OtpScreen> {
                               builder: (context, constraints) {
                                 const spacing = 8.0;
                                 final boxWidth =
-                                    ((constraints.maxWidth - (spacing * 5)) /
-                                            6)
+                                    ((constraints.maxWidth - (spacing * 5)) / 6)
                                         .clamp(38.0, 54.0)
                                         .toDouble();
 
@@ -105,11 +104,11 @@ class _OtpScreenState extends State<OtpScreen> {
                                       MainAxisAlignment.spaceBetween,
                                   children: List.generate(6, (index) {
                                     final code = controller.otpText.value;
-                                    final char =
-                                        index < code.length ? code[index] : '';
+                                    final char = index < code.length
+                                        ? code[index]
+                                        : '';
                                     final isActive =
-                                        index == code.length &&
-                                            code.length < 6;
+                                        index == code.length && code.length < 6;
 
                                     return _OtpDigitBox(
                                       digit: char,
@@ -218,7 +217,7 @@ class _OtpHero extends StatelessWidget {
             height: 76,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(AppRadii.lg),
             ),
             child: const Icon(
               LucideIcons.badgeCheck,

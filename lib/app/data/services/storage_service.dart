@@ -24,7 +24,8 @@ class StorageService extends GetxService {
     _box = GetStorage();
     _secure = const FlutterSecureStorage(
       aOptions: AndroidOptions(
-        encryptedSharedPreferences: false, // Set to false to avoid Android ANR (Native thread Keystore lockup)
+        encryptedSharedPreferences:
+            false, // Set to false to avoid Android ANR (Native thread Keystore lockup)
       ),
     );
 
@@ -38,27 +39,39 @@ class StorageService extends GetxService {
     try {
       _cachedUserJson = await _secure.read(key: _secureUserSnapshotKey);
       _cachedAuthProvider = await _secure.read(key: _secureAuthProviderKey);
-
-      final legacyUser = _box.read(AppConstants.userKey)?.toString();
-      if ((_cachedUserJson == null || _cachedUserJson!.isEmpty) &&
-          legacyUser != null &&
-          legacyUser.isNotEmpty) {
-        _cachedUserJson = legacyUser;
-        await _secure.write(key: _secureUserSnapshotKey, value: legacyUser);
-      }
-
-      final legacyProvider = _box.read<String>(AppConstants.authProviderKey);
-      if ((_cachedAuthProvider == null || _cachedAuthProvider!.isEmpty) &&
-          legacyProvider != null &&
-          legacyProvider.isNotEmpty) {
-        _cachedAuthProvider = legacyProvider;
-        await _secure.write(
-          key: _secureAuthProviderKey,
-          value: legacyProvider,
-        );
-      }
     } catch (_) {
       // Fallback to plain local cache if secure storage is unavailable.
+    }
+
+    _cachedUserJson ??= _readPrefsString(AppConstants.userKey);
+    _cachedAuthProvider ??= _readPrefsString(AppConstants.authProviderKey);
+
+    final legacyUser = _box.read(AppConstants.userKey)?.toString();
+    if ((_cachedUserJson == null || _cachedUserJson!.isEmpty) &&
+        legacyUser != null &&
+        legacyUser.isNotEmpty) {
+      _cachedUserJson = legacyUser;
+    }
+
+    final legacyProvider = _box.read<String>(AppConstants.authProviderKey);
+    if ((_cachedAuthProvider == null || _cachedAuthProvider!.isEmpty) &&
+        legacyProvider != null &&
+        legacyProvider.isNotEmpty) {
+      _cachedAuthProvider = legacyProvider;
+    }
+
+    if (_cachedUserJson?.isNotEmpty == true) {
+      await _writePrefsString(AppConstants.userKey, _cachedUserJson!);
+      await _box.write(AppConstants.userKey, _cachedUserJson!);
+      await _writeSecure(_secureUserSnapshotKey, _cachedUserJson!);
+    }
+    if (_cachedAuthProvider?.isNotEmpty == true) {
+      await _writePrefsString(
+        AppConstants.authProviderKey,
+        _cachedAuthProvider!,
+      );
+      await _box.write(AppConstants.authProviderKey, _cachedAuthProvider!);
+      await _writeSecure(_secureAuthProviderKey, _cachedAuthProvider!);
     }
 
     _cachedToken = await _readSecure(AppConstants.tokenKey);
@@ -209,10 +222,7 @@ class StorageService extends GetxService {
 
     if (_cachedRefreshToken?.isNotEmpty == true) {
       await _setAuthSessionHint(true);
-      await _writeSecure(
-        AppConstants.refreshTokenKey,
-        _cachedRefreshToken!,
-      );
+      await _writeSecure(AppConstants.refreshTokenKey, _cachedRefreshToken!);
       await _writePrefsString(
         AppConstants.refreshTokenKey,
         _cachedRefreshToken!,
@@ -238,24 +248,28 @@ class StorageService extends GetxService {
   Future<void> saveUser(Map<String, dynamic> user) async {
     final encoded = jsonEncode(user);
     _cachedUserJson = encoded;
+    await _setAuthSessionHint(true);
     await _box.write(AppConstants.userKey, encoded);
-    try {
-      await _secure.write(key: _secureUserSnapshotKey, value: encoded);
-    } catch (_) {}
+    await _writePrefsString(AppConstants.userKey, encoded);
+    await _writeSecure(_secureUserSnapshotKey, encoded);
   }
 
   Future<void> saveAuthProvider(String provider) async {
     _cachedAuthProvider = provider;
+    await _setAuthSessionHint(true);
     await _box.write(AppConstants.authProviderKey, provider);
-    try {
-      await _secure.write(key: _secureAuthProviderKey, value: provider);
-    } catch (_) {}
+    await _writePrefsString(AppConstants.authProviderKey, provider);
+    await _writeSecure(_secureAuthProviderKey, provider);
   }
 
   Map<String, dynamic>? getUser() {
-    final data = _cachedUserJson ?? _box.read(AppConstants.userKey)?.toString();
+    final data =
+        _cachedUserJson ??
+        _box.read(AppConstants.userKey)?.toString() ??
+        _readPrefsString(AppConstants.userKey);
     if (data == null || data.isEmpty) return null;
     try {
+      _cachedUserJson = data;
       return jsonDecode(data) as Map<String, dynamic>;
     } catch (_) {
       return null;
@@ -263,7 +277,9 @@ class StorageService extends GetxService {
   }
 
   String? getAuthProvider() =>
-      _cachedAuthProvider ?? _box.read<String>(AppConstants.authProviderKey);
+      _cachedAuthProvider ??
+      _box.read<String>(AppConstants.authProviderKey) ??
+      _readPrefsString(AppConstants.authProviderKey);
   bool get hasAuthSessionHint =>
       _hasAuthSessionHintCache ||
       (_box.read<bool>(AppConstants.authSessionHintKey) ?? false) ||
@@ -273,7 +289,7 @@ class StorageService extends GetxService {
   Future<void> setOnboardingDone() async =>
       await _box.write(AppConstants.onboardingKey, true);
 
-  String get themeMode => _box.read(AppConstants.themeKey) ?? 'dark';
+  String get themeMode => _box.read(AppConstants.themeKey) ?? 'light';
   Future<void> setThemeMode(String mode) async =>
       await _box.write(AppConstants.themeKey, mode);
 
@@ -299,6 +315,21 @@ class StorageService extends GetxService {
   // ─── Discover Users Cache ─────────────────────────────────
   static const String _discoverCacheKey = 'cached_discover_users';
   static const String _discoverSeenIdsKey = 'discover_seen_user_ids';
+  static const String _blockedUserIdsKey = 'blocked_user_ids';
+  static const String _dismissedMatchPopupKeysKey =
+      'dismissed_match_popup_keys';
+
+  String _scopedUserKey(String baseKey) {
+    final user = getUser();
+    final userId =
+        (user?['id'] ?? user?['_id'] ?? user?['userId'] ?? user?['user_id'])
+            ?.toString()
+            .trim();
+    if (userId != null && userId.isNotEmpty) {
+      return '$baseKey::$userId';
+    }
+    return baseKey;
+  }
 
   String _scopedDiscoverSeenIdsKey() {
     final user = getUser();
@@ -312,11 +343,19 @@ class StorageService extends GetxService {
     return _discoverSeenIdsKey;
   }
 
+  String _scopedBlockedUserIdsKey() {
+    return _scopedUserKey(_blockedUserIdsKey);
+  }
+
   // ─── All Users Cache ─────────────────────────────────────
   static const String _allUsersCacheKey = 'cached_all_users';
 
   // ─── Conversations Cache ─────────────────────────────────
   static const String _conversationsCacheKey = 'cached_conversations';
+
+  // ─── Liked / Passed Users Cache ──────────────────────────
+  static const String _likedUsersCacheKey = 'cached_liked_users';
+  static const String _passedUsersCacheKey = 'cached_passed_users';
 
   Future<void> cacheDiscoverUsers(List<Map<String, dynamic>> users) async =>
       await _box.write(_discoverCacheKey, jsonEncode(users));
@@ -357,9 +396,7 @@ class StorageService extends GetxService {
 
   Future<void> addSeenDiscoverUserIds(Iterable<String> userIds) async {
     final merged = getSeenDiscoverUserIds()
-      ..addAll(
-        userIds.map((id) => id.trim()).where((id) => id.isNotEmpty),
-      );
+      ..addAll(userIds.map((id) => id.trim()).where((id) => id.isNotEmpty));
     await saveSeenDiscoverUserIds(merged);
   }
 
@@ -367,10 +404,104 @@ class StorageService extends GetxService {
     final current = getSeenDiscoverUserIds()..remove(userId.trim());
     await saveSeenDiscoverUserIds(current);
   }
+
+  Set<String> getBlockedUserIds() {
+    final scopedKey = _scopedBlockedUserIdsKey();
+    dynamic data = _box.read(scopedKey);
+
+    if (data == null && scopedKey != _blockedUserIdsKey) {
+      final legacyData = _box.read(_blockedUserIdsKey);
+      if (legacyData != null) {
+        data = legacyData;
+        unawaited(_box.write(scopedKey, legacyData));
+        unawaited(_box.remove(_blockedUserIdsKey));
+      }
+    }
+
+    if (data == null) return <String>{};
+    try {
+      final list = jsonDecode(data) as List;
+      return list
+          .map((entry) => entry.toString().trim())
+          .where((entry) => entry.isNotEmpty)
+          .toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> saveBlockedUserIds(Set<String> userIds) async {
+    final scopedKey = _scopedBlockedUserIdsKey();
+    await _box.write(scopedKey, jsonEncode(userIds.toList()));
+    if (scopedKey != _blockedUserIdsKey) {
+      await _box.remove(_blockedUserIdsKey);
+    }
+  }
+
+  Future<void> addBlockedUserIds(Iterable<String> userIds) async {
+    final merged = getBlockedUserIds()
+      ..addAll(userIds.map((id) => id.trim()).where((id) => id.isNotEmpty));
+    await saveBlockedUserIds(merged);
+  }
+
+  Future<void> removeBlockedUserId(String userId) async {
+    final current = getBlockedUserIds()..remove(userId.trim());
+    await saveBlockedUserIds(current);
+  }
+
   Future<void> cacheAllUsers(List<Map<String, dynamic>> users) async =>
       await _box.write(_allUsersCacheKey, jsonEncode(users));
   Future<void> cacheConversations(List<Map<String, dynamic>> convos) async =>
       await _box.write(_conversationsCacheKey, jsonEncode(convos));
+  Future<void> cacheLikedUsers(List<Map<String, dynamic>> users) async =>
+      await _box.write(_likedUsersCacheKey, jsonEncode(users));
+  Future<void> cachePassedUsers(List<Map<String, dynamic>> users) async =>
+      await _box.write(_passedUsersCacheKey, jsonEncode(users));
+
+  Set<String> getDismissedMatchPopupKeys() {
+    final scopedKey = _scopedUserKey(_dismissedMatchPopupKeysKey);
+    dynamic data = _box.read(scopedKey);
+
+    if (data == null && scopedKey != _dismissedMatchPopupKeysKey) {
+      final legacyData = _box.read(_dismissedMatchPopupKeysKey);
+      if (legacyData != null) {
+        data = legacyData;
+        unawaited(_box.write(scopedKey, legacyData));
+        unawaited(_box.remove(_dismissedMatchPopupKeysKey));
+      }
+    }
+
+    if (data == null) return <String>{};
+    try {
+      final list = jsonDecode(data) as List;
+      return list
+          .map((entry) => entry.toString().trim())
+          .where((entry) => entry.isNotEmpty)
+          .toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> saveDismissedMatchPopupKeys(Set<String> keys) async {
+    final scopedKey = _scopedUserKey(_dismissedMatchPopupKeysKey);
+    await _box.write(scopedKey, jsonEncode(keys.toList()));
+    if (scopedKey != _dismissedMatchPopupKeysKey) {
+      await _box.remove(_dismissedMatchPopupKeysKey);
+    }
+  }
+
+  Future<void> addDismissedMatchPopupKeys(Iterable<String> keys) async {
+    final merged = getDismissedMatchPopupKeys()
+      ..addAll(keys.map((key) => key.trim()).where((key) => key.isNotEmpty));
+    await saveDismissedMatchPopupKeys(merged);
+  }
+
+  Future<void> removeDismissedMatchPopupKeys(Iterable<String> keys) async {
+    final current = getDismissedMatchPopupKeys()
+      ..removeAll(keys.map((key) => key.trim()).where((key) => key.isNotEmpty));
+    await saveDismissedMatchPopupKeys(current);
+  }
 
   List<Map<String, dynamic>>? getCachedDiscoverUsers() =>
       _parseCacheList(_discoverCacheKey);
@@ -378,6 +509,10 @@ class StorageService extends GetxService {
       _parseCacheList(_allUsersCacheKey);
   List<Map<String, dynamic>>? getCachedConversations() =>
       _parseCacheList(_conversationsCacheKey);
+  List<Map<String, dynamic>>? getCachedLikedUsers() =>
+      _parseCacheList(_likedUsersCacheKey);
+  List<Map<String, dynamic>>? getCachedPassedUsers() =>
+      _parseCacheList(_passedUsersCacheKey);
 
   List<Map<String, dynamic>>? _parseCacheList(String key) {
     final data = _box.read(key);
@@ -394,10 +529,18 @@ class StorageService extends GetxService {
       await _box.remove(_discoverCacheKey);
   Future<void> clearSeenDiscoverUserIds() async =>
       await _box.remove(_scopedDiscoverSeenIdsKey());
+  Future<void> clearBlockedUserIds() async =>
+      await _box.remove(_scopedBlockedUserIdsKey());
   Future<void> clearAllUsersCache() async =>
       await _box.remove(_allUsersCacheKey);
   Future<void> clearConversationsCache() async =>
       await _box.remove(_conversationsCacheKey);
+  Future<void> clearLikedUsersCache() async =>
+      await _box.remove(_likedUsersCacheKey);
+  Future<void> clearPassedUsersCache() async =>
+      await _box.remove(_passedUsersCacheKey);
+  Future<void> clearDismissedMatchPopupKeys() async =>
+      await _box.remove(_scopedUserKey(_dismissedMatchPopupKeysKey));
 
   // ─── Clear Auth Data (preserves user preferences) ──────────
   Future<void> clearAuthData() async {
@@ -406,10 +549,10 @@ class StorageService extends GetxService {
     _cachedAuthProvider = null;
     await _box.remove(AppConstants.userKey);
     await _box.remove(AppConstants.authProviderKey);
-    try {
-      await _secure.delete(key: _secureUserSnapshotKey);
-      await _secure.delete(key: _secureAuthProviderKey);
-    } catch (_) {}
+    await _removePrefsKey(AppConstants.userKey);
+    await _removePrefsKey(AppConstants.authProviderKey);
+    await _deleteSecure(_secureUserSnapshotKey);
+    await _deleteSecure(_secureAuthProviderKey);
   }
 
   // ─── Clear ALL App Data (full reset) ──────────────────────
@@ -417,10 +560,10 @@ class StorageService extends GetxService {
     await clearTokens();
     _cachedUserJson = null;
     _cachedAuthProvider = null;
-    try {
-      await _secure.delete(key: _secureUserSnapshotKey);
-      await _secure.delete(key: _secureAuthProviderKey);
-    } catch (_) {}
+    await _removePrefsKey(AppConstants.userKey);
+    await _removePrefsKey(AppConstants.authProviderKey);
+    await _deleteSecure(_secureUserSnapshotKey);
+    await _deleteSecure(_secureAuthProviderKey);
     await _box.erase();
   }
 

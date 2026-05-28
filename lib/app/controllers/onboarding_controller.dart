@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
@@ -14,7 +14,7 @@ class OnboardingController extends GetxController {
       title: 'Find Your Naseeb with Intention',
       description:
           'Methna connects Muslims who are serious about marriage. Browse profiles rooted in shared faith, values, and family goals.',
-      accent: Color(0xFF8A22FF),
+      accent: Color(0xFF6E3DFB),
       softAccent: Color(0xFFF1E2FF),
       imageAsset: 'assets/images/references/onboarding_matches.png',
     ),
@@ -23,7 +23,7 @@ class OnboardingController extends GetxController {
       title: 'Show Who You Truly Are',
       description:
           'Share your deen, background, and what you seek in a spouse so the right person recognizes you for who you are.',
-      accent: Color(0xFF9123FF),
+      accent: Color(0xFF6E3DFB),
       softAccent: Color(0xFFF5E9FF),
       imageAsset: 'assets/images/references/onboarding_profile.png',
     ),
@@ -32,7 +32,7 @@ class OnboardingController extends GetxController {
       title: 'Begin Your Journey to Marriage',
       description:
           'Receive thoughtful recommendations, connect with sincerity, and take the first step toward a blessed union, In Shaa Allah.',
-      accent: Color(0xFF9022FF),
+      accent: Color(0xFF6E3DFB),
       softAccent: Color(0xFFF4E8FF),
       imageAsset: 'assets/images/references/onboarding_match.png',
     ),

@@ -1,10 +1,30 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart' hide FormData, MultipartFile;
 import 'package:methna_app/app/data/services/api_service.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/core/constants/api_constants.dart';
 import 'package:methna_app/core/utils/upload_image_optimizer.dart';
+
+/// Structured upload result so callers can distinguish success/failure reasons.
+class VerificationUploadResult {
+  final bool success;
+  final String? errorMessage;
+  final Map<String, dynamic>? data;
+
+  const VerificationUploadResult._({
+    required this.success,
+    this.errorMessage,
+    this.data,
+  });
+
+  factory VerificationUploadResult.ok(Map<String, dynamic> data) =>
+      VerificationUploadResult._(success: true, data: data);
+
+  factory VerificationUploadResult.fail(String message) =>
+      VerificationUploadResult._(success: false, errorMessage: message);
+}
 
 class VerificationService extends GetxService {
   final ApiService _api = Get.find<ApiService>();
@@ -14,6 +34,8 @@ class VerificationService extends GetxService {
   final RxBool selfieVerified = false.obs;
   final RxBool selfieUploaded = false.obs;
   final RxString selfieStatus = 'not_uploaded'.obs;
+  final RxString selfiePreviewUrl = ''.obs;
+  final RxString selfieLocalPath = ''.obs;
   final RxBool idDocUploaded = false.obs;
   final RxString idDocStatus = 'not_uploaded'.obs;
   final RxString idDocType = ''.obs;
@@ -21,6 +43,9 @@ class VerificationService extends GetxService {
   final RxString idDocRejectionReason = ''.obs;
   final RxBool marriageCertUploaded = false.obs;
   final RxString marriageCertStatus = 'not_uploaded'.obs;
+  final RxString marriageCertPreviewUrl = ''.obs;
+  final RxString marriageCertLocalPath = ''.obs;
+  final RxString marriageCertRejectionReason = ''.obs;
   final RxInt trustScore = 100.obs;
 
   Map<String, dynamic> _asMap(dynamic value) {
@@ -50,6 +75,19 @@ class VerificationService extends GetxService {
     return value.toString();
   }
 
+  String _firstNonEmptyString(
+    Iterable<dynamic> values, [
+    String fallback = '',
+  ]) {
+    for (final value in values) {
+      final text = _asString(value).trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+    return fallback;
+  }
+
   int _asInt(dynamic value, [int fallback = 0]) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -68,8 +106,6 @@ class VerificationService extends GetxService {
     if (normalized.isEmpty) return false;
     return normalized == 'verified' ||
         normalized == 'approved' ||
-        normalized == 'matched' ||
-        normalized == 'match' ||
         normalized == 'complete' ||
         normalized == 'completed' ||
         normalized == 'success' ||
@@ -92,15 +128,18 @@ class VerificationService extends GetxService {
       final response = await _api.get(ApiConstants.verificationStatus);
       final data = _verificationData(response.data);
 
+      // ── Selfie ──
+      // Backend getVerificationStatus returns selfieStatus from
+      // verification.selfie.status which uses VerificationStatus enum values
+      // (not_submitted, pending, approved, rejected).
       final selfieStatusRaw = _asString(
-        data['selfieStatus'] ??
-            data['selfie_status'] ??
-            data['status'] ??
-            data['verificationStatus'] ??
-            data['verification_status'],
+        data['selfieStatus'] ?? data['selfie_status'],
       );
-      final normalizedSelfieStatus = selfieStatusRaw.trim().toLowerCase();
+      final normalizedSelfieStatus = _normalizeStatus(selfieStatusRaw);
       final verifiedFromStatus = _statusLooksVerified(normalizedSelfieStatus);
+      final authUser = Get.isRegistered<AuthService>()
+          ? Get.find<AuthService>().currentUser.value
+          : null;
 
       emailVerified.value = _asBool(
         data['emailVerified'] ?? data['email_verified'],
@@ -109,7 +148,7 @@ class VerificationService extends GetxService {
         data['selfieVerified'] ??
             data['selfie_verified'] ??
             data['isSelfieVerified'],
-          fallback: verifiedFromStatus,
+        fallback: verifiedFromStatus,
       );
       selfieUploaded.value = _asBool(
         data['selfieUploaded'] ??
@@ -118,49 +157,76 @@ class VerificationService extends GetxService {
             data['selfie_url'] ??
             selfieVerified.value,
       );
-      selfieStatus.value =
-            normalizedSelfieStatus.isNotEmpty
-            ? normalizedSelfieStatus
-            : (_asString(data['status']).trim().toLowerCase().startsWith('selfie_')
-              ? _asString(data['status']).trim().toLowerCase()
-              : null) ??
-          (selfieVerified.value
-              ? 'verified'
-              : (selfieUploaded.value ? 'pending_review' : 'not_uploaded'));
+      selfiePreviewUrl.value = _firstNonEmptyString([
+        data['selfieUrl'],
+        data['selfie_url'],
+        authUser?.selfieUrl,
+      ]);
+      selfieStatus.value = normalizedSelfieStatus.isNotEmpty
+          ? normalizedSelfieStatus
+          : (selfieVerified.value
+                ? 'verified'
+                : (selfieUploaded.value ? 'pending_review' : 'not_uploaded'));
+
+      // ── ID Document ──
       idDocUploaded.value = _asBool(
         data['idDocumentUploaded'] ??
             data['id_document_uploaded'] ??
             data['documentUploaded'] ??
             data['document_uploaded'],
       );
-      idDocStatus.value =
-          _asString(data['idDocumentStatus'] ?? data['id_document_status'])
-              .trim()
-              .isNotEmpty
-          ? _asString(data['idDocumentStatus'] ?? data['id_document_status'])
+      final idDocStatusRaw = _asString(
+        data['idDocumentStatus'] ?? data['id_document_status'],
+      );
+      idDocStatus.value = idDocStatusRaw.trim().isNotEmpty
+          ? _normalizeStatus(idDocStatusRaw)
           : 'not_uploaded';
       idDocType.value = _asString(
         data['documentType'] ?? data['document_type'],
       );
       idDocUrl.value = _asString(data['documentUrl'] ?? data['document_url']);
-      idDocRejectionReason.value =
-          _asString(data['documentRejectionReason'] ?? data['document_rejection_reason']);
-      marriageCertUploaded.value = _asBool(
-        data['marriageCertUploaded'] ?? data['marriage_cert_uploaded'],
+      idDocRejectionReason.value = _asString(
+        data['documentRejectionReason'] ?? data['document_rejection_reason'],
       );
-      marriageCertStatus.value =
-          _asString(data['marriageCertStatus'] ?? data['marriage_cert_status'])
-              .trim()
-              .isNotEmpty
-          ? _asString(data['marriageCertStatus'] ?? data['marriage_cert_status'])
+
+      // ── Marriage Certificate ──
+      marriageCertUploaded.value = _asBool(
+        data['marriageCertUploaded'] ??
+            data['marriage_cert_uploaded'] ??
+            data['marriageCertUrl'] ??
+            data['marriage_cert_url'] ??
+            data['certificateUrl'] ??
+            data['certificate_url'],
+      );
+      final marriageCertStatusRaw = _asString(
+        data['marriageCertStatus'] ?? data['marriage_cert_status'],
+      );
+      marriageCertStatus.value = marriageCertStatusRaw.trim().isNotEmpty
+          ? _normalizeStatus(marriageCertStatusRaw)
           : 'not_uploaded';
+      marriageCertPreviewUrl.value = _firstNonEmptyString([
+        data['marriageCertUrl'],
+        data['marriage_cert_url'],
+        data['certificateUrl'],
+        data['certificate_url'],
+      ]);
+      marriageCertRejectionReason.value = _firstNonEmptyString([
+        data['marriageCertRejectionReason'],
+        data['marriage_cert_rejection_reason'],
+        data['certificateRejectionReason'],
+        data['certificate_rejection_reason'],
+      ]);
       trustScore.value = _asInt(data['trustScore'] ?? data['trust_score'], 100);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[VerificationService] fetchVerificationStatus error: $e');
+    }
   }
 
   // ─── Upload Selfie ─────────────────────────────────────
-  Future<Map<String, dynamic>?> uploadSelfie(File file) async {
+  Future<VerificationUploadResult> uploadSelfie(File file) async {
     try {
+      selfieLocalPath.value = file.path;
+      debugPrint('[VerificationService] uploadSelfie: starting upload');
       final optimized = await UploadImageOptimizer.optimizeSelfie(file);
       final formData = FormData.fromMap({
         'selfie': await MultipartFile.fromFile(
@@ -170,53 +236,69 @@ class VerificationService extends GetxService {
       });
       final response = await _api.upload(ApiConstants.selfieUpload, formData);
       final data = _verificationData(response.data);
+      debugPrint(
+        '[VerificationService] uploadSelfie: backend response keys=${data.keys.toList()}',
+      );
+
       selfieUploaded.value = true;
-      final status = _asString(
-        data['status'] ?? data['selfieStatus'] ?? data['selfie_status'],
-      ).trim().toLowerCase();
+      // Backend uploadSelfie returns { message, selfieUrl, status: 'pending' }
+      final status = _normalizeStatus(
+        _asString(
+          data['status'] ?? data['selfieStatus'] ?? data['selfie_status'],
+        ),
+      );
       if (status.isNotEmpty) {
         selfieStatus.value = status;
         if (_statusLooksVerified(status)) {
           selfieVerified.value = true;
         }
       }
+      selfiePreviewUrl.value = _firstNonEmptyString([
+        data['selfieUrl'],
+        data['selfie_url'],
+        data['url'],
+      ], selfiePreviewUrl.value);
       await _refreshCurrentUser();
       await fetchVerificationStatus();
-      return data;
-    } catch (_) {
-      return null;
+      debugPrint('[VerificationService] uploadSelfie: success, status=$status');
+      return VerificationUploadResult.ok(data);
+    } on DioException catch (e) {
+      selfieLocalPath.value = '';
+      final msg = e.response?.data?['message'] ?? e.message ?? 'Network error';
+      debugPrint(
+        '[VerificationService] uploadSelfie DioException: $msg (status=${e.response?.statusCode})',
+      );
+      return VerificationUploadResult.fail(msg);
+    } catch (e) {
+      selfieLocalPath.value = '';
+      debugPrint('[VerificationService] uploadSelfie error: $e');
+      return VerificationUploadResult.fail('Upload failed: $e');
     }
   }
 
   // ─── Trigger Selfie Verification ───────────────────────
-  Future<Map<String, dynamic>?> verifySelfie() async {
+  Future<VerificationUploadResult> verifySelfie() async {
     try {
-      final response = await _api.post(
-        ApiConstants.selfieVerify,
-        data: const {
-          'selfieVerified': true,
-          'selfie_verified': true,
-        },
-      );
+      debugPrint('[VerificationService] verifySelfie: starting');
+      // Backend POST /trust-safety/selfie-verify expects no body —
+      // it reads selfieUrl from the user record.
+      final response = await _api.post(ApiConstants.selfieVerify);
       final data = _verificationData(response.data);
-      final hasMatch = _asBool(data['match'] ?? data['matched']);
-      final status =
-          _asString(data['status'] ?? data['selfieStatus'] ?? data['selfie_status'])
-              .trim()
-              .toLowerCase()
-              .isNotEmpty
-          ? _asString(
-              data['status'] ?? data['selfieStatus'] ?? data['selfie_status'],
-            ).trim().toLowerCase()
-          : (hasMatch
-                ? 'verified'
-                : 'pending_review');
+      debugPrint(
+        '[VerificationService] verifySelfie: response keys=${data.keys.toList()}',
+      );
+
+      final statusRaw = _asString(
+        data['status'] ?? data['selfieStatus'] ?? data['selfie_status'],
+      );
+      final status = _normalizeStatus(statusRaw).isNotEmpty
+          ? _normalizeStatus(statusRaw)
+          : 'pending_review';
       selfieStatus.value = status;
-      selfieVerified.value =
-          _asBool(
-            data['selfieVerified'] ?? data['selfie_verified'],
-            fallback: _statusLooksVerified(status) || hasMatch,
-          );
+      selfieVerified.value = _asBool(
+        data['selfieVerified'] ?? data['selfie_verified'],
+        fallback: _statusLooksVerified(status),
+      );
       selfieUploaded.value = true;
 
       if (_statusLooksVerified(status) || selfieVerified.value) {
@@ -233,9 +315,17 @@ class VerificationService extends GetxService {
         await fetchVerificationStatus();
       }
 
-      return data;
-    } catch (_) {
-      return null;
+      debugPrint('[VerificationService] verifySelfie: done, status=$status');
+      return VerificationUploadResult.ok(data);
+    } on DioException catch (e) {
+      selfieLocalPath.value = '';
+      final msg = e.response?.data?['message'] ?? e.message ?? 'Network error';
+      debugPrint('[VerificationService] verifySelfie DioException: $msg');
+      return VerificationUploadResult.fail(msg);
+    } catch (e) {
+      selfieLocalPath.value = '';
+      debugPrint('[VerificationService] verifySelfie error: $e');
+      return VerificationUploadResult.fail('Verification failed: $e');
     }
   }
 
@@ -264,11 +354,14 @@ class VerificationService extends GetxService {
   }
 
   // ─── Upload ID Document ────────────────────────────────
-  Future<Map<String, dynamic>?> uploadIdDocument(
+  Future<VerificationUploadResult> uploadIdDocument(
     File file, {
     required String documentType,
   }) async {
     try {
+      debugPrint(
+        '[VerificationService] uploadIdDocument: starting, type=$documentType',
+      );
       final optimized = await UploadImageOptimizer.optimizeDocument(file);
       final formData = FormData.fromMap({
         'document': await MultipartFile.fromFile(
@@ -278,22 +371,38 @@ class VerificationService extends GetxService {
         'documentType': documentType,
       });
       final response = await _api.upload(ApiConstants.idUpload, formData);
+      final data = _verificationData(response.data);
+      debugPrint(
+        '[VerificationService] uploadIdDocument: response keys=${data.keys.toList()}',
+      );
+
       idDocUploaded.value = true;
       idDocStatus.value = 'pending_review';
-      idDocType.value = documentType;
-      idDocUrl.value = (response.data['documentUrl'] ?? '').toString();
+      idDocType.value = _asString(
+        data['documentType'] ?? data['document_type'],
+        documentType,
+      );
+      idDocUrl.value = _asString(data['documentUrl'] ?? data['document_url']);
       idDocRejectionReason.value = '';
       await _refreshCurrentUser();
       await fetchVerificationStatus();
-      return response.data;
-    } catch (_) {
-      return null;
+      debugPrint('[VerificationService] uploadIdDocument: success');
+      return VerificationUploadResult.ok(data);
+    } on DioException catch (e) {
+      final msg = e.response?.data?['message'] ?? e.message ?? 'Network error';
+      debugPrint('[VerificationService] uploadIdDocument DioException: $msg');
+      return VerificationUploadResult.fail(msg);
+    } catch (e) {
+      debugPrint('[VerificationService] uploadIdDocument error: $e');
+      return VerificationUploadResult.fail('Upload failed: $e');
     }
   }
 
   // ─── Upload Marriage Certificate ───────────────────────
-  Future<Map<String, dynamic>?> uploadMarriageCert(File file) async {
+  Future<VerificationUploadResult> uploadMarriageCert(File file) async {
     try {
+      marriageCertLocalPath.value = file.path;
+      debugPrint('[VerificationService] uploadMarriageCert: starting');
       final optimized = await UploadImageOptimizer.optimizeDocument(file);
       final formData = FormData.fromMap({
         'certificate': await MultipartFile.fromFile(
@@ -301,12 +410,39 @@ class VerificationService extends GetxService {
           filename: 'marriage_cert.jpg',
         ),
       });
-      final response = await _api.upload(ApiConstants.marriageCertUpload, formData);
+      final response = await _api.upload(
+        ApiConstants.marriageCertUpload,
+        formData,
+      );
+      final data = _verificationData(response.data);
+      debugPrint(
+        '[VerificationService] uploadMarriageCert: response keys=${data.keys.toList()}',
+      );
+
       marriageCertUploaded.value = true;
       marriageCertStatus.value = 'pending_review';
-      return response.data;
-    } catch (_) {
-      return null;
+      marriageCertPreviewUrl.value = _firstNonEmptyString([
+        data['marriageCertUrl'],
+        data['marriage_cert_url'],
+        data['certificateUrl'],
+        data['certificate_url'],
+        data['documentUrl'],
+        data['document_url'],
+      ], marriageCertPreviewUrl.value);
+      marriageCertRejectionReason.value = '';
+      await _refreshCurrentUser();
+      await fetchVerificationStatus();
+      debugPrint('[VerificationService] uploadMarriageCert: success');
+      return VerificationUploadResult.ok(data);
+    } on DioException catch (e) {
+      marriageCertLocalPath.value = '';
+      final msg = e.response?.data?['message'] ?? e.message ?? 'Network error';
+      debugPrint('[VerificationService] uploadMarriageCert DioException: $msg');
+      return VerificationUploadResult.fail(msg);
+    } catch (e) {
+      marriageCertLocalPath.value = '';
+      debugPrint('[VerificationService] uploadMarriageCert error: $e');
+      return VerificationUploadResult.fail('Upload failed: $e');
     }
   }
 
@@ -317,7 +453,8 @@ class VerificationService extends GetxService {
       final data = _asMap(response.data);
       trustScore.value = _asInt(data['trustScore'] ?? data['trust_score'], 100);
       return trustScore.value;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[VerificationService] fetchTrustScore error: $e');
       return trustScore.value;
     }
   }
@@ -330,44 +467,28 @@ class VerificationService extends GetxService {
   Future<void> _refreshCurrentUser() async {
     try {
       await Get.find<AuthService>().fetchMe();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[VerificationService] _refreshCurrentUser error: $e');
+    }
   }
 
+  /// Sync selfieVerified=true to the backend user record.
+  /// The backend accepts PATCH /users/me with { selfieVerified: true }.
   Future<bool> _syncSelfieVerifiedFlagToBackend() async {
-    const endpoints = <String>[
-      ApiConstants.usersMe,
-      ApiConstants.profileMe,
-    ];
-    const payloads = <Map<String, dynamic>>[
-      {'selfieVerified': true},
-      {'selfie_verified': true},
-      {'isSelfieVerified': true},
-      {'selfieStatus': 'verified'},
-      {'selfie_status': 'verified'},
-      {'verificationStatus': 'verified'},
-      {'verification_status': 'verified'},
-      {
-        'trustSafety': {'selfieVerified': true},
-      },
-      {
-        'verification': {'selfieVerified': true},
-      },
-    ];
-
-    for (final endpoint in endpoints) {
-      for (final payload in payloads) {
-        try {
-          await _api
-              .patch(endpoint, data: payload)
-              .timeout(const Duration(seconds: 15));
-          return true;
-        } catch (_) {
-          // Try the next compatible payload shape.
-        }
-      }
+    try {
+      await _api
+          .patch(ApiConstants.usersMe, data: {'selfieVerified': true})
+          .timeout(const Duration(seconds: 10));
+      debugPrint(
+        '[VerificationService] _syncSelfieVerifiedFlagToBackend: success',
+      );
+      return true;
+    } catch (e) {
+      debugPrint(
+        '[VerificationService] _syncSelfieVerifiedFlagToBackend failed: $e',
+      );
+      return false;
     }
-
-    return false;
   }
 
   double get verificationProgress {
@@ -376,5 +497,39 @@ class VerificationService extends GetxService {
     if (selfieVerified.value) total++;
     if (idDocUploaded.value) total++;
     return total / 3;
+  }
+
+  /// Normalize backend VerificationStatus enum values to the
+  /// canonical forms used by the UI.
+  /// Backend sends: not_submitted, pending, approved, rejected
+  /// UI expects:     not_uploaded,  pending_review, verified, rejected
+  String _normalizeStatus(String raw) {
+    final s = raw.trim().toLowerCase();
+    switch (s) {
+      case 'approved':
+      case 'verified':
+      case 'complete':
+      case 'completed':
+      case 'success':
+        return 'verified';
+      case 'pending':
+      case 'pending_review':
+      case 'under_review':
+      case 'in_review':
+      case 'submitted':
+      case 'processing':
+        return 'pending_review';
+      case 'rejected':
+      case 'declined':
+      case 'denied':
+        return 'rejected';
+      case 'not_submitted':
+      case 'not_uploaded':
+      case 'not_started':
+      case '':
+        return 'not_uploaded';
+      default:
+        return s;
+    }
   }
 }

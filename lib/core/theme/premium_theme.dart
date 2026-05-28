@@ -1,27 +1,24 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
 
-/// Luxury Islamic + Apple Premium Design System
-/// Deep black background with emerald primary and gold accents
+/// Premium rose design system
 class AppTheme {
-  // Background Colors - Deep Black
-  static const Color background = Color(0xFF0B0B0F);
-  static const Color backgroundSecondary = Color(0xFF121218);
-  static const Color surface = Color(0xFF1A1A24);
-  static const Color surfaceElevated = Color(0xFF22222E);
+  static const Color background = AppColors.backgroundLight;
+  static const Color backgroundSecondary = AppColors.primarySurface;
+  static const Color surface = AppColors.surfaceLight;
+  static const Color surfaceElevated = AppColors.surfaceMutedLight;
 
-  // Primary Colors - Dark Emerald
-  static const Color primary = Color(0xFF0F2A24);
-  static const Color primaryLight = Color(0xFF1A4A3E);
-  static const Color primaryDark = Color(0xFF0A1F1A);
+  static const Color primary = AppColors.primary;
+  static const Color primaryLight = AppColors.primaryLight;
+  static const Color primaryDark = AppColors.primaryDark;
 
-  // Accent Colors - Gold Gradient
-  static const Color gold = Color(0xFFD4AF37);
-  static const Color goldLight = Color(0xFFFFD700);
-  static const Color goldDark = Color(0xFFB8960C);
-  static const Color goldGradientStart = Color(0xFFD4AF37);
-  static const Color goldGradientEnd = Color(0xFFFFD700);
+  static const Color gold = AppColors.primary;
+  static const Color goldLight = AppColors.primaryLight;
+  static const Color goldDark = AppColors.primaryDark;
+  static const Color goldGradientStart = AppColors.primary;
+  static const Color goldGradientEnd = AppColors.secondary;
 
   // Utility Colors
   static const Color white = Colors.white;
@@ -31,9 +28,9 @@ class AppTheme {
   static const Color white10 = Colors.white10;
   static const Color white05 = Color(0x0DFFFFFF);
 
-  static const Color error = Color(0xFFE53935);
-  static const Color success = Color(0xFF4CAF50);
-  static const Color online = Color(0xFF4CAF50);
+  static const Color error = AppColors.primaryDark;
+  static const Color success = AppColors.primaryLight;
+  static const Color online = AppColors.primaryLight;
 
   // Gradients
   static const LinearGradient goldGradient = LinearGradient(
@@ -42,16 +39,12 @@ class AppTheme {
     colors: [goldGradientStart, goldGradientEnd],
   );
 
-  static const LinearGradient emeraldGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [primaryLight, primary],
-  );
+  static const LinearGradient emeraldGradient = AppColors.primaryGradient;
 
   static const LinearGradient darkSurfaceGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [surface, background],
+    colors: [AppColors.primarySurface, AppColors.surfaceLight],
   );
 
   // Shadows
@@ -75,44 +68,44 @@ class AppTheme {
   static TextStyle get heading1 => const TextStyle(
     fontSize: 32,
     fontWeight: FontWeight.w900,
-    color: white,
-    letterSpacing: -0.5,
+    color: AppColors.textPrimaryLight,
+    letterSpacing: 0,
   );
 
   static TextStyle get heading2 => const TextStyle(
     fontSize: 24,
     fontWeight: FontWeight.w800,
-    color: white,
-    letterSpacing: -0.3,
+    color: AppColors.textPrimaryLight,
+    letterSpacing: 0,
   );
 
   static TextStyle get heading3 => const TextStyle(
     fontSize: 18,
     fontWeight: FontWeight.w700,
-    color: white,
-    letterSpacing: -0.2,
+    color: AppColors.textPrimaryLight,
+    letterSpacing: 0,
   );
 
   static TextStyle get body => const TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w400,
-    color: white70,
+    color: AppColors.textSecondaryLight,
     height: 1.5,
   );
 
   static TextStyle get caption => const TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w500,
-    color: white50,
-    letterSpacing: 0.3,
+    color: AppColors.textHintLight,
+    letterSpacing: 0,
   );
 
   // System UI
   static SystemUiOverlayStyle get systemUiStyle => const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
+    statusBarIconBrightness: Brightness.dark,
     systemNavigationBarColor: background,
-    systemNavigationBarIconBrightness: Brightness.light,
+    systemNavigationBarIconBrightness: Brightness.dark,
   );
 }
 
@@ -132,7 +125,7 @@ class GlassContainer extends StatelessWidget {
   const GlassContainer({
     super.key,
     required this.child,
-    this.borderRadius = 24,
+    this.borderRadius = 8,
     this.padding = const EdgeInsets.all(16),
     this.margin = EdgeInsets.zero,
     this.blur = 20,
@@ -185,7 +178,7 @@ class PremiumButton extends StatefulWidget {
     super.key,
     required this.onTap,
     required this.child,
-    this.borderRadius = 16,
+    this.borderRadius = 8,
     this.gradient,
     this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     this.isOutlined = false,
@@ -255,12 +248,12 @@ class _PremiumButtonState extends State<PremiumButton>
                       ),
                     ],
             ),
-            child: DefaultTextStyle(
-              style: TextStyle(
-                color: widget.isOutlined ? AppTheme.gold : AppTheme.background,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
+              child: DefaultTextStyle(
+                style: TextStyle(
+                color: widget.isOutlined ? AppTheme.gold : Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
               ),
               child: widget.child,
             ),
@@ -493,7 +486,7 @@ class PremiumCard extends StatefulWidget {
     super.key,
     required this.child,
     required this.onTap,
-    this.borderRadius = 20,
+    this.borderRadius = 8,
   });
 
   @override

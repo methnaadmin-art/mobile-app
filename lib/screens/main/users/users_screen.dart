@@ -1,12 +1,18 @@
-import 'dart:async';
+﻿import 'dart:async';
+import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:methna_app/app/controllers/chat_controller.dart';
 import 'package:methna_app/app/controllers/users_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
+import 'package:methna_app/app/data/services/monetization_service.dart';
+import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/constants/api_constants.dart';
 import 'package:methna_app/core/utils/cloudinary_url.dart';
 import 'package:methna_app/core/utils/google_fonts_stub.dart';
@@ -14,6 +20,10 @@ import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/animated_empty_state.dart';
 
 enum _UsersGridCardKind { likedByMe, likedMe, passed, matched }
+
+const Color _usersLuxTone = AppColors.primary;
+const Color _usersLuxLightBackground = Color(0xFFFFF5F7);
+const Color _usersLuxLightBorder = Color(0xFFEDE9FE);
 
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
@@ -24,35 +34,108 @@ class UsersScreen extends StatefulWidget {
 
 class _UsersScreenState extends State<UsersScreen> {
   int _selectedTabIndex = 0;
+  Worker? _requestedTabWorker;
 
   UsersController get controller => Get.find<UsersController>();
+
+  int _normalizeTabIndex(int index) => index.clamp(0, 3).toInt();
+
+  int? _parseTabIndex(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
+  }
+
+  int? _resolveInitialTabIndex(dynamic args) {
+    if (args is! Map) return null;
+    final map = Map<String, dynamic>.from(args);
+    return _parseTabIndex(
+      map['usersTabIndex'] ?? map['users_tab_index'] ?? map['initialUsersTab'],
+    );
+  }
+
+  String _sourceTabKeyForIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'liked_by_me';
+      case 1:
+        return 'liked_me';
+      case 2:
+        return 'passed';
+      case 3:
+        return 'matched';
+      default:
+        return 'liked_by_me';
+    }
+  }
+
+  void _applyTabSelection(int index, {bool forceRefresh = false}) {
+    final normalized = _normalizeTabIndex(index);
+    final changed = normalized != _selectedTabIndex;
+    if (changed) {
+      setState(() => _selectedTabIndex = normalized);
+    }
+    unawaited(
+      controller.ensureUsersTabData(
+        force: forceRefresh || changed,
+        tabIndex: normalized,
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(controller.fetchInteractions());
-      unawaited(controller.fetchWhoLikedMe());
-      unawaited(controller.fetchMatches());
+
+    final initialFromArgs = _resolveInitialTabIndex(Get.arguments);
+    final requestedFromController = controller.requestedUsersTabIndex.value;
+    final initialTab = initialFromArgs ?? requestedFromController;
+    if (initialTab != null) {
+      _selectedTabIndex = _normalizeTabIndex(initialTab);
+      controller.clearRequestedUsersTab();
+    }
+
+    _requestedTabWorker = ever<int?>(controller.requestedUsersTabIndex, (
+      requestedTab,
+    ) {
+      if (!mounted || requestedTab == null) return;
+      controller.clearRequestedUsersTab();
+      _applyTabSelection(requestedTab, forceRefresh: true);
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        controller.ensureUsersTabData(
+          force: true,
+          tabIndex: _selectedTabIndex,
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _requestedTabWorker?.dispose();
+    super.dispose();
   }
 
   Future<void> _refreshCurrentTab() async {
     switch (_selectedTabIndex) {
       case 0:
-        await controller.fetchInteractions();
+        await controller.ensureUsersTabData(force: true, tabIndex: 0);
         return;
       case 1:
-        await controller.refreshWhoLikedMe();
+        await controller.ensureUsersTabData(force: true, tabIndex: 1);
         return;
       case 2:
-        await controller.fetchInteractions();
+        await controller.ensureUsersTabData(force: true, tabIndex: 2);
         return;
       case 3:
-        await controller.fetchMatches();
+        await controller.ensureUsersTabData(force: true, tabIndex: 3);
         return;
       default:
-        await controller.fetchInteractions();
+        await controller.ensureUsersTabData(force: true, tabIndex: 0);
     }
   }
 
@@ -130,16 +213,39 @@ class _UsersScreenState extends State<UsersScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF111218) : Colors.white,
+      backgroundColor: isDark
+          ? const Color(0xFF111218)
+          : _usersLuxLightBackground,
       body: SafeArea(
         bottom: false,
         child: Obx(() {
-          final likedByMe = _uniqueUsers(controller.likedUsers);
-          final likedMe = _uniqueUsers(
-            controller.likesReceived.map((item) => item.user),
-          );
-          final passed = _uniqueUsers(controller.passedUsers);
           final matched = _uniqueUsers(controller.matches);
+          final matchedIds = matched.map((user) => user.id).toSet();
+          final likedByMe = _uniqueUsers(
+            controller.likedUsers.where(
+              (user) => !matchedIds.contains(user.id),
+            ),
+          );
+          final passedIds = controller.passedUsers
+              .map((user) => user.id)
+              .toSet();
+          final likedMe = _uniqueUsers(
+            controller.likesReceived
+                .map((item) => item.user)
+                .where(
+                  (user) =>
+                      !matchedIds.contains(user.id) &&
+                      !passedIds.contains(user.id),
+                ),
+          );
+          final likedMeIds = likedMe.map((user) => user.id).toSet();
+          final passed = _uniqueUsers(
+            controller.passedUsers.where(
+              (user) =>
+                  !matchedIds.contains(user.id) &&
+                  !likedMeIds.contains(user.id),
+            ),
+          );
 
           final visibleUsers = switch (_selectedTabIndex) {
             1 => likedMe,
@@ -148,37 +254,76 @@ class _UsersScreenState extends State<UsersScreen> {
             _ => likedByMe,
           };
 
+          final monetization = Get.isRegistered<MonetizationService>()
+              ? Get.find<MonetizationService>()
+              : null;
+          final hasWhoLikedMeAccess = controller.whoLikedMeRequiresPremium.value
+              ? (monetization?.hasWhoLikedMeAccess ??
+                    false)
+              : true;
+
           final tabs = [
-            _UsersTabItem(label: 'person_i_liked'.tr, count: likedByMe.length),
-            _UsersTabItem(label: 'who_liked_me'.tr, count: likedMe.length),
-            _UsersTabItem(label: 'swipe_status_pass'.tr, count: passed.length),
-            _UsersTabItem(label: 'matches'.tr, count: matched.length),
+            _UsersTabItem(
+              label: 'person_i_liked'.tr,
+              count: likedByMe.length,
+              icon: LucideIcons.heart,
+              tone: _usersLuxTone,
+            ),
+            _UsersTabItem(
+              label: 'who_liked_me'.tr,
+              count: likedMe.length,
+              icon: LucideIcons.badgeCheck,
+              tone: _usersLuxTone,
+            ),
+            _UsersTabItem(
+              label: 'swipe_status_pass'.tr,
+              count: passed.length,
+              icon: LucideIcons.x,
+              tone: _usersLuxTone,
+            ),
+            _UsersTabItem(
+              label: 'matches'.tr,
+              count: matched.length,
+              icon: LucideIcons.sparkles,
+              tone: _usersLuxTone,
+            ),
           ];
 
-          final isInitialLoading =
-              (controller.isLoadingWhoLikedMe.value ||
-                  controller.isLoading.value) &&
-              visibleUsers.isEmpty;
+          final isInitialLoading = switch (_selectedTabIndex) {
+            1 => controller.isLoadingWhoLikedMe.value && visibleUsers.isEmpty,
+            3 => controller.isLoadingMatches.value && visibleUsers.isEmpty,
+            _ => controller.isLoadingInteractions.value && visibleUsers.isEmpty,
+          };
 
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  8,
+                  AppSpacing.lg,
+                  0,
+                ),
+                child: _UsersOverviewHeader(
+                  isDark: isDark,
+                  title: tabs[_selectedTabIndex].label,
+                  count: visibleUsers.length,
+                  icon: tabs[_selectedTabIndex].icon,
+                  tone: tabs[_selectedTabIndex].tone,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  10,
+                  AppSpacing.lg,
+                  0,
+                ),
                 child: _InteractionTabs(
                   items: tabs,
                   selectedIndex: _selectedTabIndex,
-                  onChanged: (index) {
-                    setState(() => _selectedTabIndex = index);
-                    if (index == 1 && controller.likesReceived.isEmpty) {
-                      unawaited(controller.fetchWhoLikedMe());
-                    } else if ((index == 0 || index == 2) &&
-                        controller.likedUsers.isEmpty &&
-                        controller.passedUsers.isEmpty) {
-                      unawaited(controller.fetchInteractions());
-                    } else if (index == 3 && controller.matches.isEmpty) {
-                      unawaited(controller.fetchMatches());
-                    }
-                  },
+                  onChanged: (index) => _applyTabSelection(index),
                 ),
               ),
               const SizedBox(height: 10),
@@ -186,16 +331,21 @@ class _UsersScreenState extends State<UsersScreen> {
                 child: RefreshIndicator(
                   color: AppColors.primary,
                   onRefresh: _refreshCurrentTab,
-                  child: isInitialLoading
-                      ? const _MatchesGridLoading()
-                      : visibleUsers.isEmpty
-                      ? _MatchesEmptyScrollView(
-                          title: _emptyTitle(),
-                          subtitle: _emptySubtitle(),
-                          onRefresh: _refreshCurrentTab,
-                        )
+                  child: visibleUsers.isEmpty
+                      ? (isInitialLoading
+                            ? const _MatchesGridLoading()
+                            : _MatchesEmptyScrollView(
+                                title: _emptyTitle(),
+                                subtitle: _emptySubtitle(),
+                                onRefresh: _refreshCurrentTab,
+                              ))
                       : GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 120),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            0,
+                            AppSpacing.lg,
+                            120,
+                          ),
                           physics: const BouncingScrollPhysics(
                             parent: AlwaysScrollableScrollPhysics(),
                           ),
@@ -209,19 +359,85 @@ class _UsersScreenState extends State<UsersScreen> {
                           itemCount: visibleUsers.length,
                           itemBuilder: (context, index) {
                             final selectedUser = visibleUsers[index];
+                            final isLikedByMeTab = _selectedTabIndex == 0;
+                            final isLikedMeTab = _selectedTabIndex == 1;
+                            final isPassedTab = _selectedTabIndex == 2;
+                            final shouldBlurWhoLikedMeCard =
+                                isLikedMeTab &&
+                                !hasWhoLikedMeAccess;
+
+                            Future<void> Function()? quickAction;
+                            String? quickActionLabel;
+                            IconData? quickActionIcon;
+                            Color quickActionTone = _usersLuxTone;
+
+                            if (isLikedByMeTab) {
+                              quickAction = () =>
+                                  controller.passUser(selectedUser.id);
+                              quickActionLabel = 'Pass';
+                              quickActionIcon = LucideIcons.x;
+                              quickActionTone = const Color(0xFFFF6B6B);
+                            } else if (isPassedTab) {
+                              quickAction = () =>
+                                  controller.likeUser(selectedUser.id);
+                              quickActionLabel = 'Like';
+                              quickActionIcon = LucideIcons.heart;
+                              quickActionTone = _usersLuxTone;
+                            } else if (_selectedTabIndex == 3) {
+                              quickAction = () async {
+                                await Get.find<ChatController>()
+                                    .openConversationWithUser(selectedUser);
+                              };
+                              quickActionLabel = 'message'.tr;
+                              quickActionIcon = LucideIcons.messageCircle;
+                              quickActionTone = const Color(0xFF22A06B);
+                            }
+
                             return _MatchGridCard(
                               user: selectedUser,
                               interactionAt: _interactionAt(selectedUser),
                               cardKind: _tabKind(),
+                              isBlurred: shouldBlurWhoLikedMeCard,
+                              quickActionLabel: quickActionLabel,
+                              quickActionIcon: quickActionIcon,
+                              quickActionTone: quickActionTone,
+                              isQuickActionEnabled:
+                                  !controller.isSwipeInFlight(selectedUser.id),
+                              onQuickAction: quickAction,
+                              onBlurCtaTap: shouldBlurWhoLikedMeCard
+                                  ? () => Get.toNamed(AppRoutes.subscription)
+                                  : null,
                               onTap: () {
+                                if (controller.isLockedLikedMePlaceholder(
+                                  selectedUser.id,
+                                )) {
+                                  Get.toNamed(AppRoutes.subscription);
+                                  return;
+                                }
+
                                 if (_selectedTabIndex == 3) {
                                   controller.openUserDetailById(
                                     selectedUser.id,
                                     fallbackUser: selectedUser,
+                                    showLoader: false,
+                                    sourceTab: _sourceTabKeyForIndex(
+                                      _selectedTabIndex,
+                                    ),
                                   );
                                   return;
                                 }
-                                controller.openUserDetail(selectedUser);
+
+                                if (shouldBlurWhoLikedMeCard) {
+                                  Get.toNamed(AppRoutes.subscription);
+                                  return;
+                                }
+
+                                controller.openUserDetail(
+                                  selectedUser,
+                                  sourceTab: _sourceTabKeyForIndex(
+                                    _selectedTabIndex,
+                                  ),
+                                );
                               },
                             );
                           },
@@ -237,10 +453,118 @@ class _UsersScreenState extends State<UsersScreen> {
 }
 
 class _UsersTabItem {
-  const _UsersTabItem({required this.label, required this.count});
+  const _UsersTabItem({
+    required this.label,
+    required this.count,
+    required this.icon,
+    required this.tone,
+  });
 
   final String label;
   final int count;
+  final IconData icon;
+  final Color tone;
+}
+
+class _UsersOverviewHeader extends StatelessWidget {
+  const _UsersOverviewHeader({
+    required this.isDark,
+    required this.title,
+    required this.count,
+    required this.icon,
+    required this.tone,
+  });
+
+  final bool isDark;
+  final String title;
+  final int count;
+  final IconData icon;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xFF171020), Color(0xFF24183C)]
+              : const [Colors.white, Color(0xFFF4F0FF)],
+        ),
+        border: Border.all(
+          color: isDark
+              ? AppColors.primary.withValues(alpha: 0.26)
+              : _usersLuxLightBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: isDark ? 0.16 : 0.1),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, size: 19, color: tone),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'profiles'.tr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondaryLight,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    color: isDark
+                        ? AppColors.textPrimaryDark
+                        : AppColors.textPrimaryLight,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: tone,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _InteractionTabs extends StatelessWidget {
@@ -260,7 +584,7 @@ class _InteractionTabs extends StatelessWidget {
     final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     return SizedBox(
-      height: 46,
+      height: 52,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         reverse: isRtl,
@@ -268,50 +592,100 @@ class _InteractionTabs extends StatelessWidget {
         itemBuilder: (context, index) {
           final item = items[index];
           final selected = index == selectedIndex;
-          final activeColor = const Color(0xFFEC4D8F);
+          final activeColor = item.tone;
           return Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: () => onChanged(index),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(4, 2, 4, 2),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              borderRadius: BorderRadius.circular(14),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: selected
+                      ? activeColor.withValues(alpha: 0.16)
+                      : (isDark ? const Color(0xFF191F2D) : Colors.white),
+                  border: Border.all(
+                    color: selected
+                        ? activeColor.withValues(alpha: 0.56)
+                        : (isDark
+                              ? const Color(0xFF2B3344)
+                              : _usersLuxLightBorder),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '${item.label} ${item.count > 0 ? item.count : ''}'
-                          .trim(),
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: selected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        color: selected
-                            ? activeColor
-                            : (isDark
-                                  ? Colors.white.withValues(alpha: 0.78)
-                                  : const Color(0xFF7B7F86)),
+                    Icon(
+                      item.icon,
+                      size: 14,
+                      color: selected
+                          ? activeColor
+                          : (isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondaryLight),
+                    ),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 108),
+                      child: Text(
+                        item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.labelMedium.copyWith(
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                          color: selected
+                              ? activeColor
+                              : (isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondaryLight),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOut,
-                      width: selected ? 54 : 0,
-                      height: 2.6,
-                      decoration: BoxDecoration(
-                        color: activeColor,
-                        borderRadius: BorderRadius.circular(999),
+                    if (item.count > 0) ...[
+                      const SizedBox(width: 7),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? activeColor.withValues(alpha: 0.2)
+                              : (isDark
+                                    ? const Color(0xFF232D3E)
+                                    : AppColors.primary.withValues(
+                                        alpha: 0.08,
+                                      )),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${item.count}',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: selected
+                                ? activeColor
+                                : (isDark
+                                      ? AppColors.textPrimaryDark
+                                      : AppColors.textPrimaryLight),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
             ),
           );
         },
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemCount: items.length,
       ),
     );
@@ -373,12 +747,26 @@ class _MatchGridCard extends StatelessWidget {
     required this.cardKind,
     required this.interactionAt,
     required this.onTap,
+    this.isBlurred = false,
+    this.onBlurCtaTap,
+    this.quickActionLabel,
+    this.quickActionIcon,
+    this.quickActionTone = _usersLuxTone,
+    this.isQuickActionEnabled = true,
+    this.onQuickAction,
   });
 
   final UserModel user;
   final _UsersGridCardKind cardKind;
   final DateTime? interactionAt;
   final VoidCallback onTap;
+  final bool isBlurred;
+  final VoidCallback? onBlurCtaTap;
+  final String? quickActionLabel;
+  final IconData? quickActionIcon;
+  final Color quickActionTone;
+  final bool isQuickActionEnabled;
+  final Future<void> Function()? onQuickAction;
 
   @override
   Widget build(BuildContext context) {
@@ -386,8 +774,11 @@ class _MatchGridCard extends StatelessWidget {
     final title = _title(user);
     final job = _jobLine(user);
     final identity = _identityLine(user);
-    final locationAndTime = '${_locationLine(user)} • ${_timeAgo(interactionAt)}';
+    final locationAndTime =
+        '${_locationLine(user)} • ${_timeAgo(interactionAt)}';
     final isVerified = _isVerifiedUser(user);
+    final isPremium = user.isPremium;
+    final statusTone = _statusTone(cardKind);
 
     return GestureDetector(
       onTap: onTap,
@@ -395,13 +786,15 @@ class _MatchGridCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isDark ? const Color(0xFF2E3441) : const Color(0xFFE8E8ED),
+            color: isDark
+                ? AppColors.primary.withValues(alpha: 0.28)
+                : _usersLuxLightBorder,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.26 : 0.1),
-              blurRadius: isDark ? 16 : 12,
-              offset: const Offset(0, 6),
+              color: AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.12),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -431,12 +824,16 @@ class _MatchGridCard extends StatelessWidget {
                 start: 10,
                 child: _MiniGlassBadge(
                   iconText: _countryFlag(user.profile?.country),
+                  tint: statusTone,
                 ),
               ),
               PositionedDirectional(
                 top: 10,
                 end: 10,
-                child: _MiniGlassBadge(icon: _statusIcon(cardKind)),
+                child: _MiniGlassBadge(
+                  icon: _statusIcon(cardKind),
+                  tint: statusTone,
+                ),
               ),
               PositionedDirectional(
                 start: 12,
@@ -469,12 +866,27 @@ class _MatchGridCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (isPremium) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            LucideIcons.crown,
+                            size: 15,
+                            color: const Color(0xFFA78BFA),
+                            shadows: const [
+                              Shadow(
+                                color: Color(0x99000000),
+                                blurRadius: 7,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ],
                         if (isVerified) ...[
                           const SizedBox(width: 6),
                           Icon(
                             LucideIcons.badgeCheck,
                             size: 15,
-                            color: const Color(0xFF7DC4FF),
+                            color: statusTone,
                             shadows: const [
                               Shadow(
                                 color: Color(0x99000000),
@@ -550,9 +962,76 @@ class _MatchGridCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (quickActionLabel != null && onQuickAction != null) ...[
+                      const SizedBox(height: 7),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: _CardQuickActionButton(
+                          label: quickActionLabel!,
+                          icon: quickActionIcon,
+                          tone: quickActionTone,
+                          enabled: isQuickActionEnabled,
+                          onPressed: onQuickAction,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
+              if (isBlurred)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.26),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (isBlurred)
+                Positioned.fill(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.lock,
+                          size: 32,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(height: 10),
+                        FilledButton(
+                          onPressed:
+                              onBlurCtaTap ??
+                              () => Get.toNamed(AppRoutes.subscription),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF8B5CF6),
+                            foregroundColor: const Color(0xFF1C1A26),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(
+                            'upgrade_to_premium'.tr,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11.2,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -561,11 +1040,75 @@ class _MatchGridCard extends StatelessWidget {
   }
 }
 
+class _CardQuickActionButton extends StatelessWidget {
+  const _CardQuickActionButton({
+    required this.label,
+    required this.tone,
+    required this.enabled,
+    required this.onPressed,
+    this.icon,
+  });
+
+  final String label;
+  final IconData? icon;
+  final Color tone;
+  final bool enabled;
+  final Future<void> Function()? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = enabled
+        ? Colors.white
+        : Colors.white.withValues(alpha: 0.7);
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.72,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: !enabled || onPressed == null
+              ? null
+              : () {
+                  unawaited(onPressed!());
+                },
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: tone.withValues(alpha: 0.9),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 12.5, color: textColor),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11.2,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MiniGlassBadge extends StatelessWidget {
-  const _MiniGlassBadge({this.icon, this.iconText});
+  const _MiniGlassBadge({this.icon, this.iconText, required this.tint});
 
   final IconData? icon;
   final String? iconText;
+  final Color tint;
 
   @override
   Widget build(BuildContext context) {
@@ -573,23 +1116,43 @@ class _MiniGlassBadge extends StatelessWidget {
       width: 24,
       height: 24,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
+        color: Colors.black.withValues(alpha: 0.32),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
+        border: Border.all(color: tint.withValues(alpha: 0.74)),
       ),
       child: Center(
         child: icon != null
-            ? Icon(icon, size: 14, color: Colors.white)
+            ? Icon(icon, size: 14, color: tint)
             : Text(iconText ?? '🏳️', style: const TextStyle(fontSize: 12.5)),
       ),
     );
   }
 }
 
-class _MatchCardPhoto extends StatelessWidget {
+class _MatchCardPhoto extends StatefulWidget {
   const _MatchCardPhoto({required this.user});
 
   final UserModel user;
+
+  @override
+  State<_MatchCardPhoto> createState() => _MatchCardPhotoState();
+}
+
+class _MatchCardPhotoState extends State<_MatchCardPhoto> {
+  late final PageController _pageController;
+  int _activePage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   String _extractEmbeddedUrl(String input) {
     final value = input.trim();
@@ -631,8 +1194,7 @@ class _MatchCardPhoto extends StatelessWidget {
     var value = (candidate ?? '').trim();
     if (value.isEmpty) return '';
 
-    value = value
-        .replaceAll('\\', '/');
+    value = value.replaceAll('\\', '/');
 
     while (value.startsWith('"') || value.startsWith("'")) {
       value = value.substring(1);
@@ -675,16 +1237,17 @@ class _MatchCardPhoto extends StatelessWidget {
 
       final apiOrigin = Uri.tryParse(_apiOrigin());
       if (apiOrigin != null && localHosts.contains(hostLower)) {
-          return parsed
-              .replace(
-                scheme: apiOrigin.scheme,
-                host: apiOrigin.host,
-                port: apiOrigin.hasPort ? apiOrigin.port : null,
-              )
-              .toString();
+        return parsed
+            .replace(
+              scheme: apiOrigin.scheme,
+              host: apiOrigin.host,
+              port: apiOrigin.hasPort ? apiOrigin.port : null,
+            )
+            .toString();
       }
 
-      final secureUri = parsed.scheme.toLowerCase() == 'http' &&
+      final secureUri =
+          parsed.scheme.toLowerCase() == 'http' &&
               !localHosts.contains(hostLower)
           ? parsed.replace(scheme: 'https')
           : parsed;
@@ -723,9 +1286,11 @@ class _MatchCardPhoto extends StatelessWidget {
     final results = <String>[];
     final seen = <String>{};
     final candidates = <String?>[
-      user.mainPhotoUrl,
-      user.fallbackPhotoUrl,
-      ...(user.photos ?? const <PhotoModel>[]).map((photo) => photo.url),
+      widget.user.mainPhotoUrl,
+      widget.user.fallbackPhotoUrl,
+      ...(widget.user.photos ?? const <PhotoModel>[])
+          .where((photo) => !photo.isLocked)
+          .map((photo) => photo.url),
     ];
 
     for (final candidate in candidates) {
@@ -739,14 +1304,13 @@ class _MatchCardPhoto extends StatelessWidget {
           (uri.scheme.toLowerCase() == 'http' ||
               uri.scheme.toLowerCase() == 'https') &&
           uri.host.isNotEmpty) {
-        if (seen.add(normalized)) {
-          results.add(normalized);
-        }
-
-        // Try Cloudinary-optimized URL as a fallback, not as the only source.
         final transformed = CloudinaryUrl.medium(normalized);
         if (transformed.isNotEmpty && seen.add(transformed)) {
           results.add(transformed);
+        }
+
+        if (seen.add(normalized)) {
+          results.add(normalized);
         }
       }
     }
@@ -759,24 +1323,83 @@ class _MatchCardPhoto extends StatelessWidget {
     final imageUrls = _resolvePhotoUrls();
 
     if (imageUrls.isEmpty) {
-      return _MatchCardFallback(user: user);
+      return _MatchCardFallback(user: widget.user);
     }
 
-    return _ResilientCachedImage(
-      urls: imageUrls,
-      fit: BoxFit.cover,
-      fallback: _MatchCardFallback(user: user),
-      placeholder: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? const [Color(0xFF1D2230), Color(0xFF2A3144)]
-                : const [Color(0xFFF7ECFF), Color(0xFFEAE4FF)],
-          ),
+    final placeholder = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xFF1D2230), Color(0xFF2A3144)]
+              : const [Color(0xFFF4F0FF), Color(0xFFEDE9FE)],
         ),
       ),
+    );
+
+    if (imageUrls.length == 1) {
+      return _ResilientCachedImage(
+        urls: imageUrls,
+        fit: BoxFit.cover,
+        fallback: _MatchCardFallback(user: widget.user),
+        placeholder: placeholder,
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PageView.builder(
+          controller: _pageController,
+          itemCount: imageUrls.length,
+          onPageChanged: (index) {
+            if (!mounted) return;
+            setState(() => _activePage = index);
+          },
+          itemBuilder: (context, index) {
+            final url = imageUrls[index];
+            return CachedNetworkImage(
+              key: ValueKey<String>(url),
+              imageUrl: CloudinaryUrl.medium(url),
+              fit: BoxFit.cover,
+              placeholder: (context, imageUrl) => placeholder,
+              errorWidget: (context, imageUrl, error) =>
+                  _MatchCardFallback(user: widget.user),
+            );
+          },
+        ),
+        Positioned(
+          bottom: 10,
+          left: 0,
+          right: 0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(imageUrls.length, (index) {
+              final isActive = index == _activePage;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isActive ? 16 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? Colors.white.withValues(alpha: 0.95)
+                      : Colors.white.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -848,7 +1471,7 @@ class _MatchCardFallback extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isDark
               ? const [Color(0xFF1C2230), Color(0xFF2B3347)]
-              : const [Color(0xFFF7ECFF), Color(0xFFEAE4FF)],
+              : const [Color(0xFFF4F0FF), Color(0xFFEDE9FE)],
         ),
       ),
       child: Center(
@@ -881,7 +1504,7 @@ class _MatchCardPlaceholder extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: isDark
                 ? const [Color(0xFF1A202D), Color(0xFF283044)]
-                : const [Color(0xFFF8F2FF), Color(0xFFEEE9FF)],
+                : const [Color(0xFFF4F0FF), Color(0xFFEDE9FE)],
           ),
         ),
       ),
@@ -916,13 +1539,32 @@ class _MatchesEmptyState extends StatelessWidget {
 }
 
 String _title(UserModel user) {
-  final name = (user.firstName?.trim().isNotEmpty == true)
-      ? user.firstName!.trim()
-      : (user.displayName.trim().isNotEmpty
-            ? user.displayName.trim()
-            : 'profile'.tr);
+  final name = _safeDisplayName(user);
   final age = user.profile?.showAge == false ? null : user.age;
   return age != null && age > 0 ? '$name ($age)' : name;
+}
+
+String _safeDisplayName(UserModel user) {
+  final first = (user.firstName ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+  final last = (user.lastName ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  if (first.isNotEmpty && last.isNotEmpty) {
+    final firstLower = first.toLowerCase();
+    final lastLower = last.toLowerCase();
+    if (firstLower == lastLower || firstLower.endsWith(' $lastLower')) {
+      return first;
+    }
+    if (lastLower.startsWith('$firstLower ')) {
+      return last;
+    }
+    return '$first $last';
+  }
+
+  if (first.isNotEmpty) return first;
+  if (last.isNotEmpty) return last;
+
+  final fallback = user.publicDisplayName.trim().replaceFirst('@', '');
+  return fallback.isNotEmpty ? fallback : 'profile'.tr;
 }
 
 IconData _statusIcon(_UsersGridCardKind kind) {
@@ -930,11 +1572,24 @@ IconData _statusIcon(_UsersGridCardKind kind) {
     case _UsersGridCardKind.likedByMe:
       return LucideIcons.heart;
     case _UsersGridCardKind.likedMe:
-      return LucideIcons.heart;
+      return LucideIcons.badgeCheck;
     case _UsersGridCardKind.passed:
       return LucideIcons.x;
     case _UsersGridCardKind.matched:
       return LucideIcons.sparkles;
+  }
+}
+
+Color _statusTone(_UsersGridCardKind kind) {
+  switch (kind) {
+    case _UsersGridCardKind.likedByMe:
+      return _usersLuxTone;
+    case _UsersGridCardKind.likedMe:
+      return _usersLuxTone;
+    case _UsersGridCardKind.passed:
+      return _usersLuxTone;
+    case _UsersGridCardKind.matched:
+      return _usersLuxTone;
   }
 }
 
@@ -956,7 +1611,7 @@ String _identityLine(UserModel user) {
 }
 
 bool _isVerifiedUser(UserModel user) {
-  return user.selfieVerified || user.documentVerified;
+  return user.documentVerified;
 }
 
 String _locationLine(UserModel user) {

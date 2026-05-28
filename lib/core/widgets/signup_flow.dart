@@ -36,16 +36,19 @@ class SignupStepScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AuthPageScaffold(
-      compact: compact,
-      child: Column(
-        children: [
-          AuthHeader(onBack: onBack, progress: progress),
-          Expanded(
-            child: SingleChildScrollView(padding: padding, child: child),
-          ),
-          if (footer != null) AuthBottomBar(child: footer!),
-        ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.canvasDark : Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            AuthHeader(onBack: onBack, progress: progress),
+            Expanded(
+              child: SingleChildScrollView(padding: padding, child: child),
+            ),
+            if (footer != null) AuthBottomBar(child: footer!),
+          ],
+        ),
       ),
     );
   }
@@ -57,16 +60,14 @@ class SignupHeroCard extends StatelessWidget {
   final String? badge;
   final IconData? icon;
   final Widget? preview;
-  final List<Color>? colors;
 
   const SignupHeroCard({
     super.key,
     required this.title,
-    required this.description,
+    this.description = '',
     this.badge,
     this.icon,
     this.preview,
-    this.colors,
   });
 
   @override
@@ -79,6 +80,8 @@ class SignupHeroCard extends StatelessWidget {
         ? AppColors.textSecondaryDark
         : AppColors.textSecondaryLight;
 
+    final hasDescription = description.trim().isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -89,7 +92,18 @@ class SignupHeroCard extends StatelessWidget {
                 SignupInfoPill(icon: LucideIcons.badgeCheck, label: badge!),
               if (icon != null) ...[
                 const SizedBox(width: AppSpacing.sm),
-                Icon(icon, color: AppColors.primary, size: 18),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppRadii.lg),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Icon(icon, color: AppColors.primary, size: 17),
+                ),
               ],
             ],
           ),
@@ -103,17 +117,18 @@ class SignupHeroCard extends StatelessWidget {
             height: 1.2,
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          description,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyLarge?.copyWith(color: subtitleColor, height: 1.5),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
+        if (hasDescription) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            description,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: subtitleColor,
+              height: 1.45,
+            ),
+          ),
+        ],
         if (preview != null) ...[
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           preview!,
         ],
       ],
@@ -142,14 +157,14 @@ class SignupChoiceTile extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final background = selected
-        ? null
-        : (isDark ? AppColors.surfaceGlassDark : AppColors.surfaceGlassLight);
+        ? AppColors.primary.withValues(alpha: isDark ? 0.16 : 0.08)
+        : (isDark ? AppColors.surfaceGlassDark : Colors.white);
     final titleColor = selected
-        ? Colors.white
+        ? AppColors.primary
         : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight);
-    final subtitleColor = selected
-        ? Colors.white.withValues(alpha: 0.72)
-        : (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight);
+    final subtitleColor = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
 
     return Material(
       color: Colors.transparent,
@@ -161,17 +176,23 @@ class SignupChoiceTile extends StatelessWidget {
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            gradient: selected ? AppGradients.primary : null,
             color: background,
             borderRadius: BorderRadius.circular(AppRadii.xl),
             border: Border.all(
               color: selected
-                  ? Colors.transparent
+                  ? AppColors.primary
                   : (isDark ? AppColors.borderDark : AppColors.borderLight),
+              width: selected ? 1.4 : 1,
             ),
-            boxShadow: selected
-                ? AppShadows.buttonGlow()
-                : AppShadows.surface(isDark),
+            boxShadow: [
+              BoxShadow(
+                color: selected
+                    ? AppColors.primary.withValues(alpha: 0.08)
+                    : const Color(0x10000000),
+                blurRadius: selected ? 18 : 14,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Row(
             children: [
@@ -213,11 +234,11 @@ class SignupChoiceTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: selected
-                      ? Colors.white.withValues(alpha: 0.18)
+                      ? AppColors.primary
                       : Colors.transparent,
                   border: Border.all(
                     color: selected
-                        ? Colors.white
+                        ? AppColors.primary
                         : (isDark
                               ? AppColors.borderDark
                               : AppColors.borderLight),
@@ -252,7 +273,7 @@ class SignupSectionLabel extends StatelessWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        letterSpacing: isRtl ? 0 : 1,
+        letterSpacing: 0,
         fontWeight: FontWeight.w800,
         height: isRtl ? 1.3 : 1.2,
         color: isDark
@@ -284,9 +305,9 @@ class SignupInfoPill extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppRadii.pill),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -311,6 +332,8 @@ class SignupOptionChip extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
   final IconData? icon;
+  final Color? iconColor;
+  final Color? iconBackgroundColor;
   final bool translateLabel;
 
   const SignupOptionChip({
@@ -319,6 +342,8 @@ class SignupOptionChip extends StatelessWidget {
     required this.selected,
     this.onTap,
     this.icon,
+    this.iconColor,
+    this.iconBackgroundColor,
     this.translateLabel = true,
   });
 
@@ -326,8 +351,14 @@ class SignupOptionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final foreground = selected
-        ? Colors.white
+        ? AppColors.primary
         : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight);
+    final resolvedIconColor = selected
+      ? AppColors.primary
+      : (iconColor ?? AppColors.primary);
+    final resolvedIconBackground = selected
+      ? AppColors.primary.withValues(alpha: 0.10)
+      : (iconBackgroundColor ?? resolvedIconColor.withValues(alpha: 0.12));
 
     return Material(
       color: Colors.transparent,
@@ -342,27 +373,39 @@ class SignupOptionChip extends StatelessWidget {
             vertical: AppSpacing.sm,
           ),
           decoration: BoxDecoration(
-            gradient: selected ? AppGradients.primary : null,
             color: selected
-                ? null
+                ? AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.08)
                 : (isDark
                       ? AppColors.surfaceMutedDark
-                      : AppColors.surfaceMutedLight),
-            borderRadius: BorderRadius.circular(AppRadii.md),
+                      : Colors.white),
+            borderRadius: BorderRadius.circular(AppRadii.lg),
             border: Border.all(
               color: selected
-                  ? Colors.transparent
+                  ? AppColors.primary
                   : (isDark ? AppColors.borderDark : AppColors.borderLight),
+              width: selected ? 1.2 : 1,
             ),
-            boxShadow: selected
-                ? AppShadows.buttonGlow()
-                : AppShadows.surface(isDark),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x10000000),
+                blurRadius: 10,
+                offset: Offset(0, 6),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 15, color: foreground),
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: resolvedIconBackground,
+                    borderRadius: BorderRadius.circular(AppRadii.pill),
+                  ),
+                  child: Icon(icon, size: 12, color: resolvedIconColor),
+                ),
                 const SizedBox(width: AppSpacing.xs),
               ],
               Text(
@@ -415,8 +458,8 @@ class SignupPickerTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadii.lg),
             child: Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: 18,
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
               ),
               decoration: BoxDecoration(
                 color: isDark
@@ -502,12 +545,6 @@ class _SignupInputFieldState extends State<SignupInputField> {
   late final FocusNode _focusNode;
   bool _isFocused = false;
 
-  String _compactHint(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return value;
-    return trimmed.split(RegExp(r'\s+')).first;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -530,7 +567,6 @@ class _SignupInputFieldState extends State<SignupInputField> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hintText = _compactHint(widget.hint);
     final borderColor = _isFocused
         ? AppColors.primary
         : (isDark ? AppColors.borderDark : AppColors.borderLight);
@@ -574,7 +610,7 @@ class _SignupInputFieldState extends State<SignupInputField> {
                   : AppColors.textPrimaryLight,
             ),
             decoration: InputDecoration(
-              hintText: hintText,
+              hintText: widget.hint,
               hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
@@ -650,8 +686,8 @@ class SignupFooterActions extends StatelessWidget {
                   text: secondaryLabel!,
                   onPressed: onSecondary,
                   variant: CustomButtonVariant.secondary,
-                  height: 50,
-                  borderRadius: 16,
+                  height: AppSpacing.buttonCompactHeight,
+                  borderRadius: AppRadii.lg,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -660,8 +696,8 @@ class SignupFooterActions extends StatelessWidget {
                   text: primaryLabel,
                   onPressed: onPrimary,
                   isLoading: isLoading,
-                  height: 50,
-                  borderRadius: 16,
+                  height: AppSpacing.buttonCompactHeight,
+                  borderRadius: AppRadii.lg,
                 ),
               ),
             ],
@@ -684,6 +720,24 @@ class SignupSurfaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(padding: padding, radius: AppRadii.xxl, child: child);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceGlassDark : Colors.white,
+        borderRadius: BorderRadius.circular(AppRadii.xxl),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x10000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
   }
 }

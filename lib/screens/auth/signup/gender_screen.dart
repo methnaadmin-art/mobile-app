@@ -16,20 +16,25 @@ class GenderScreen extends GetView<SignupController> {
         progress: controller.progressPercent,
         onBack: controller.goBack,
         title: 'select_gender'.tr,
-        subtitle:
-            'choose_gender_desc'.tr,
+        subtitle: '',
         body: Column(
           children: [
             SignupMockWideOption(
               label: 'man'.tr,
               selected: controller.selectedGender.value.toLowerCase() == 'male',
-              onTap: () => controller.selectedGender.value = 'male',
+              onTap: () => controller.selectedGender.value =
+                  controller.selectedGender.value.toLowerCase() == 'male'
+                  ? ''
+                  : 'male',
             ),
             const SizedBox(height: 12),
             SignupMockWideOption(
               label: 'woman'.tr,
               selected: controller.selectedGender.value.toLowerCase() == 'female',
-              onTap: () => controller.selectedGender.value = 'female',
+              onTap: () => controller.selectedGender.value =
+                  controller.selectedGender.value.toLowerCase() == 'female'
+                  ? ''
+                  : 'female',
             ),
           ],
         ),

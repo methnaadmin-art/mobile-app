@@ -98,10 +98,10 @@ class _CustomTextFieldState extends State<CustomTextField> {
       children: [
         if (widget.label != null) ...[
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsets.only(left: 2, bottom: AppSpacing.xs),
             child: Text(
               widget.label!,
-              style: AppTextStyles.titleSmall.copyWith(
+              style: AppTextStyles.inputLabel.copyWith(
                 color: isDark
                     ? AppColors.textSecondaryDark
                     : AppColors.textSecondaryLight,
@@ -136,6 +136,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
             focusNode: _focusNode,
             textAlign: widget.textAlign,
             style: AppTextStyles.bodyLarge.copyWith(
+              fontWeight: FontWeight.w400,
               color: isDark
                   ? AppColors.textPrimaryDark
                   : AppColors.textPrimaryLight,
@@ -168,9 +169,10 @@ class _CustomTextFieldState extends State<CustomTextField> {
               errorBorder: InputBorder.none,
               focusedErrorBorder: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: 18,
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
               ),
+              errorStyle: AppTextStyles.error.copyWith(color: AppColors.error),
             ),
           ),
         ),

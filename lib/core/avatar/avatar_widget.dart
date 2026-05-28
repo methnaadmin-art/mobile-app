@@ -1,6 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
 import 'avatar_controller.dart';
 
 /// AvatarWidget - Premium animated avatar component
@@ -198,46 +199,46 @@ class AvatarWidget extends StatelessWidget {
   Color _getGlowColor(AvatarState state) {
     switch (state) {
       case AvatarState.idle:
-        return const Color(0xFFD4AF37); // Gold
+        return AppColors.primary;
       case AvatarState.wave:
-        return const Color(0xFF4CAF50); // Green
+        return AppColors.primaryLight;
       case AvatarState.happy:
       case AvatarState.success:
-        return const Color(0xFF2E7D32); // Emerald
+        return AppColors.secondary;
       case AvatarState.sad:
-        return const Color(0xFF757575); // Grey
+        return AppColors.primaryDark;
       case AvatarState.look:
-        return const Color(0xFFAB47BC); // Purple
+        return AppColors.primary;
       case AvatarState.thinking:
       case AvatarState.loading:
-        return const Color(0xFFFFA726); // Orange
+        return AppColors.primaryDark;
       case AvatarState.welcome:
-        return const Color(0xFF26A69A); // Teal
+        return AppColors.primaryLight;
       case AvatarState.sleeping:
-        return const Color(0xFF90A4AE); // Blue Grey
+        return AppColors.secondary;
     }
   }
 
   List<Color> _getFallbackColors(AvatarState state) {
     switch (state) {
       case AvatarState.idle:
-        return [const Color(0xFFD4AF37), const Color(0xFFB8860B)];
+        return const [AppColors.primary, AppColors.primaryDark];
       case AvatarState.wave:
-        return [const Color(0xFF4CAF50), const Color(0xFF2E7D32)];
+        return const [AppColors.primaryLight, AppColors.secondary];
       case AvatarState.happy:
       case AvatarState.success:
-        return [const Color(0xFF66BB6A), const Color(0xFF43A047)];
+        return const [AppColors.primary, AppColors.secondary];
       case AvatarState.sad:
-        return [const Color(0xFFBDBDBD), const Color(0xFF757575)];
+        return const [AppColors.primaryDark, AppColors.secondary];
       case AvatarState.look:
-        return [const Color(0xFFCE93D8), const Color(0xFFAB47BC)];
+        return const [AppColors.primaryLight, AppColors.primary];
       case AvatarState.thinking:
       case AvatarState.loading:
-        return [const Color(0xFFFFB74D), const Color(0xFFFFA726)];
+        return const [AppColors.primary, AppColors.primaryDark];
       case AvatarState.welcome:
-        return [const Color(0xFF4DB6AC), const Color(0xFF26A69A)];
+        return const [AppColors.primaryLight, AppColors.secondary];
       case AvatarState.sleeping:
-        return [const Color(0xFFB0BEC5), const Color(0xFF90A4AE)];
+        return const [AppColors.secondary, AppColors.primaryDark];
     }
   }
 

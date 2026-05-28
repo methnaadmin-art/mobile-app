@@ -6,6 +6,7 @@ import 'package:methna_app/app/controllers/profile_controller.dart';
 
 class NavigationController extends GetxController {
   final RxInt currentIndex = 0.obs;
+  final RxBool isReady = false.obs;
 
   // Track when each tab was last visited for smart refresh
   final Map<int, DateTime> _lastVisited = {};
@@ -17,6 +18,12 @@ class NavigationController extends GetxController {
   void onInit() {
     super.onInit();
     _lastVisited[0] = DateTime.now(); // Home is the default tab
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    isReady.value = true;
   }
 
   void changePage(int index) {

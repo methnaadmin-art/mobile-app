@@ -3,8 +3,36 @@ class AppConstants {
 
   static const String appName = 'Methna';
   static const String appTagline = 'Muslim matchmaking with intention';
-  static const String appLogoAsset = 'assets/images/methna_logo_glow.png';
-  static const String appVersion = '1.0.0';
+  static const String appLogoAsset = 'assets/images/methna_brand_logo.png';
+  static const String appVersion = '1.2.2';
+  static const String androidPackageName = 'com.methnapp.app';
+
+  // Replace idYOUR_APP_ID with the real numeric App Store ID once the app is live.
+  static const String iosAppStoreUrl = String.fromEnvironment(
+    'IOS_APP_STORE_URL',
+    defaultValue: 'https://apps.apple.com/app/idYOUR_APP_ID',
+  );
+
+  static const String websiteUrl = String.fromEnvironment(
+    'WEBSITE_URL',
+    defaultValue: 'https://methna.com',
+  );
+  static const String privacyPolicyUrl = String.fromEnvironment(
+    'PRIVACY_POLICY_URL',
+    defaultValue: 'https://methna.com/privacy',
+  );
+  static const String termsUrl = String.fromEnvironment(
+    'TERMS_URL',
+    defaultValue: 'https://methna.com/terms',
+  );
+  static const String supportEmail = String.fromEnvironment(
+    'SUPPORT_EMAIL',
+    defaultValue: 'support@methna.com',
+  );
+  static const String privacyEmail = String.fromEnvironment(
+    'PRIVACY_EMAIL',
+    defaultValue: 'privacy@methna.com',
+  );
 
   // Storage Keys
   static const String tokenKey = 'access_token';
@@ -43,9 +71,9 @@ class AppConstants {
 
   // Location
   static const double defaultSearchRadius = 50.0; // km
-  static const double maxSearchRadius = 200.0;
+  static const double maxSearchRadius = 400.0;
 
   // Age Range
   static const int minAge = 18;
-  static const int maxAge = 60;
+  static const int maxAge = 90;
 }

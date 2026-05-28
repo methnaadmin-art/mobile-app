@@ -145,9 +145,9 @@ class _AddPhotosScreenState extends State<AddPhotosScreen> {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
         source: source,
-        maxWidth: 1080,
-        maxHeight: 1080,
-        imageQuality: 72,
+        maxWidth: 2560,
+        maxHeight: 2560,
+        imageQuality: 96,
       );
 
       if (picked != null) {
@@ -191,16 +191,7 @@ class _AddPhotosScreenState extends State<AddPhotosScreen> {
             badge: '10 / 12',
             icon: LucideIcons.image,
             title: 'add_photos'.tr,
-            description:
-                'add_photos_desc'.tr,
-            preview: Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: [
-                SignupInfoPill(icon: LucideIcons.star, label: '2_minimum'.tr),
-                SignupInfoPill(icon: LucideIcons.imagePlus, label: '6_maximum'.tr),
-              ],
-            ),
+            description: '',
           ),
           const SizedBox(height: AppSpacing.xl),
           !_isReady
@@ -404,21 +395,11 @@ class _EmptyPhotoState extends StatelessWidget {
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'add_photos_subtitle'.tr,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isDark
-                  ? AppColors.textSecondaryDark
-                  : AppColors.textSecondaryLight,
-            ),
-            textAlign: TextAlign.center,
-          ),
           const SizedBox(height: AppSpacing.md),
           OutlinedButton.icon(
             onPressed: onTap,
             icon: const Icon(LucideIcons.imagePlus, size: 18),
-            label: Text('choose_source'.tr),
+            label: Text('add_photos'.tr),
           ),
         ],
       ),

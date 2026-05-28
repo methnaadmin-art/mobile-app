@@ -30,16 +30,34 @@ if (-not (Test-Path $releaseEnv)) {
     foreach ($k in @(
         'API_BASE_URL',
         'SOCKET_URL',
-        'STRIPE_PUBLISHABLE_KEY',
-        'STRIPE_MERCHANT_IDENTIFIER',
-        'STRIPE_MERCHANT_COUNTRY_CODE',
-        'STRIPE_CURRENCY_CODE',
-        'STRIPE_TEST_MODE'
+        'WEBSITE_URL',
+        'PRIVACY_POLICY_URL',
+        'TERMS_URL',
+        'SUPPORT_EMAIL'
     )) {
         if (-not $json.$k) {
             Write-Host "ERROR: env/release.json missing key '$k'" -ForegroundColor Red
             $failed = $true
         }
+    }
+
+    $playBillingKeys = @(
+        'PLAY_BILLING_PREMIUM',
+        'PLAY_BILLING_PREMIUM_MONTHLY',
+        'PLAY_BILLING_PREMIUM_YEARLY',
+        'PLAY_BILLING_GOLD'
+    )
+    $configuredPlayBillingProducts = @(
+        $playBillingKeys |
+            ForEach-Object {
+                $value = $json.$_
+                if ($value) { $value }
+            }
+    ) | Where-Object { $_ }
+
+    if (-not $configuredPlayBillingProducts.Count) {
+        Write-Host 'WARNING: No Play Billing product IDs were found in env/release.json.' -ForegroundColor Yellow
+        Write-Host '         Android premium plans must come from backend plan metadata or these release keys before publishing.' -ForegroundColor Yellow
     }
 }
 

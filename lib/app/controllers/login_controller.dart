@@ -4,16 +4,19 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
+import 'package:methna_app/app/data/services/app_update_service.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/utils/auth_navigation_resolver.dart';
 import 'package:methna_app/core/utils/helpers.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class LoginController extends GetxController {
   static const String _legacyGoogleWebClientId =
       '980830018700-cjjk2dk6g53j5a60bd2n0nec3kf4fpq1.apps.googleusercontent.com';
   static const String _legacyGoogleIosClientId =
       '980830018700-06on5f7bccfu2a2l8t7n7cklq9dtqqot.apps.googleusercontent.com';
+  static const String _expectedAndroidPackageName = 'com.methnapp.app';
 
   static const String _googleWebClientIdFromEnv = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
@@ -27,6 +30,7 @@ class LoginController extends GetxController {
   static String? _resolveGoogleWebClientId() {
     final fromEnv = _googleWebClientIdFromEnv.trim();
     if (fromEnv.isNotEmpty) return fromEnv;
+
     return _legacyGoogleWebClientId;
   }
 
@@ -43,9 +47,10 @@ class LoginController extends GetxController {
 
   final AuthService _auth = Get.find<AuthService>();
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
+    scopes: const ['email', 'profile'],
     serverClientId: _resolveGoogleWebClientId(),
-    clientId: _resolveGooglePlatformClientId(),
+    forceCodeForRefreshToken: true,
+    clientId: GetPlatform.isAndroid ? null : _resolveGooglePlatformClientId(),
   );
 
   final emailController = TextEditingController();
@@ -54,8 +59,62 @@ class LoginController extends GetxController {
 
   final RxBool isLoading = false.obs;
   final RxBool isGoogleLoading = false.obs;
+  final RxBool isAppleLoading = false.obs;
   final RxBool obscurePassword = true.obs;
   final RxBool rememberMe = false.obs;
+
+  bool _isDeveloperConfigIssue(PlatformException error) {
+    final raw = '${error.message ?? ''} ${error.details ?? ''} ${error.code}'
+        .toLowerCase();
+    return raw.contains('apiexception: 10') ||
+        raw.contains('developer_error') ||
+        raw.contains('12500');
+  }
+
+  String _googleDeveloperErrorHelpText() {
+    final webClientId = _resolveGoogleWebClientId() ?? 'missing';
+    return 'Google Sign-In configuration mismatch (DEVELOPER_ERROR).\n'
+        'Android package: $_expectedAndroidPackageName\n'
+        'Web client ID: $webClientId\n'
+        'Add SHA-1 and SHA-256 for all signing certificates used by this app: debug, upload/release, and Play App Signing (from Play Console > App Integrity). Then download and replace android/app/google-services.json.';
+  }
+
+  bool _shouldRetryGoogleSignIn(PlatformException error) {
+    final code = error.code.trim().toLowerCase();
+    final raw = '${error.message ?? ''} ${error.details ?? ''} ${error.code}'
+        .toLowerCase();
+
+    if (_isDeveloperConfigIssue(error)) {
+      return false;
+    }
+
+    if (code.contains('sign_in_failed') || code.contains('network_error')) {
+      return true;
+    }
+
+    return raw.contains('sign_in_failed') || raw.contains('network_error');
+  }
+
+  Future<GoogleSignInAccount?> _selectGoogleAccountWithRecovery() async {
+    try {
+      return await _googleSignIn.signIn();
+    } on PlatformException catch (e) {
+      if (!_shouldRetryGoogleSignIn(e)) {
+        rethrow;
+      }
+
+      debugPrint('[Login] Google sign-in retry after recoverable error: $e');
+
+      try {
+        await _googleSignIn.disconnect();
+      } catch (_) {}
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+
+      return await _googleSignIn.signIn();
+    }
+  }
 
   void togglePasswordVisibility() => obscurePassword.toggle();
 
@@ -71,22 +130,24 @@ class LoginController extends GetxController {
     }
   }
 
-  /// Google users skip early auth/profile bootstrap screens and start from faith flow.
+  /// Google users skip ONLY username and email-verification steps
+  /// (Google already provides email and we auto-generate a username).
+  /// They must still complete gender, marital status, profile details,
+  /// birthday, etc. — otherwise the backend detects incomplete profile
+  /// and restoreSessionAfterLaunch keeps re-routing, causing a loop
+  /// that makes the app appear stuck/loading.
   String _getGoogleDestinationRoute(UserModel user) {
     final resolved = _getDestinationRoute(user);
     if (resolved == AppRoutes.main) return resolved;
 
-    const earlySignupRoutes = {
+    // Only skip these two — Google already provides email + identity
+    const googleSkippableRoutes = {
       AppRoutes.signupUsername,
-      AppRoutes.signupGender,
-      AppRoutes.signupMaritalStatus,
-      AppRoutes.signupProfileDetails,
-      AppRoutes.signupBirthday,
       AppRoutes.signupEmailVerification,
     };
 
-    if (earlySignupRoutes.contains(resolved)) {
-      return AppRoutes.signupFaithReligion;
+    if (googleSkippableRoutes.contains(resolved)) {
+      return AppRoutes.signupGender;
     }
 
     return resolved;
@@ -110,8 +171,7 @@ class LoginController extends GetxController {
       final destinationRoute = _getDestinationRoute(routedUser);
       final isSignupIncomplete = destinationRoute != AppRoutes.main;
 
-      Helpers.showLottieDialog(
-        lottieAsset: 'assets/animations/success.json',
+      Helpers.showLoginSuccessDialog(
         title: 'login_success'.tr,
         message: isSignupIncomplete
             ? 'login_redirect_complete_profile'.tr
@@ -119,11 +179,25 @@ class LoginController extends GetxController {
         barrierDismissible: false,
       );
 
-      Future.delayed(const Duration(seconds: 2), () {
+      Future.delayed(const Duration(seconds: 2), () async {
         if (Get.isDialogOpen ?? false) Get.back();
+        if (Get.isRegistered<AppUpdateService>()) {
+          final hardBlocked = await Get.find<AppUpdateService>().checkForUpdate(
+            force: true,
+          );
+          if (hardBlocked) return;
+        }
         Get.offAllNamed(destinationRoute);
       });
     } catch (e) {
+      final restrictedArgs = _extractRestrictedAccountArgs(e);
+      if (restrictedArgs != null) {
+        debugPrint('[Login] Redirecting to account status from login error');
+        isLoading.value = false;
+        _navigateToRestrictedDestination(restrictedArgs);
+        return;
+      }
+
       final message = _extractError(e);
       debugPrint('[Login] login FAILED: $message');
       isLoading.value = false;
@@ -142,14 +216,20 @@ class LoginController extends GetxController {
 
   Future<void> signInWithGoogle() async {
     if (isGoogleLoading.value || isLoading.value) return;
+    if (GetPlatform.isIOS || GetPlatform.isMacOS) {
+      Helpers.showSnackbar(
+        message: 'Use email login on this device.',
+        isError: true,
+      );
+      return;
+    }
 
     isGoogleLoading.value = true;
     debugPrint('[Login] Google sign-in attempt');
 
     try {
-      await _googleSignIn.signOut();
-
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final GoogleSignInAccount? googleUser =
+          await _selectGoogleAccountWithRecovery();
 
       if (googleUser == null) {
         debugPrint('[Login] Google sign-in cancelled by user');
@@ -161,20 +241,23 @@ class LoginController extends GetxController {
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
-      final idToken = googleAuth.idToken;
-      if (idToken == null || idToken.isEmpty) {
-        final serverAuthCode = googleUser.serverAuthCode;
-        throw Exception(
-          serverAuthCode != null && serverAuthCode.isNotEmpty
-              ? 'Google ID token is missing, but auth code was returned. Verify backend /auth/google expects ID token and confirm web client ID configuration.'
-              : 'Google ID token not available. Verify Google OAuth client IDs, SHA-1/SHA-256 fingerprints, and backend Google auth setup.',
-        );
+      final idToken = googleAuth.idToken?.trim();
+      final accessToken = googleAuth.accessToken?.trim();
+      final serverAuthCode = googleUser.serverAuthCode?.trim();
+
+      if ((idToken == null || idToken.isEmpty) &&
+          (serverAuthCode == null || serverAuthCode.isEmpty)) {
+        throw Exception(_googleDeveloperErrorHelpText());
       }
 
-      debugPrint('[Login] Got Google ID token, authenticating with backend...');
+      debugPrint('[Login] Authenticating Google account with backend...');
 
       final user = await _auth.googleSignIn(
         idToken: idToken,
+        accessToken: (accessToken == null || accessToken.isEmpty)
+            ? null
+            : accessToken,
+        serverAuthCode: serverAuthCode,
         email: googleUser.email,
         displayName: googleUser.displayName,
         photoUrl: googleUser.photoUrl,
@@ -187,8 +270,9 @@ class LoginController extends GetxController {
       final destinationRoute = _getGoogleDestinationRoute(routedUser);
       final isSignupIncomplete = destinationRoute != AppRoutes.main;
 
-      Helpers.showLottieDialog(
-        lottieAsset: 'assets/animations/success.json',
+      isGoogleLoading.value = false;
+
+      Helpers.showLoginSuccessDialog(
         title: 'login_success'.tr,
         message: isSignupIncomplete
             ? 'login_redirect_complete_profile'.tr
@@ -196,11 +280,27 @@ class LoginController extends GetxController {
         barrierDismissible: false,
       );
 
-      Future.delayed(const Duration(seconds: 2), () {
+      Future.delayed(const Duration(seconds: 2), () async {
         if (Get.isDialogOpen ?? false) Get.back();
+        if (Get.isRegistered<AppUpdateService>()) {
+          final hardBlocked = await Get.find<AppUpdateService>().checkForUpdate(
+            force: true,
+          );
+          if (hardBlocked) return;
+        }
         Get.offAllNamed(destinationRoute);
       });
     } catch (e) {
+      final restrictedArgs = _extractRestrictedAccountArgs(e);
+      if (restrictedArgs != null) {
+        debugPrint(
+          '[Login] Redirecting to account status from Google sign-in error',
+        );
+        isGoogleLoading.value = false;
+        _navigateToRestrictedDestination(restrictedArgs);
+        return;
+      }
+
       final message = _extractError(e);
       debugPrint('[Login] Google sign-in FAILED: $message');
       isGoogleLoading.value = false;
@@ -213,14 +313,152 @@ class LoginController extends GetxController {
     }
   }
 
+  Future<void> signInWithApple() async {
+    if (isAppleLoading.value || isLoading.value) return;
+    if (!(GetPlatform.isIOS || GetPlatform.isMacOS)) {
+      Helpers.showSnackbar(
+        message: 'Apple Sign-In is available on Apple devices only.',
+        isError: true,
+      );
+      return;
+    }
+
+    isAppleLoading.value = true;
+    debugPrint('[Login] Apple sign-in attempt');
+
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final identityToken = credential.identityToken?.trim();
+      final authorizationCode = credential.authorizationCode.trim();
+
+      if (identityToken == null || identityToken.isEmpty) {
+        throw Exception('Apple identity token is missing.');
+      }
+      if (authorizationCode.isEmpty) {
+        throw Exception('Apple authorization code is missing.');
+      }
+
+      final fullName = [
+        credential.givenName,
+        credential.familyName,
+      ].where((part) => (part ?? '').trim().isNotEmpty).join(' ').trim();
+
+      final user = await _auth.appleSignIn(
+        identityToken: identityToken,
+        authorizationCode: authorizationCode,
+        userIdentifier: credential.userIdentifier,
+        email: credential.email,
+        firstName: credential.givenName,
+        lastName: credential.familyName,
+        displayName: fullName.isEmpty ? null : fullName,
+      );
+
+      debugPrint('[Login] Apple sign-in SUCCESS');
+
+      final routedUser = await _resolveFreshUser(user);
+      final destinationRoute = _getGoogleDestinationRoute(routedUser);
+      final isSignupIncomplete = destinationRoute != AppRoutes.main;
+
+      Helpers.showLoginSuccessDialog(
+        title: 'login_success'.tr,
+        message: isSignupIncomplete
+            ? 'login_redirect_complete_profile'.tr
+            : 'login_redirect_home'.tr,
+        barrierDismissible: false,
+      );
+
+      Future.delayed(const Duration(seconds: 2), () async {
+        if (Get.isDialogOpen ?? false) Get.back();
+        if (Get.isRegistered<AppUpdateService>()) {
+          final hardBlocked = await Get.find<AppUpdateService>().checkForUpdate(
+            force: true,
+          );
+          if (hardBlocked) return;
+        }
+        Get.offAllNamed(destinationRoute);
+      });
+    } catch (e) {
+      final restrictedArgs = _extractRestrictedAccountArgs(e);
+      if (restrictedArgs != null) {
+        debugPrint(
+          '[Login] Redirecting to account status from Apple sign-in error',
+        );
+        isAppleLoading.value = false;
+        _navigateToRestrictedDestination(restrictedArgs);
+        return;
+      }
+
+      if (e is SignInWithAppleAuthorizationException &&
+          e.code == AuthorizationErrorCode.canceled) {
+        debugPrint('[Login] Apple sign-in cancelled by user');
+        isAppleLoading.value = false;
+        return;
+      }
+
+      final message = _extractError(e);
+      debugPrint('[Login] Apple sign-in FAILED: $message');
+      isAppleLoading.value = false;
+
+      Helpers.showLottieDialog(
+        lottieAsset: 'assets/animations/error.json',
+        title: 'apple_signin_failed'.tr,
+        message: message,
+      );
+    }
+  }
+
+  Map<String, dynamic>? _extractRestrictedAccountArgs(dynamic error) {
+    if (error is! DioException) return null;
+
+    final raw = error.response?.data;
+    final restrictedStatus = extractRestrictedAccountStatus(raw);
+    if (restrictedStatus == null) {
+      return null;
+    }
+
+    return buildRestrictedAccountArguments(
+      _auth.currentUser.value,
+      fallbackStatus: restrictedStatus,
+      fallbackReason: extractRestrictedAccountReason(raw),
+      fallbackSupportMessage: extractRestrictedAccountSupportMessage(raw),
+      fallbackActionRequired: extractRestrictedAccountActionRequired(raw),
+      fallbackStaffMessage: extractRestrictedAccountStaffMessage(raw),
+      fallbackExpiresAt: extractRestrictedAccountExpiresAt(raw),
+    );
+  }
+
+  void _navigateToRestrictedDestination(Map<String, dynamic> args) {
+    final status = (args['status']?.toString().trim().toLowerCase() ?? '');
+    final route = status == 'banned'
+        ? AppRoutes.contactSupport
+        : AppRoutes.accountStatus;
+    Get.offAllNamed(route, arguments: args);
+  }
+
   String _extractError(dynamic e) {
+    if (e is SignInWithAppleAuthorizationException) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        return 'Apple Sign-In was cancelled.';
+      }
+      if (e.code == AuthorizationErrorCode.failed) {
+        return 'Apple Sign-In failed. Check your Apple ID and network connection, then try again.';
+      }
+      return 'Apple Sign-In is not available right now. Please try again.';
+    }
+
     if (e is PlatformException) {
       final raw = '${e.message ?? e.details ?? e.code}'.toLowerCase();
-      if (raw.contains('apiexception: 10') || raw.contains('developer_error')) {
-        return 'Google Sign-In configuration mismatch (DEVELOPER_ERROR). Check Android SHA-1/SHA-256 fingerprints, package name, and web client ID.';
+      if (raw.contains('sign_in_failed')) {
+        return 'Google Sign-In failed. Check Google Play Services, internet connection, and OAuth setup, then try again.';
       }
-      if (raw.contains('12500')) {
-        return 'Google Sign-In failed due to OAuth setup. Verify OAuth consent screen and signing certificate fingerprints.';
+      if (_isDeveloperConfigIssue(e)) {
+        return _googleDeveloperErrorHelpText();
       }
     }
 

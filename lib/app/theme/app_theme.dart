@@ -6,6 +6,7 @@ import 'app_radii.dart';
 import 'app_shadows.dart';
 import 'app_spacing.dart';
 import 'app_text_styles.dart';
+// google_fonts removed — Poppins is Latin-only and breaks Arabic text
 
 class AppTheme {
   AppTheme._();
@@ -14,7 +15,7 @@ class AppTheme {
     useMaterial3: true,
     brightness: Brightness.light,
     primaryColor: AppColors.primary,
-    scaffoldBackgroundColor: AppColors.canvasLight,
+    scaffoldBackgroundColor: AppColors.backgroundLight,
     colorScheme: const ColorScheme.light(
       primary: AppColors.primary,
       onPrimary: Colors.white,
@@ -28,12 +29,12 @@ class AppTheme {
     appBarTheme: AppBarTheme(
       elevation: 0,
       scrolledUnderElevation: 0,
-      backgroundColor: Colors.transparent,
-      foregroundColor: AppColors.textPrimaryLight,
+      backgroundColor: AppColors.primarySurface,
+      foregroundColor: AppColors.primaryDark,
       centerTitle: true,
       systemOverlayStyle: SystemUiOverlayStyle.dark,
       titleTextStyle: AppTextStyles.headlineSmall.copyWith(
-        color: AppColors.textPrimaryLight,
+        color: AppColors.primaryDark,
       ),
     ),
     dialogTheme: DialogThemeData(
@@ -53,25 +54,25 @@ class AppTheme {
     cardTheme: CardThemeData(
       color: AppColors.surfaceGlassLight,
       surfaceTintColor: Colors.transparent,
-      elevation: 0,
+      elevation: 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.xl),
-        side: BorderSide(color: AppColors.borderLight.withValues(alpha: 0.7)),
+        side: BorderSide(color: Colors.black.withValues(alpha: 0.06)),
       ),
       margin: EdgeInsets.zero,
-      shadowColor: Colors.transparent,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        elevation: 0,
+        shadowColor: AppColors.primary.withValues(alpha: 0.18),
+        elevation: 1,
         minimumSize: const Size.fromHeight(AppSpacing.buttonHeight),
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xl,
-          vertical: 18,
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.lg),
@@ -85,8 +86,8 @@ class AppTheme {
         backgroundColor: AppColors.surfaceGlassLight,
         minimumSize: const Size.fromHeight(AppSpacing.buttonHeight),
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xl,
-          vertical: 18,
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.lg),
@@ -102,14 +103,18 @@ class AppTheme {
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primary,
         textStyle: AppTextStyles.labelLarge,
+        minimumSize: const Size(48, AppSpacing.buttonCompactHeight),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+        ),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surfaceMutedLight,
       contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: 18,
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.lg),
@@ -136,16 +141,21 @@ class AppTheme {
       hintStyle: AppTextStyles.bodyMedium.copyWith(
         color: AppColors.textHintLight,
       ),
-      labelStyle: AppTextStyles.bodyMedium.copyWith(
+      labelStyle: AppTextStyles.inputLabel.copyWith(
         color: AppColors.textSecondaryLight,
       ),
+      errorStyle: AppTextStyles.error.copyWith(color: AppColors.error),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.primarySurface,
       selectedItemColor: AppColors.primary,
       unselectedItemColor: AppColors.textHintLight,
       type: BottomNavigationBarType.fixed,
       elevation: 0,
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
     ),
     chipTheme: ChipThemeData(
       backgroundColor: AppColors.chipLight,
@@ -199,18 +209,18 @@ class AppTheme {
         if (states.contains(WidgetState.selected)) {
           return AppColors.primary;
         }
-        return Colors.grey.shade300;
+        return AppColors.surfaceLight;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return AppColors.primary.withValues(alpha: 0.35);
         }
-        return Colors.grey.shade300;
+        return AppColors.handleLight;
       }),
     ),
     textSelectionTheme: const TextSelectionThemeData(
       cursorColor: AppColors.primary,
-      selectionColor: Color(0x336C3BFF),
+      selectionColor: Color(0x336E3DFB),
       selectionHandleColor: AppColors.primary,
     ),
     textTheme: TextTheme(
@@ -280,7 +290,7 @@ class AppTheme {
     appBarTheme: AppBarTheme(
       elevation: 0,
       scrolledUnderElevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.primaryDark,
       foregroundColor: AppColors.textPrimaryDark,
       centerTitle: true,
       systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -305,25 +315,25 @@ class AppTheme {
     cardTheme: CardThemeData(
       color: AppColors.surfaceGlassDark,
       surfaceTintColor: Colors.transparent,
-      elevation: 0,
+      elevation: 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.xl),
-        side: BorderSide(color: AppColors.borderDark.withValues(alpha: 0.7)),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
       ),
       margin: EdgeInsets.zero,
-      shadowColor: Colors.transparent,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        elevation: 0,
+        shadowColor: AppColors.primary.withValues(alpha: 0.22),
+        elevation: 1,
         minimumSize: const Size.fromHeight(AppSpacing.buttonHeight),
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xl,
-          vertical: 18,
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.lg),
@@ -331,14 +341,15 @@ class AppTheme {
         textStyle: AppTextStyles.button,
       ),
     ),
+
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.primaryLight,
         backgroundColor: AppColors.surfaceGlassDark,
         minimumSize: const Size.fromHeight(AppSpacing.buttonHeight),
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xl,
-          vertical: 18,
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.lg),
@@ -354,14 +365,18 @@ class AppTheme {
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primaryLight,
         textStyle: AppTextStyles.labelLarge,
+        minimumSize: const Size(48, AppSpacing.buttonCompactHeight),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+        ),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surfaceMutedDark,
       contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: 18,
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.lg),
@@ -388,16 +403,21 @@ class AppTheme {
       hintStyle: AppTextStyles.bodyMedium.copyWith(
         color: AppColors.textHintDark,
       ),
-      labelStyle: AppTextStyles.bodyMedium.copyWith(
+      labelStyle: AppTextStyles.inputLabel.copyWith(
         color: AppColors.textSecondaryDark,
       ),
+      errorStyle: AppTextStyles.error.copyWith(color: AppColors.error),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.primaryDark,
       selectedItemColor: AppColors.primaryLight,
       unselectedItemColor: AppColors.textHintDark,
       type: BottomNavigationBarType.fixed,
       elevation: 0,
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
     ),
     chipTheme: ChipThemeData(
       backgroundColor: AppColors.chipDark,
@@ -451,18 +471,18 @@ class AppTheme {
         if (states.contains(WidgetState.selected)) {
           return AppColors.primaryLight;
         }
-        return Colors.grey.shade500;
+        return AppColors.surfaceGlassDark;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return AppColors.primaryLight.withValues(alpha: 0.35);
         }
-        return Colors.grey.shade700;
+        return AppColors.handleDark;
       }),
     ),
     textSelectionTheme: const TextSelectionThemeData(
       cursorColor: AppColors.primaryLight,
-      selectionColor: Color(0x339E5BFF),
+      selectionColor: Color(0x33A78BFA),
       selectionHandleColor: AppColors.primaryLight,
     ),
     textTheme: TextTheme(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -15,10 +16,12 @@ import 'package:methna_app/app/data/models/message_model.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
+import 'package:methna_app/app/utils/auth_navigation_resolver.dart';
 import 'package:methna_app/core/constants/api_constants.dart';
 import 'package:methna_app/core/utils/bad_words_filter.dart';
 import 'package:methna_app/core/utils/input_sanitizer.dart';
 import 'package:methna_app/core/utils/match_found_presentation_guard.dart';
+import 'package:methna_app/screens/main/home/match_found_screen.dart';
 
 /// Message delivery status for optimistic UI
 enum MessageStatus { pending, sent, delivered, read, failed }
@@ -27,6 +30,7 @@ class ChatController extends GetxController {
   final ApiService _api = Get.find<ApiService>();
   final AuthService _auth = Get.find<AuthService>();
   final SocketService _socket = Get.find<SocketService>();
+  final StorageService _storage = Get.find<StorageService>();
 
   final RxList<ConversationModel> conversations = <ConversationModel>[].obs;
   final RxList<UserModel> onlineTodayUsers = <UserModel>[].obs;
@@ -36,7 +40,9 @@ class ChatController extends GetxController {
 
   // Active chat state
   final RxList<MessageModel> activeMessages = <MessageModel>[].obs;
-  final Rx<ConversationModel?> activeConversation = Rx<ConversationModel?>(null);
+  final Rx<ConversationModel?> activeConversation = Rx<ConversationModel?>(
+    null,
+  );
   final RxBool isTyping = false.obs;
   final RxBool messagesLoading = false.obs;
 
@@ -50,10 +56,14 @@ class ChatController extends GetxController {
   final RxMap<String, bool> onlinePresence = <String, bool>{}.obs;
 
   // Message status tracking for optimistic UI: clientMsgId → status
-  final RxMap<String, MessageStatus> messageStatuses = <String, MessageStatus>{}.obs;
+  final RxMap<String, MessageStatus> messageStatuses =
+      <String, MessageStatus>{}.obs;
 
   // Sent message IDs to prevent duplicates
   final Set<String> _sentMessageIds = {};
+
+  // Keep unmatched users hidden from the conversation list.
+  final Set<String> _hiddenConversationUserIds = <String>{};
 
   // Client message ID to server message ID mapping
   final Map<String, String> _clientToServerIds = {};
@@ -81,9 +91,16 @@ class ChatController extends GetxController {
     try {
       final cached = Get.find<StorageService>().getCachedConversations();
       if (cached != null && cached.isNotEmpty) {
-        final convs = cached.map((json) => ConversationModel.fromJson(json, currentUserId: _auth.userId)).toList();
+        final convs = cached
+            .map(
+              (json) =>
+                  ConversationModel.fromJson(json, currentUserId: _auth.userId),
+            )
+            .toList();
         conversations.assignAll(convs);
-        debugPrint('[ChatController] Loaded ${convs.length} cached conversations instantly');
+        debugPrint(
+          '[ChatController] Loaded ${convs.length} cached conversations instantly',
+        );
       }
     } catch (e) {
       debugPrint('[ChatController] Failed to load cached conversations: $e');
@@ -91,10 +108,7 @@ class ChatController extends GetxController {
   }
 
   Future<void> _loadInitialData() async {
-    await Future.wait([
-      fetchConversations(),
-      fetchLiveTodayUsers(),
-    ]);
+    await Future.wait([fetchConversations(), fetchLiveTodayUsers()]);
   }
 
   Future<void> _waitForSessionRestoreIfNeeded() async {
@@ -143,6 +157,8 @@ class ChatController extends GetxController {
     return _auth.userId ?? _auth.currentUser.value?.id ?? '';
   }
 
+  Set<String> get _blockedUserIds => _storage.getBlockedUserIds();
+
   List<dynamic> _extractUserList(dynamic source) {
     if (source is List) return source;
     if (source is! Map) return const <dynamic>[];
@@ -183,7 +199,9 @@ class ChatController extends GetxController {
 
     return source
         .whereType<Map>()
-        .map((entry) => UserModel.fromApiEntry(Map<String, dynamic>.from(entry)))
+        .map(
+          (entry) => UserModel.fromApiEntry(Map<String, dynamic>.from(entry)),
+        )
         .where((user) => user.id.isNotEmpty && user.id != _currentUserId)
         .toList(growable: false);
   }
@@ -192,13 +210,17 @@ class ChatController extends GetxController {
     Iterable<UserModel> users, {
     bool requireLiveSignal = true,
   }) {
+    final blockedIds = _blockedUserIds;
     final seenIds = <String>{};
     final normalized = users
-        .where((u) =>
-            u.id.isNotEmpty &&
-            u.id != _currentUserId &&
-            (!requireLiveSignal || u.isOnline || u.wasLiveInLast24Hours) &&
-            seenIds.add(u.id))
+        .where(
+          (u) =>
+              u.id.isNotEmpty &&
+              u.id != _currentUserId &&
+              !blockedIds.contains(u.id.trim()) &&
+              (!requireLiveSignal || u.isOnline || u.wasLiveInLast24Hours) &&
+              seenIds.add(u.id),
+        )
         .toList(growable: false);
 
     normalized.sort((a, b) {
@@ -223,7 +245,9 @@ class ChatController extends GetxController {
     final cutoff = DateTime.now().subtract(const Duration(hours: 24));
     return _normalizeLiveTodayUsers(
       conversations
-          .where((c) => c.lastMessageAt != null && c.lastMessageAt!.isAfter(cutoff))
+          .where(
+            (c) => c.lastMessageAt != null && c.lastMessageAt!.isAfter(cutoff),
+          )
           .map((c) => c.otherUser)
           .whereType<UserModel>(),
       requireLiveSignal: false,
@@ -289,6 +313,7 @@ class ChatController extends GetxController {
   List<ConversationModel> _hydrateConversations(
     List<ConversationModel> parsed,
   ) {
+    final blockedIds = _blockedUserIds;
     final knownById = <String, UserModel>{};
     final previousById = <String, ConversationModel>{
       for (final conversation in conversations) conversation.id: conversation,
@@ -321,38 +346,47 @@ class ChatController extends GetxController {
       _storeKnownUser(knownById, conversation.otherUser);
     }
 
-    return parsed.map((conversation) {
-      UserModel? selected = conversation.otherUser;
+    return parsed
+        .map((conversation) {
+          UserModel? selected = conversation.otherUser;
 
-      final previous = previousById[conversation.id];
-      final previousOtherUser = previous?.otherUser;
-      if (previousOtherUser != null) {
-        selected = selected == null
-        ? previousOtherUser
-        : _preferRicherUser(selected, previousOtherUser);
-      }
+          final previous = previousById[conversation.id];
+          final previousOtherUser = previous?.otherUser;
+          if (previousOtherUser != null) {
+            selected = selected == null
+                ? previousOtherUser
+                : _preferRicherUser(selected, previousOtherUser);
+          }
 
-      final otherUserId = _resolveOtherUserId(conversation);
-      if (otherUserId.isNotEmpty) {
-        final known = knownById[otherUserId];
-        if (known != null) {
-          selected = selected == null
-              ? known
-              : _preferRicherUser(selected, known);
-        }
-      } else if (selected != null) {
-        final known = knownById[selected.id];
-        if (known != null) {
-          selected = _preferRicherUser(selected, known);
-        }
-      }
+          final otherUserId = _resolveOtherUserId(conversation);
+          if (otherUserId.isNotEmpty) {
+            final known = knownById[otherUserId];
+            if (known != null) {
+              selected = selected == null
+                  ? known
+                  : _preferRicherUser(selected, known);
+            }
+          } else if (selected != null) {
+            final known = knownById[selected.id];
+            if (known != null) {
+              selected = _preferRicherUser(selected, known);
+            }
+          }
 
-      if (selected == null && otherUserId.isNotEmpty) {
-        selected = UserModel.fromApiEntry({'id': otherUserId});
-      }
+          if (selected == null && otherUserId.isNotEmpty) {
+            selected = UserModel.fromApiEntry({'id': otherUserId});
+          }
 
-      return conversation.copyWith(otherUser: selected);
-    }).toList(growable: false);
+          return conversation.copyWith(otherUser: selected);
+        })
+        .where((conversation) {
+          final otherUserId = _resolveOtherUserId(conversation).trim();
+          if (conversation.isLocked) return false;
+          if (otherUserId.isEmpty) return true;
+          if (_hiddenConversationUserIds.contains(otherUserId)) return false;
+          return !blockedIds.contains(otherUserId);
+        })
+        .toList(growable: false);
   }
 
   ConversationModel _mergeConversationWithUser(
@@ -370,7 +404,18 @@ class ChatController extends GetxController {
   }
 
   void _upsertConversation(ConversationModel conversation) {
-    final index = conversations.indexWhere((item) => item.id == conversation.id);
+    if (conversation.isLocked) return;
+    final otherUserId = _resolveOtherUserId(conversation).trim();
+    if (otherUserId.isNotEmpty && _blockedUserIds.contains(otherUserId)) {
+      return;
+    }
+    if (otherUserId.isNotEmpty &&
+        _hiddenConversationUserIds.contains(otherUserId)) {
+      return;
+    }
+    final index = conversations.indexWhere(
+      (item) => item.id == conversation.id,
+    );
     if (index == -1) {
       conversations.insert(0, conversation);
     } else {
@@ -383,36 +428,104 @@ class ChatController extends GetxController {
     conversations.refresh();
   }
 
-  void _presentMatchFound(UserModel? matchedUser) {
+  void evictUsersByIds(Iterable<String> userIds) {
+    final blockedIds = userIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (blockedIds.isEmpty) return;
+
+    _hiddenConversationUserIds.addAll(blockedIds);
+
+    conversations.removeWhere((conversation) {
+      final otherUserId = _resolveOtherUserId(conversation).trim();
+      return blockedIds.contains(otherUserId);
+    });
+    onlineTodayUsers.removeWhere((user) => blockedIds.contains(user.id));
+    conversations.refresh();
+    onlineTodayUsers.refresh();
+
+    final active = activeConversation.value;
+    if (active != null &&
+        blockedIds.contains(_resolveOtherUserId(active).trim())) {
+      leaveActiveChat();
+    }
+  }
+
+  void restoreConversationVisibilityForUser(String userId) {
+    final normalized = userId.trim();
+    if (normalized.isEmpty) return;
+    _hiddenConversationUserIds.remove(normalized);
+  }
+
+  Future<void> deleteConversationForUser(
+    String userId, {
+    bool remoteDelete = true,
+  }) async {
+    final normalized = userId.trim();
+    if (normalized.isEmpty) return;
+
+    _hiddenConversationUserIds.add(normalized);
+    final targetConversation = conversations.firstWhereOrNull(
+      (conversation) => _resolveOtherUserId(conversation).trim() == normalized,
+    );
+
+    evictUsersByIds({normalized});
+
+    if (!remoteDelete || targetConversation == null) {
+      return;
+    }
+
+    try {
+      await _api.delete(ApiConstants.conversationById(targetConversation.id));
+    } catch (error) {
+      debugPrint(
+        '[ChatController] deleteConversationForUser remote delete failed: $error',
+      );
+    }
+  }
+
+  void _presentMatchFound(UserModel? matchedUser, {String? matchId}) {
     if (matchedUser == null || matchedUser.id.isEmpty) return;
-    if (Get.currentRoute == AppRoutes.matchFound) return;
-    if (!MatchFoundPresentationGuard.shouldPresent(matchedUser.id)) return;
-    Get.toNamed(AppRoutes.matchFound, arguments: {'user': matchedUser});
+    if (!MatchFoundPresentationGuard.beginPresentation(
+      matchId: matchId,
+      userId: matchedUser.id,
+    )) {
+      return;
+    }
+    debugPrint(
+      '[ChatController] Presenting match overlay for ${matchedUser.id} (matchId=${matchId ?? 'unknown'})',
+    );
+    unawaited(
+      MatchFoundScreen.showOverlay(matchedUser).then(
+        (displayed) => MatchFoundPresentationGuard.endPresentation(
+          markDismissed: displayed,
+        ),
+      ),
+    );
   }
 
   // ─── Socket listeners ──────────────────────────────────────────
   void _setupSocketListeners() {
     _socket.onNewMessage((data) {
       final msg = MessageModel.fromJson(data);
-      
-      // Look for the echo 'clientMsgId' from backend
       final clientMsgId = data['clientMsgId'] as String?;
-      
-      // If we sent this natively, just upgrade the status 
-      // instead of pushing a duplicate into `activeMessages`.
-      if (clientMsgId != null && _sentMessageIds.contains(clientMsgId)) {
-        updateMessageStatus(clientMsgId, MessageStatus.delivered, serverId: msg.id);
-      } else {
-        // If in active conversation, add message 
-        if (activeConversation.value?.id == msg.conversationId) {
-          final alreadyExists = activeMessages.any((m) => m.id == msg.id);
-          if (!alreadyExists) {
-            activeMessages.insert(0, msg);
-            _socket.markAsRead(msg.conversationId);
-          }
+      final isIncomingForActiveConversation =
+          activeConversation.value?.id == msg.conversationId;
+
+      if (isIncomingForActiveConversation) {
+        _mergeIncomingActiveMessage(msg, clientMsgId: clientMsgId);
+        if (msg.senderId != (_auth.userId ?? '')) {
+          _socket.markAsRead(msg.conversationId);
         }
+      } else if (clientMsgId != null && _sentMessageIds.contains(clientMsgId)) {
+        updateMessageStatus(
+          clientMsgId,
+          MessageStatus.delivered,
+          serverId: msg.id,
+        );
       }
-      
+
       // Debounced refresh to avoid hammering API on rapid messages
       _debouncedFetchConversations();
     });
@@ -422,7 +535,10 @@ class ChatController extends GetxController {
       final convId = data['conversationId'] as String?;
       if (convId != null && activeConversation.value?.id == convId) {
         isTyping.value = true;
-        Future.delayed(const Duration(seconds: 3), () => isTyping.value = false);
+        Future.delayed(
+          const Duration(seconds: 3),
+          () => isTyping.value = false,
+        );
       }
     });
 
@@ -468,7 +584,17 @@ class ChatController extends GetxController {
       if (data != null && data['matchedUser'] != null) {
         try {
           final matchedUser = UserModel.fromJson(data['matchedUser']);
-          _presentMatchFound(matchedUser);
+          restoreConversationVisibilityForUser(matchedUser.id);
+          final matchId = MatchFoundPresentationGuard.extractMatchId(data);
+          if (Get.isRegistered<UsersController>()) {
+            Get.find<UsersController>().registerIncomingMatch(
+              matchedUser,
+              matchId: matchId,
+              presentPopup: true,
+            );
+          } else {
+            _presentMatchFound(matchedUser, matchId: matchId);
+          }
         } catch (_) {}
       }
     });
@@ -481,24 +607,120 @@ class ChatController extends GetxController {
     });
   }
 
+  void _mergeIncomingActiveMessage(
+    MessageModel incoming, {
+    String? clientMsgId,
+  }) {
+    if (clientMsgId != null && _sentMessageIds.contains(clientMsgId)) {
+      updateMessageStatus(
+        clientMsgId,
+        MessageStatus.delivered,
+        serverId: incoming.id,
+      );
+      return;
+    }
+
+    final existingServerIndex = activeMessages.indexWhere(
+      (message) => message.id == incoming.id,
+    );
+    if (existingServerIndex != -1) {
+      activeMessages[existingServerIndex] = incoming;
+      activeMessages.refresh();
+      return;
+    }
+
+    final optimisticIndex = _findMatchingOptimisticMessageIndex(
+      incoming,
+      clientMsgId: clientMsgId,
+    );
+    if (optimisticIndex != -1) {
+      final optimisticId = activeMessages[optimisticIndex].id;
+      _clientToServerIds[optimisticId] = incoming.id;
+      activeMessages[optimisticIndex] = incoming;
+      messageStatuses[incoming.id] = MessageStatus.delivered;
+      _sentMessageIds.remove(optimisticId);
+      activeMessages.refresh();
+      return;
+    }
+
+    final duplicateIndex = activeMessages.indexWhere(
+      (message) => _messagesLookEquivalent(message, incoming),
+    );
+    if (duplicateIndex != -1) {
+      activeMessages[duplicateIndex] = incoming;
+      activeMessages.refresh();
+      return;
+    }
+
+    activeMessages.insert(0, incoming);
+  }
+
+  int _findMatchingOptimisticMessageIndex(
+    MessageModel incoming, {
+    String? clientMsgId,
+  }) {
+    if (clientMsgId != null) {
+      return activeMessages.indexWhere((message) => message.id == clientMsgId);
+    }
+
+    final currentUserId = _auth.userId ?? '';
+    if (incoming.senderId != currentUserId) {
+      return -1;
+    }
+
+    return activeMessages.indexWhere((message) {
+      final status = messageStatuses[message.id];
+      final isOptimistic =
+          status == MessageStatus.pending || status == MessageStatus.sent;
+      if (!isOptimistic) {
+        return false;
+      }
+
+      return _messagesLookEquivalent(message, incoming);
+    });
+  }
+
+  bool _messagesLookEquivalent(MessageModel a, MessageModel b) {
+    if (a.id == b.id) {
+      return true;
+    }
+
+    if (a.conversationId != b.conversationId || a.senderId != b.senderId) {
+      return false;
+    }
+
+    if (a.content.trim() != b.content.trim()) {
+      return false;
+    }
+
+    return a.createdAt.difference(b.createdAt).inSeconds.abs() <= 15;
+  }
+
   // ─── Conversations ─────────────────────────────────────────────
   Future<void> fetchConversations() async {
     if (isLoading.value) return; // Prevent duplicate calls
     isLoading.value = true;
     hasError.value = false;
     try {
-      debugPrint('[ChatController] fetchConversations: calling ${ApiConstants.conversations}');
+      debugPrint(
+        '[ChatController] fetchConversations: calling ${ApiConstants.conversations}',
+      );
       final response = await _api.get(ApiConstants.conversations);
       final data = response.data;
-      debugPrint('[ChatController] fetchConversations: response type=${data.runtimeType} data: $data');
+      debugPrint(
+        '[ChatController] fetchConversations: response type=${data.runtimeType} data: $data',
+      );
 
       List<dynamic> list;
       if (data is List) {
         list = data;
       } else if (data is Map) {
-        list = data['conversations'] 
-            ?? (data['data'] != null && data['data'] is Map ? data['data']['conversations'] : null)
-            ?? [];
+        list =
+            data['conversations'] ??
+            (data['data'] != null && data['data'] is Map
+                ? data['data']['conversations']
+                : null) ??
+            [];
       } else {
         list = [];
       }
@@ -509,24 +731,28 @@ class ChatController extends GetxController {
           .map((entry) => Map<String, dynamic>.from(entry))
           .toList(growable: false);
       final parsedConversations = rawConversations
-          .map((entry) => ConversationModel.fromJson(entry, currentUserId: userId))
+          .map(
+            (entry) => ConversationModel.fromJson(entry, currentUserId: userId),
+          )
           .toList(growable: false);
       conversations.assignAll(_hydrateConversations(parsedConversations));
-      
-      // Save cache offline
-      Get.find<StorageService>().cacheConversations(
-          rawConversations,
-      ).catchError((_) {});
 
-      debugPrint('[ChatController] fetchConversations: Parsed ${conversations.length} conversations');
+      // Save cache offline
+      Get.find<StorageService>()
+          .cacheConversations(rawConversations)
+          .catchError((_) {});
+
+      debugPrint(
+        '[ChatController] fetchConversations: Parsed ${conversations.length} conversations',
+      );
 
       final fallbackLive = _conversationLiveUsers();
       if (onlineTodayUsers.isEmpty) {
         final recentFallback = _recentConversationUsers();
-        final seeded = _normalizeLiveTodayUsers(
-          [...fallbackLive, ...recentFallback],
-          requireLiveSignal: false,
-        );
+        final seeded = _normalizeLiveTodayUsers([
+          ...fallbackLive,
+          ...recentFallback,
+        ], requireLiveSignal: false);
         onlineTodayUsers.assignAll(seeded.take(15).toList());
       } else if (fallbackLive.isNotEmpty) {
         final recentFallback = _recentConversationUsers();
@@ -546,8 +772,7 @@ class ChatController extends GetxController {
       if (kDebugMode) {
         Get.snackbar('Chat Load Error', e.toString());
       }
-    }
-    finally {
+    } finally {
       isLoading.value = false;
     }
   }
@@ -591,29 +816,22 @@ class ChatController extends GetxController {
 
       final recentConversationFallback = _recentConversationUsers();
       if (recentConversationFallback.isNotEmpty) {
-        onlineTodayUsers.assignAll(recentConversationFallback.take(15).toList());
+        onlineTodayUsers.assignAll(
+          recentConversationFallback.take(15).toList(),
+        );
         return;
       }
 
-      final searchResponse = await _api.get(
-        ApiConstants.search,
-        queryParameters: const {'limit': 15, 'page': 1},
-      );
-      final searchFallback = _normalizeLiveTodayUsers(
-        _parseUsers(searchResponse.data),
-      );
-      if (searchFallback.isNotEmpty) {
-        onlineTodayUsers.assignAll(searchFallback.take(15).toList());
-      }
+      onlineTodayUsers.clear();
     } catch (e) {
       debugPrint('[ChatController] fetchLiveTodayUsers error: $e');
       final conversationFallback = _conversationLiveUsers();
       final recentFallback = _recentConversationUsers();
       if (onlineTodayUsers.isEmpty) {
-        final mergedFallback = _normalizeLiveTodayUsers(
-          [...conversationFallback, ...recentFallback],
-          requireLiveSignal: false,
-        );
+        final mergedFallback = _normalizeLiveTodayUsers([
+          ...conversationFallback,
+          ...recentFallback,
+        ], requireLiveSignal: false);
         if (mergedFallback.isNotEmpty) {
           onlineTodayUsers.assignAll(mergedFallback.take(15).toList());
         }
@@ -626,7 +844,10 @@ class ChatController extends GetxController {
     activeMessages.clear();
     iceBreakers.clear();
     _socket.joinConversation(conversation.id);
-    Get.toNamed(AppRoutes.chatDetail, arguments: {'conversation': conversation});
+    Get.toNamed(
+      AppRoutes.chatDetail,
+      arguments: {'conversation': conversation},
+    );
     await fetchMessages(conversation.id);
     // Fetch ice breakers if no messages yet
     if (activeMessages.isEmpty && conversation.otherUser != null) {
@@ -635,17 +856,31 @@ class ChatController extends GetxController {
   }
 
   /// Opens a conversation by ID, fetching it if necessary.
-  Future<void> openConversationById(String conversationId) async {
+  Future<void> openConversationById(
+    String conversationId, {
+    bool showLoader = true,
+  }) async {
     var conv = conversations.firstWhereOrNull((c) => c.id == conversationId);
     if (conv == null) {
-      // Show loading
-      Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+      var loaderShown = false;
+      if (showLoader) {
+        Get.dialog(
+          const Center(child: CircularProgressIndicator()),
+          barrierDismissible: false,
+        );
+        loaderShown = true;
+      }
+
       try {
         await fetchConversations();
-        Get.back(); // Remove loading
+        if (loaderShown && (Get.isDialogOpen ?? false)) {
+          Get.back();
+        }
         conv = conversations.firstWhereOrNull((c) => c.id == conversationId);
       } catch (e) {
-        Get.back();
+        if (loaderShown && (Get.isDialogOpen ?? false)) {
+          Get.back();
+        }
       }
     }
 
@@ -695,11 +930,12 @@ class ChatController extends GetxController {
     // 2. If not, try to create one (or fetch it if backend creates on match)
     isLoading.value = true;
     try {
-      final response = await _api.post(ApiConstants.conversations, data: {
-        'targetUserId': user.id,
-      });
-      final rawConversation = response.data is Map &&
-              response.data['data'] is Map
+      final response = await _api.post(
+        ApiConstants.conversations,
+        data: {'targetUserId': user.id},
+      );
+      final rawConversation =
+          response.data is Map && response.data['data'] is Map
           ? Map<String, dynamic>.from(response.data['data'] as Map)
           : (response.data is Map
                 ? Map<String, dynamic>.from(response.data as Map)
@@ -711,7 +947,8 @@ class ChatController extends GetxController {
       if (parsedConversation.id.isEmpty) {
         await fetchConversations();
         final resolved = conversations.firstWhereOrNull(
-          (c) => c.otherUser?.id == user.id || _resolveOtherUserId(c) == user.id,
+          (c) =>
+              c.otherUser?.id == user.id || _resolveOtherUserId(c) == user.id,
         );
         if (resolved != null) {
           final hydratedResolved = _mergeConversationWithUser(resolved, user);
@@ -721,19 +958,64 @@ class ChatController extends GetxController {
         throw StateError('Conversation created without a valid id');
       }
       final conv = _mergeConversationWithUser(parsedConversation, user);
-      
+
       // Update local list
       _upsertConversation(conv);
       unawaited(fetchConversations());
-      
+
       return openConversation(conv);
     } catch (e) {
       debugPrint('[ChatController] openConversationWithUser error: $e');
+      if (_redirectToAccountStatusIfRestricted(e)) {
+        return;
+      }
       // Fallback: If creation fails, we might not be allowed to chat yet (not a match)
-      Get.snackbar('Cannot chat', 'You can only message people you have matched with.');
+      Get.snackbar(
+        'Cannot chat',
+        'You can only message people you have matched with.',
+      );
     } finally {
       isLoading.value = false;
     }
+  }
+
+  bool _redirectToAccountStatusIfRestricted(dynamic error) {
+    if (error is! DioException) {
+      return false;
+    }
+
+    final raw = error.response?.data;
+    final restrictedStatus = extractRestrictedAccountStatus(raw);
+    if (restrictedStatus == null) {
+      return false;
+    }
+
+    if (restrictedStatus == 'suspended') {
+      return false;
+    }
+
+    final args = buildRestrictedAccountArguments(
+      _auth.currentUser.value,
+      fallbackStatus: restrictedStatus,
+      fallbackReason: extractRestrictedAccountReason(raw),
+      fallbackSupportMessage: extractRestrictedAccountSupportMessage(raw),
+      fallbackActionRequired: extractRestrictedAccountActionRequired(raw),
+      fallbackStaffMessage: extractRestrictedAccountStaffMessage(raw),
+      fallbackExpiresAt: extractRestrictedAccountExpiresAt(raw),
+    );
+
+    if (args == null) {
+      return false;
+    }
+
+    final targetRoute = restrictedStatus == 'banned'
+        ? AppRoutes.contactSupport
+        : AppRoutes.accountStatus;
+
+    if (Get.currentRoute != targetRoute) {
+      Get.offAllNamed(targetRoute, arguments: args);
+    }
+    return true;
   }
 
   Future<void> _fetchIceBreakers(String targetUserId) async {
@@ -753,18 +1035,24 @@ class ChatController extends GetxController {
   Future<void> fetchMessages(String conversationId, {int page = 1}) async {
     messagesLoading.value = true;
     try {
-      debugPrint('[ChatController] fetchMessages: calling ${ApiConstants.conversationMessages(conversationId)} page=$page');
+      debugPrint(
+        '[ChatController] fetchMessages: calling ${ApiConstants.conversationMessages(conversationId)} page=$page',
+      );
       final response = await _api.get(
         ApiConstants.conversationMessages(conversationId),
         queryParameters: {'page': page, 'limit': 50},
       );
       final data = response.data;
-      debugPrint('[ChatController] fetchMessages: response type=${data.runtimeType} data: $data');
+      debugPrint(
+        '[ChatController] fetchMessages: response type=${data.runtimeType} data: $data',
+      );
 
       final list = data is List ? data : data['messages'] ?? [];
       final msgs = (list as List).map((m) => MessageModel.fromJson(m)).toList();
-      debugPrint('[ChatController] fetchMessages: Parsed ${msgs.length} messages for conversation $conversationId');
-      
+      debugPrint(
+        '[ChatController] fetchMessages: Parsed ${msgs.length} messages for conversation $conversationId',
+      );
+
       // Sort newest first for reversed ListView (index 0 is at the bottom)
       msgs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -777,8 +1065,7 @@ class ChatController extends GetxController {
       _socket.markAsRead(conversationId);
     } catch (e) {
       debugPrint('[ChatController] fetchMessages error: $e');
-    }
-    finally {
+    } finally {
       messagesLoading.value = false;
     }
   }
@@ -797,6 +1084,26 @@ class ChatController extends GetxController {
   void sendMessage(String content) {
     if (content.trim().isEmpty || activeConversation.value == null) return;
 
+    final currentUser = _auth.currentUser.value;
+    if (currentUser != null &&
+        currentUser.isSuspended &&
+        !currentUser.isModerationExpired) {
+      final reason = currentUser.moderationMessage.trim();
+      Get.snackbar(
+        'Messaging unavailable',
+        reason.isNotEmpty
+            ? reason
+            : 'Your account is suspended and cannot send messages right now.',
+      );
+      return;
+    }
+
+    if (currentUser != null && currentUser.isBanned) {
+      final args = buildRestrictedAccountArguments(currentUser);
+      Get.offAllNamed(AppRoutes.contactSupport, arguments: args);
+      return;
+    }
+
     // Sanitize and censor the message before sending
     String sanitized = InputSanitizer.sanitize(content);
     sanitized = BadWordsFilter.censor(sanitized);
@@ -810,9 +1117,10 @@ class ChatController extends GetxController {
       return;
     }
 
-    // Track this message
+    // Track this message — start as 'sent' so the message appears directly
+    // without the pending clock indicator animation
     _sentMessageIds.add(clientMsgId);
-    messageStatuses[clientMsgId] = MessageStatus.pending;
+    messageStatuses[clientMsgId] = MessageStatus.sent;
 
     // Optimistic local insert so user sees their message immediately
     final optimisticMsg = MessageModel(
@@ -824,15 +1132,29 @@ class ChatController extends GetxController {
       isRead: false,
     );
     activeMessages.insert(0, optimisticMsg);
+    _updateLocalConversationPreview(
+      conversationId: optimisticMsg.conversationId,
+      content: sanitized,
+      sentAt: optimisticMsg.createdAt,
+    );
 
     // Check if socket is connected
     final socket = Get.find<SocketService>();
     final queue = Get.find<MessageQueueService>();
-    
+
     if (socket.isConnected.value) {
       // Online: send directly with client ID for tracking
-      _socket.sendMessageWithId(activeConversation.value!.id, sanitized, clientMsgId);
+      _socket.sendMessageWithId(
+        activeConversation.value!.id,
+        sanitized,
+        clientMsgId,
+      );
       messageStatuses[clientMsgId] = MessageStatus.sent;
+      _schedulePendingMessageFallback(
+        clientMsgId: clientMsgId,
+        conversationId: activeConversation.value!.id,
+        content: sanitized,
+      );
     } else {
       // Offline: enqueue for later sending
       queue.enqueue(
@@ -843,25 +1165,165 @@ class ChatController extends GetxController {
       messageStatuses[clientMsgId] = MessageStatus.pending;
       debugPrint('[Chat] Socket offline - message queued for later');
     }
-    
+
     _debouncedFetchConversations();
   }
 
   // ─── Duplicate Detection ───────────────────────────────────────
   bool _isDuplicateMessage(String conversationId, String content) {
     // Check if same message was sent in last 5 seconds
-    final recentMessages = activeMessages.where((m) =>
-        m.conversationId == conversationId &&
-        m.content == content &&
-        m.senderId == _auth.userId &&
-        DateTime.now().difference(m.createdAt).inSeconds < 5);
+    final recentMessages = activeMessages.where(
+      (m) =>
+          m.conversationId == conversationId &&
+          m.content == content &&
+          m.senderId == _auth.userId &&
+          DateTime.now().difference(m.createdAt).inSeconds < 5,
+    );
     return recentMessages.isNotEmpty;
   }
 
+  void _updateLocalConversationPreview({
+    required String conversationId,
+    required String content,
+    required DateTime sentAt,
+  }) {
+    final currentUserId = _currentUserId;
+    final existing = conversations.firstWhereOrNull(
+      (conversation) => conversation.id == conversationId,
+    );
+    if (existing == null) return;
+
+    final updated = existing.copyWith(
+      lastMessage: content,
+      lastMessageAt: sentAt,
+      lastMessageSenderId: currentUserId,
+      unreadCount: 0,
+      currentUserId: currentUserId,
+    );
+    _upsertConversation(updated);
+
+    if (activeConversation.value?.id == conversationId) {
+      activeConversation.value = updated;
+    }
+  }
+
+  void _schedulePendingMessageFallback({
+    required String clientMsgId,
+    required String conversationId,
+    required String content,
+  }) {
+    Future<void>.delayed(const Duration(milliseconds: 1200), () async {
+      final status = messageStatuses[clientMsgId];
+      if (status == null ||
+          status == MessageStatus.delivered ||
+          status == MessageStatus.read ||
+          status == MessageStatus.failed) {
+        return;
+      }
+
+      await _sendMessageViaRestFallback(
+        clientMsgId: clientMsgId,
+        conversationId: conversationId,
+        content: content,
+      );
+    });
+  }
+
+  Future<void> _sendMessageViaRestFallback({
+    required String clientMsgId,
+    required String conversationId,
+    required String content,
+  }) async {
+    try {
+      final response = await _api.post(
+        ApiConstants.conversationMessages(conversationId),
+        data: {'content': content, 'clientMsgId': clientMsgId},
+      );
+
+      Map<String, dynamic>? payload;
+      final data = response.data;
+      if (data is Map) {
+        if (data['message'] is Map) {
+          payload = Map<String, dynamic>.from(data['message']);
+        } else if (data['data'] is Map) {
+          payload = Map<String, dynamic>.from(data['data']);
+        } else {
+          payload = Map<String, dynamic>.from(data);
+        }
+      }
+
+      final serverId = (payload?['id'] ?? payload?['_id'])?.toString().trim();
+      if (serverId != null && serverId.isNotEmpty) {
+        updateMessageStatus(
+          clientMsgId,
+          MessageStatus.delivered,
+          serverId: serverId,
+        );
+      } else {
+        messageStatuses[clientMsgId] = MessageStatus.delivered;
+      }
+
+      _updateLocalConversationPreview(
+        conversationId: conversationId,
+        content: content,
+        sentAt: DateTime.now(),
+      );
+      _debouncedFetchConversations();
+    } catch (error) {
+      if (_handleRestrictedMessagingError(error)) {
+        return;
+      }
+      debugPrint('[ChatController] REST send fallback failed: $error');
+    }
+  }
+
+  bool _handleRestrictedMessagingError(dynamic error) {
+    if (error is! DioException) return false;
+
+    final raw = error.response?.data;
+    final restrictedStatus = extractRestrictedAccountStatus(raw);
+    if (restrictedStatus == null) {
+      return false;
+    }
+
+    if (restrictedStatus == 'suspended') {
+      final reason =
+          extractRestrictedAccountReason(raw) ??
+          extractRestrictedAccountSupportMessage(raw) ??
+          'Your account is suspended and cannot send messages right now.';
+      Get.snackbar('Messaging unavailable', reason);
+      return true;
+    }
+
+    final args = buildRestrictedAccountArguments(
+      _auth.currentUser.value,
+      fallbackStatus: restrictedStatus,
+      fallbackReason: extractRestrictedAccountReason(raw),
+      fallbackSupportMessage: extractRestrictedAccountSupportMessage(raw),
+      fallbackActionRequired: extractRestrictedAccountActionRequired(raw),
+      fallbackStaffMessage: extractRestrictedAccountStaffMessage(raw),
+      fallbackExpiresAt: extractRestrictedAccountExpiresAt(raw),
+    );
+
+    if (args == null) return false;
+
+    final targetRoute = restrictedStatus == 'banned'
+        ? AppRoutes.contactSupport
+        : AppRoutes.accountStatus;
+    if (Get.currentRoute != targetRoute) {
+      Get.offAllNamed(targetRoute, arguments: args);
+    }
+    return true;
+  }
+
   // ─── Update Message Status (called when server confirms) ───────
-  void updateMessageStatus(String clientMsgId, MessageStatus status, {String? serverId}) {
+  void updateMessageStatus(
+    String clientMsgId,
+    MessageStatus status, {
+    String? serverId,
+  }) {
     messageStatuses[clientMsgId] = status;
-    
+
     if (serverId != null) {
       _clientToServerIds[clientMsgId] = serverId;
       // Replace optimistic message with server-confirmed one
@@ -891,18 +1353,14 @@ class ChatController extends GetxController {
     if (msg == null) return;
 
     messageStatuses[clientMsgId] = MessageStatus.pending;
-    
+
     final socket = Get.find<SocketService>();
     if (socket.isConnected.value) {
       _socket.sendMessageWithId(msg.conversationId, msg.content, clientMsgId);
       messageStatuses[clientMsgId] = MessageStatus.sent;
     } else {
       final queue = Get.find<MessageQueueService>();
-      queue.enqueue(
-        msg.conversationId,
-        msg.content,
-        clientMsgId: clientMsgId,
-      );
+      queue.enqueue(msg.conversationId, msg.content, clientMsgId: clientMsgId);
     }
     activeMessages.refresh();
   }
@@ -918,27 +1376,29 @@ class ChatController extends GetxController {
     var changed = false;
     final normalizedIds = messageIds ?? const <String>{};
 
-    final updated = activeMessages.map((message) {
-      final isMine = message.senderId == (_auth.userId ?? '');
-      if (!isMine) return message;
+    final updated = activeMessages
+        .map((message) {
+          final isMine = message.senderId == (_auth.userId ?? '');
+          if (!isMine) return message;
 
-      final shouldMark =
-          normalizedIds.isEmpty || normalizedIds.contains(message.id);
-      if (!shouldMark || message.isRead) return message;
+          final shouldMark =
+              normalizedIds.isEmpty || normalizedIds.contains(message.id);
+          if (!shouldMark || message.isRead) return message;
 
-      changed = true;
-      readReceipts[message.id] = true;
-      messageStatuses[message.id] = MessageStatus.read;
-      return MessageModel(
-        id: message.id,
-        conversationId: message.conversationId,
-        senderId: message.senderId,
-        content: message.content,
-        type: message.type,
-        isRead: true,
-        createdAt: message.createdAt,
-      );
-    }).toList(growable: false);
+          changed = true;
+          readReceipts[message.id] = true;
+          messageStatuses[message.id] = MessageStatus.read;
+          return MessageModel(
+            id: message.id,
+            conversationId: message.conversationId,
+            senderId: message.senderId,
+            content: message.content,
+            type: message.type,
+            isRead: true,
+            createdAt: message.createdAt,
+          );
+        })
+        .toList(growable: false);
 
     if (changed) {
       activeMessages.assignAll(updated);
@@ -972,20 +1432,43 @@ class ChatController extends GetxController {
   // ─── Debounced conversation refresh ─────────────────────────────
   void _debouncedFetchConversations() {
     _fetchConversationsDebounce?.cancel();
-    _fetchConversationsDebounce = Timer(const Duration(seconds: 2), () {
+    _fetchConversationsDebounce = Timer(const Duration(milliseconds: 450), () {
       fetchConversations();
     });
   }
 
   // ─── Helpers ───────────────────────────────────────────────────
-  int get totalUnread => conversations.fold(0, (sum, c) =>
-      sum + c.unreadCount(_auth.userId ?? ''));
+  int get totalUnread => conversations.fold(
+    0,
+    (sum, c) => sum + c.unreadCount(_auth.userId ?? ''),
+  );
 
   /// Check if a user is currently online via presence map.
   bool isUserOnline(String userId) => onlinePresence[userId] ?? false;
 
   /// Check if a message has been read by the recipient.
   bool isMessageRead(String messageId) => readReceipts[messageId] ?? false;
+
+  void resetForLogout() {
+    leaveActiveChat();
+    conversations.clear();
+    onlineTodayUsers.clear();
+    iceBreakers.clear();
+    searchQuery.value = '';
+    isLoading.value = false;
+    hasError.value = false;
+    isTyping.value = false;
+    messagesLoading.value = false;
+    readReceipts.clear();
+    onlinePresence.clear();
+    messageStatuses.clear();
+    _sentMessageIds.clear();
+    _clientToServerIds.clear();
+    _hiddenConversationUserIds.clear();
+    _fetchConversationsDebounce?.cancel();
+    _typingDebounce?.cancel();
+    _liveTodayRefreshTimer?.cancel();
+  }
 
   void searchConversations(String query) {
     searchQuery.value = query;
@@ -995,7 +1478,7 @@ class ChatController extends GetxController {
     final q = searchQuery.value.trim().toLowerCase();
     if (q.isEmpty) return conversations;
     return conversations.where((c) {
-      final name = c.otherUser?.firstName?.toLowerCase() ?? '';
+      final name = c.otherUser?.publicDisplayName.toLowerCase() ?? '';
       return name.contains(q);
     }).toList();
   }

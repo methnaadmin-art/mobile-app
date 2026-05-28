@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/data/services/monetization_service.dart';
@@ -64,16 +64,14 @@ class _ThirdPartyIntegrationsScreenState
               const SizedBox(height: AppSpacing.md),
               _InfoCard(
                 title: 'supported_today'.tr,
-                body:
-                    'supported_today_desc'.tr,
+                body: 'supported_today_desc'.tr,
               ),
             ] else ...[
               _buildBillingCard(),
               const SizedBox(height: AppSpacing.md),
               _InfoCard(
                 title: 'billing_privacy'.tr,
-                body:
-                    'billing_privacy_desc'.tr,
+                body: 'billing_privacy_desc'.tr,
               ),
             ],
           ],
@@ -85,28 +83,34 @@ class _ThirdPartyIntegrationsScreenState
   Widget _buildAccountAccessCard() {
     final provider = (_storage.getAuthProvider() ?? 'email').toLowerCase();
     final usingGoogle = provider == 'google';
+    final googleVisible = !GetPlatform.isIOS && !GetPlatform.isMacOS;
 
     return SettingsPlainListCard(
       children: [
         _IntegrationRow(
-          label: usingGoogle ? 'google_sign_in'.tr : 'email_password'.tr,
-          accent: usingGoogle ? const Color(0xFF4285F4) : AppColors.primary,
-          initials: usingGoogle ? 'G' : 'E',
+          label: usingGoogle && googleVisible
+              ? 'google_sign_in'.tr
+              : 'email_password'.tr,
+          accent: usingGoogle && googleVisible
+              ? const Color(0xFF4285F4)
+              : AppColors.primary,
+          initials: usingGoogle && googleVisible ? 'G' : 'E',
           statusLabel: 'active'.tr,
           statusTint: AppColors.primary,
-          subtitle: usingGoogle
+          subtitle: usingGoogle && googleVisible
               ? 'auth_with_google'.tr
               : 'auth_with_methna'.tr,
         ),
-        _IntegrationRow(
-          label: usingGoogle ? 'email_password'.tr : 'google_sign_in'.tr,
-          accent: usingGoogle ? AppColors.primary : const Color(0xFF4285F4),
-          initials: usingGoogle ? 'E' : 'G',
-          statusLabel: 'available'.tr,
-          subtitle: usingGoogle
-              ? 'methna_password_available'.tr
-              : 'google_signin_available'.tr,
-        ),
+        if (googleVisible)
+          _IntegrationRow(
+            label: usingGoogle ? 'email_password'.tr : 'google_sign_in'.tr,
+            accent: usingGoogle ? AppColors.primary : const Color(0xFF4285F4),
+            initials: usingGoogle ? 'E' : 'G',
+            statusLabel: 'available'.tr,
+            subtitle: usingGoogle
+                ? 'methna_password_available'.tr
+                : 'google_signin_available'.tr,
+          ),
       ],
     );
   }
@@ -116,41 +120,36 @@ class _ThirdPartyIntegrationsScreenState
     final likesStatus = _monetization.isUnlimitedLikes.value
         ? 'unlimited_likes_active'.tr
         : '${_monetization.remainingLikes.value} ${'likes_left_today'.tr}';
+    final isAndroidDevice =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     final isAppleDevice =
         !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS);
-    final isAndroidDevice =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final purchasesAvailable = _monetization.supportsInAppPurchases;
 
     return SettingsPlainListCard(
       children: [
-        _IntegrationRow(
-          label: 'stripe_billing'.tr,
-          accent: const Color(0xFF635BFF),
-          initials: 'S',
-          statusLabel: hasPremium ? 'active'.tr : 'ready'.tr,
-          statusTint: hasPremium ? AppColors.primary : null,
-          subtitle: hasPremium
-              ? 'stripe_active_desc'.tr
-              : 'stripe_ready_desc'.tr,
-        ),
-        _IntegrationRow(
-          label: 'google_pay'.tr,
-          accent: const Color(0xFF34A853),
-          initials: 'G',
-          statusLabel: isAndroidDevice ? 'supported'.tr : 'device_dependent'.tr,
-          subtitle:
-              'google_pay_desc'.tr,
-        ),
-        _IntegrationRow(
-          label: 'apple_pay'.tr,
-          accent: const Color(0xFF111111),
-          initials: 'A',
-          statusLabel: isAppleDevice ? 'supported'.tr : 'device_dependent'.tr,
-          subtitle:
-              'apple_pay_desc'.tr,
-        ),
+        if (purchasesAvailable)
+          _IntegrationRow(
+            label: isAppleDevice ? 'apple_pay'.tr : 'google_pay'.tr,
+            accent: isAppleDevice
+                ? const Color(0xFF111827)
+                : const Color(0xFF34A853),
+            initials: isAppleDevice ? 'A' : 'G',
+            statusLabel: isAndroidDevice || isAppleDevice
+                ? 'supported'.tr
+                : 'device_dependent'.tr,
+            subtitle: isAppleDevice ? 'apple_pay_desc'.tr : 'google_pay_desc'.tr,
+          )
+        else
+          const _IntegrationRow(
+            label: 'Purchases',
+            accent: Color(0xFF6E3DFB),
+            initials: 'P',
+            statusLabel: 'Unavailable',
+            subtitle: 'Purchases are not currently offered on this device.',
+          ),
         _IntegrationRow(
           label: 'premium_access'.tr,
           accent: const Color(0xFFE2559C),

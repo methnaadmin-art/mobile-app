@@ -6,6 +6,7 @@ abstract class AppRoutes {
 
   // Auth
   static const String login = '/login';
+  static const String accountStatus = '/account-status';
   static const String forgotPassword = '/forgot-password';
   static const String resetPassword = '/reset-password';
   static const String otp = '/otp';
@@ -51,16 +52,19 @@ abstract class AppRoutes {
   static const String verificationCenter = '/settings/verification-center';
   static const String accountSecurity = '/settings/account-security';
   static const String subscription = '/settings/subscription';
+  static const String shop = '/settings/shop';
   static const String appAppearance = '/settings/app-appearance';
   static const String helpSupport = '/settings/help-support';
   static const String clearCacheInfo = '/settings/clear-cache-info';
   static const String resetAppDataInfo = '/settings/reset-app-data-info';
   static const String notificationSettings = '/settings/notification-settings';
   static const String changeUsername = '/settings/change-username';
+  static const String changePassword = '/settings/change-password';
   static const String visibility = '/settings/visibility';
   static const String blockedUsers = '/settings/blocked-users';
   static const String manageMessages = '/settings/manage-messages';
-  static const String manageActiveStatus = '/settings/manage-active-status';
+  static const String deactivateAccount = '/settings/deactivate-account';
+  static const String deleteAccount = '/settings/delete-account';
   static const String faq = '/settings/faq';
   static const String contactSupport = '/settings/contact-support';
   static const String appLanguage = '/settings/app-language';

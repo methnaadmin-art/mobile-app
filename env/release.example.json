@@ -1,10 +1,13 @@
 {
   "API_BASE_URL": "https://web-production-afbe4.up.railway.app/api/v1",
   "SOCKET_URL": "https://web-production-afbe4.up.railway.app:443",
-  "STRIPE_PUBLISHABLE_KEY": "pk_live_replace_me",
-  "STRIPE_MERCHANT_IDENTIFIER": "merchant.com.methna.app",
-  "STRIPE_MERCHANT_COUNTRY_CODE": "US",
-  "STRIPE_CURRENCY_CODE": "USD",
-  "STRIPE_TEST_MODE": "false",
-  "STRIPE_RETURN_URL": "methna://stripe-redirect"
+  "WEBSITE_URL": "https://methna.com",
+  "PRIVACY_POLICY_URL": "https://methna.com/privacy",
+  "TERMS_URL": "https://methna.com/terms",
+  "SUPPORT_EMAIL": "support@methna.com",
+  "PRIVACY_EMAIL": "privacy@methna.com",
+  "PLAY_BILLING_PREMIUM": "",
+  "PLAY_BILLING_PREMIUM_MONTHLY": "",
+  "PLAY_BILLING_PREMIUM_YEARLY": "",
+  "PLAY_BILLING_GOLD": ""
 }

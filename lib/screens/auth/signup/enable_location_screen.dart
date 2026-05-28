@@ -77,7 +77,7 @@ class _EnableLocationScreenState extends State<EnableLocationScreen> {
           progress: controller.progressPercent,
           onBack: busy ? () {} : controller.goBack,
           title: 'find_matches_nearby'.tr,
-          subtitle: 'find_matches_nearby_desc'.tr,
+          subtitle: '',
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -113,9 +113,9 @@ class _EnableLocationScreenState extends State<EnableLocationScreen> {
                     overlayRadius: 18,
                   ),
                   inactiveTrackColor: const Color(0xFFE9E7EF),
-                  activeTrackColor: signupMockPurple,
+                  activeTrackColor: signupMockPrimary,
                   thumbColor: Colors.white,
-                  overlayColor: signupMockPurple.withValues(alpha: 0.12),
+                  overlayColor: signupMockPrimary.withValues(alpha: 0.12),
                 ),
                 child: Slider(
                   min: 5,

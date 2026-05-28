@@ -4,7 +4,9 @@ import 'package:dio/dio.dart' hide Headers;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide FormData, MultipartFile, Response;
 import 'package:get_storage/get_storage.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:path/path.dart' as p;
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
@@ -17,13 +19,14 @@ import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/utils/upload_image_optimizer.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/utils/validators.dart';
+import 'package:methna_app/core/widgets/backend_wait_overlay.dart';
 import 'signup_data.dart';
 
 class SignupController extends GetxController {
   // ─── Constants & Dependencies ──────────────────────────────
   static const int totalSteps = 12;
   static const int maxHobbiesSelection = 5;
-  static const Set<int> _skippableOptionalSteps = {6, 7, 8};
+  static const Set<int> _skippableOptionalSteps = {6, 7};
   static const String _draftKey = AppConstants.signupDraftKey;
 
   final AuthService _auth = Get.find<AuthService>();
@@ -70,6 +73,7 @@ class SignupController extends GetxController {
   final lastNameController = TextEditingController();
   final emailController = TextEditingController();
   final phoneController = TextEditingController();
+  final cityController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
   final Rx<DateTime?> dateOfBirth = Rx<DateTime?>(null);
@@ -93,13 +97,19 @@ class SignupController extends GetxController {
   final RxString selectedEducation = ''.obs;
   final companyController = TextEditingController();
   final heightController = TextEditingController();
+  final weightController = TextEditingController();
   final bioController = TextEditingController();
+  final describeIdealSpouseController = TextEditingController();
   final RxnBool hasChildren = RxnBool();
+  final RxnBool willingToRelocate = RxnBool();
   final numberOfChildrenController = TextEditingController();
   final RxList<String> selectedLanguages = <String>[].obs;
   final RxList<String> selectedNationalities = <String>[].obs;
   final RxString selectedEthnicity = ''.obs;
+  final RxString selectedSkinComplexion = ''.obs;
+  final RxString selectedBodyBuild = ''.obs;
   final RxList<String> selectedFamilyValues = <String>[].obs;
+  final RxString selectedMarriageTimeline = '3-6 MONTHS'.obs;
 
   // ─── Step 9: Photos ────────────────────────────────────────
   final RxList<File> selectedPhotos = <File>[].obs;
@@ -132,6 +142,7 @@ class SignupController extends GetxController {
   // ─── Loading states ────────────────────────────────────────
   final RxBool obscurePassword = true.obs;
   final RxBool agreePrivacy = false.obs;
+  final RxBool agreeOath = false.obs;
 
   void togglePasswordVisibility() => obscurePassword.toggle();
 
@@ -413,11 +424,17 @@ class SignupController extends GetxController {
       selectedHijab,
       selectedEducation,
       hasChildren,
+      willingToRelocate,
       selectedEthnicity,
+      selectedSkinComplexion,
+      selectedBodyBuild,
+      selectedMarriageTimeline,
       locationEnabled,
       selectedCountry,
       selectedCity,
       preferredDistanceKm,
+      agreePrivacy,
+      agreeOath,
       mainPhotoIndex,
       selfiePhoto,
     ];
@@ -439,11 +456,14 @@ class SignupController extends GetxController {
       lastNameController,
       emailController,
       phoneController,
+      cityController,
       jobTitleController,
       companyController,
       heightController,
+      weightController,
       numberOfChildrenController,
       bioController,
+      describeIdealSpouseController,
     ];
     for (var tc in textControllers) {
       tc.addListener(() => _triggerSave());
@@ -537,8 +557,16 @@ class SignupController extends GetxController {
         if (draft['height'] != null) {
           heightController.text = draft['height'];
         }
+        if (draft['weight'] != null) {
+          weightController.text = draft['weight'].toString();
+        }
         if (draft['hasChildren'] != null) {
           hasChildren.value = draft['hasChildren'] == true;
+        }
+        final draftWillingToRelocate =
+            draft['willingToRelocate'] ?? draft['willing_to_relocate'];
+        if (draftWillingToRelocate != null) {
+          willingToRelocate.value = draftWillingToRelocate == true;
         }
         if (draft['numberOfChildren'] != null) {
           numberOfChildrenController.text = draft['numberOfChildren']
@@ -555,19 +583,35 @@ class SignupController extends GetxController {
         if (draft['ethnicity'] != null) {
           selectedEthnicity.value = draft['ethnicity'].toString();
         }
+        if (draft['skinComplexion'] != null) {
+          selectedSkinComplexion.value = draft['skinComplexion'].toString();
+        }
+        if (draft['build'] != null) {
+          selectedBodyBuild.value = draft['build'].toString();
+        }
         if (draft['familyValues'] != null) {
           selectedFamilyValues.assignAll(
             List<String>.from(draft['familyValues']),
           );
         }
+        if ((draft['marriageTimeline']?.toString().trim() ?? '').isNotEmpty) {
+          selectedMarriageTimeline.value = _normalizeStoredMarriageTimeline(
+            draft['marriageTimeline'].toString(),
+          );
+        }
         if (draft['bio'] != null) {
           bioController.text = draft['bio'];
+        }
+        if (draft['describeIdealSpouse'] != null) {
+          describeIdealSpouseController.text =
+              draft['describeIdealSpouse'].toString();
         }
         if (draft['country'] != null) {
           selectedCountry.value = draft['country'];
         }
         if (draft['city'] != null) {
           selectedCity.value = draft['city'];
+          cityController.text = draft['city'].toString();
         }
         if (draft['phoneDialCode'] != null) {
           selectedPhoneDialCode.value = _normalizeDialCode(
@@ -582,6 +626,12 @@ class SignupController extends GetxController {
         }
         if (draft['locationEnabled'] != null) {
           locationEnabled.value = draft['locationEnabled'];
+        }
+        if (draft['agreePrivacy'] != null) {
+          agreePrivacy.value = draft['agreePrivacy'] == true;
+        }
+        if (draft['agreeOath'] != null) {
+          agreeOath.value = draft['agreeOath'] == true;
         }
         if (draft['preferredDistanceKm'] != null) {
           final rawDistance = draft['preferredDistanceKm'];
@@ -647,22 +697,30 @@ class SignupController extends GetxController {
           'education': selectedEducation.value,
           'company': companyController.text,
           'height': heightController.text,
+          'weight': weightController.text,
           'hasChildren': hasChildren.value,
+          'willingToRelocate': willingToRelocate.value,
           'numberOfChildren': numberOfChildrenController.text,
           'languages': selectedLanguages.toList(),
           'nationalities': selectedNationalities.toList(),
           'ethnicity': selectedEthnicity.value,
+          'skinComplexion': selectedSkinComplexion.value,
+          'build': selectedBodyBuild.value,
           'familyValues': selectedFamilyValues.toList(),
+          'marriageTimeline': selectedMarriageTimeline.value,
           'bio': bioController.text,
+          'describeIdealSpouse': describeIdealSpouseController.text,
           'photoPaths': photoPaths,
           'mainPhotoIndex': mainPhotoIndex.value,
           'country': selectedCountry.value,
-          'city': selectedCity.value,
+          'city': cityController.text.trim(),
           'phoneDialCode': selectedPhoneDialCode.value,
           'phoneCountryCode': selectedPhoneCountryCode.value,
           'phoneCountryName': selectedPhoneCountryName.value,
           'locationEnabled': locationEnabled.value,
           'preferredDistanceKm': preferredDistanceKm.value,
+          'agreePrivacy': agreePrivacy.value,
+          'agreeOath': agreeOath.value,
           'lastRoute': Get.currentRoute,
           // ignore: use_null_aware_elements
           if (selfiePath case final value?) 'selfiePath': value,
@@ -702,6 +760,16 @@ class SignupController extends GetxController {
     selectedPhoneDialCode.value = '+213';
     selectedPhoneCountryCode.value = 'DZ';
     selectedPhoneCountryName.value = 'Algeria';
+    selectedMarriageTimeline.value = '3-6 MONTHS';
+    willingToRelocate.value = null;
+    selectedSkinComplexion.value = '';
+    selectedBodyBuild.value = '';
+    agreePrivacy.value = false;
+    agreeOath.value = false;
+    cityController.clear();
+    selectedCity.value = '';
+    weightController.clear();
+    describeIdealSpouseController.clear();
     _photosUploaded = false;
     _selfieUploaded = false;
     _selfieVerificationRequested = false;
@@ -712,11 +780,8 @@ class SignupController extends GetxController {
 
   void onCountryChanged(String country) {
     selectedCountry.value = country;
-    if (availableCities.isNotEmpty) {
-      selectedCity.value = availableCities.first;
-    } else {
-      selectedCity.value = '';
-    }
+    final city = cityController.text.trim();
+    selectedCity.value = city;
     _triggerSave();
   }
 
@@ -786,61 +851,23 @@ class SignupController extends GetxController {
     isNavigatingStep.value = true;
     Get.focusScope?.unfocus();
 
-    var loaderShown = false;
-    var loaderCanceled = false;
+    var transitionLoaderShown = false;
 
     try {
       final currentIdx = _routeToStep[Get.currentRoute] ?? currentStep.value;
-      final shouldShowLoader = currentIdx == 6 || currentIdx == 8;
       final isOptionalStep = _skippableOptionalSteps.contains(currentIdx);
       final stepIsComplete = isOptionalStep
           ? _isOptionalStepComplete(currentIdx)
           : validateStep(currentIdx);
 
-      if (shouldShowLoader) {
-        Future.delayed(const Duration(milliseconds: 140), () {
-          if (loaderCanceled || !isNavigatingStep.value || loaderShown) return;
-          loaderShown = true;
-          if (!(Get.isDialogOpen ?? false)) {
-            Get.dialog(
-              const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-              barrierDismissible: false,
-            );
-          }
-        });
-      }
-
       if (!isOptionalStep && !stepIsComplete) {
         return;
       }
 
-      // Keep flow responsive: run persistence in background for media steps.
-      if (currentIdx == 6 || currentIdx == 8) {
-        if (stepIsComplete) {
-          unawaited(
-            updateProfile(setLoading: false).catchError((Object e) {
-              debugPrint(
-                '[Signup] Background profile sync failed at step $currentIdx: $e',
-              );
-            }),
-          );
-        }
-      } else if (currentIdx == 9 && stepIsComplete) {
-        unawaited(
-          uploadPhotos().catchError((Object e) {
-            debugPrint('[Signup] Background photo upload failed at step 9: $e');
-          }),
-        );
-      } else if (currentIdx == 10 && stepIsComplete) {
-        unawaited(
-          uploadSelfie().catchError((Object e) {
-            debugPrint(
-              '[Signup] Background selfie upload failed at step 10: $e',
-            );
-          }),
-        );
+      if (_requiresBlockingSync(currentIdx, stepIsComplete)) {
+        _showStepTransitionLoader();
+        transitionLoaderShown = true;
+        await _runBlockingStepSync(currentIdx);
       }
 
       final nextIdx = currentIdx + 1;
@@ -851,19 +878,14 @@ class SignupController extends GetxController {
       );
 
       if (nextRoute != null) {
+        if (transitionLoaderShown && (Get.isDialogOpen ?? false)) {
+          Get.back();
+          transitionLoaderShown = false;
+        }
+
         currentStep.value = nextIdx;
         debugPrint('[Signup] Transition -> $nextRoute (from $currentIdx)');
         Get.toNamed(nextRoute);
-
-        if (currentIdx == 9) {
-          Future.microtask(() {
-            Helpers.showSnackbar(
-              title: 'saving'.tr,
-              message: 'saving_in_background'.tr,
-              duration: const Duration(seconds: 2),
-            );
-          });
-        }
 
         // Persist route out of the transition critical path.
         Future.microtask(() => unawaited(_persistDraftRoute(nextRoute)));
@@ -873,8 +895,7 @@ class SignupController extends GetxController {
     } catch (e) {
       debugPrint('[Signup] goToNextStep unexpected error: $e');
     } finally {
-      loaderCanceled = true;
-      if (loaderShown && (Get.isDialogOpen ?? false)) {
+      if (transitionLoaderShown && (Get.isDialogOpen ?? false)) {
         Get.back();
       }
 
@@ -886,31 +907,78 @@ class SignupController extends GetxController {
     }
   }
 
+  bool _requiresBlockingSync(int currentIdx, bool stepIsComplete) {
+    if (!stepIsComplete) return false;
+    return currentIdx == 6 || currentIdx == 8 || currentIdx == 9 || currentIdx == 10;
+  }
+
+  Future<void> _runBlockingStepSync(int currentIdx) async {
+    switch (currentIdx) {
+      case 6:
+      case 8:
+        await updateProfile(setLoading: false);
+        return;
+      case 9:
+        await uploadPhotos();
+        return;
+      case 10:
+        await uploadSelfie();
+        return;
+      default:
+        return;
+    }
+  }
+
+  void _showStepTransitionLoader() {
+    if (Get.isDialogOpen ?? false) return;
+
+    Get.dialog(
+      PopScope(
+        canPop: false,
+        child: Center(
+          child: BackendWaitPanel(message: 'loading'.tr),
+        ),
+      ),
+      barrierDismissible: false,
+      useSafeArea: false,
+    );
+  }
+
   bool _isOptionalStepComplete(int step) {
     switch (step) {
       case 6:
-        final isFemale = selectedGender.value.toLowerCase() == 'female';
-        return selectedSect.value.isNotEmpty &&
-            selectedReligiousLevel.value.isNotEmpty &&
-            selectedDietary.value.isNotEmpty &&
-            selectedAlcohol.value.isNotEmpty &&
-            (!isFemale || selectedHijab.value.isNotEmpty);
+        return selectedSect.value.isNotEmpty ||
+            selectedReligiousLevel.value.isNotEmpty ||
+            selectedPrayerFrequency.value.isNotEmpty ||
+            selectedDietary.value.isNotEmpty ||
+            selectedAlcohol.value.isNotEmpty ||
+            selectedHijab.value.isNotEmpty;
       case 7:
-        return selectedHobbies.isNotEmpty &&
-            selectedHobbies.length <= maxHobbiesSelection;
+        return selectedHobbies.isNotEmpty;
       case 8:
         final hasChildrenValue = hasChildren.value;
         final validChildrenCount =
             !(hasChildrenValue ?? false) || _parseChildrenCount() != null;
+        if (!validChildrenCount) {
+          return false;
+        }
 
-        return selectedEducation.value.isNotEmpty &&
-            jobTitleController.text.trim().isNotEmpty &&
-            selectedLanguages.isNotEmpty &&
-            selectedNationalities.isNotEmpty &&
-            selectedEthnicity.value.isNotEmpty &&
-            hasChildrenValue != null &&
-            validChildrenCount &&
-            selectedFamilyValues.isNotEmpty;
+        return selectedEducation.value.isNotEmpty ||
+            jobTitleController.text.trim().isNotEmpty ||
+            companyController.text.trim().isNotEmpty ||
+            heightController.text.trim().isNotEmpty ||
+            weightController.text.trim().isNotEmpty ||
+            bioController.text.trim().isNotEmpty ||
+            describeIdealSpouseController.text.trim().isNotEmpty ||
+            selectedLanguages.isNotEmpty ||
+            selectedNationalities.isNotEmpty ||
+            selectedEthnicity.value.isNotEmpty ||
+            selectedSkinComplexion.value.isNotEmpty ||
+            selectedBodyBuild.value.isNotEmpty ||
+            hasChildrenValue != null ||
+          willingToRelocate.value != null ||
+            selectedFamilyValues.isNotEmpty ||
+            selectedMarriageTimeline.value.isNotEmpty;
       default:
         return true;
     }
@@ -1010,26 +1078,8 @@ class SignupController extends GetxController {
       case 5: // Email verification is handled by verifyEmailOtp
         return true;
       case 6: // Faith
-        if (selectedSect.value.isEmpty ||
-            selectedReligiousLevel.value.isEmpty) {
-          _handleError(null, 'faith_details_required'.tr);
-          return false;
-        }
-        if (selectedDietary.value.isEmpty || selectedAlcohol.value.isEmpty) {
-          _handleError(null, 'diet_and_alcohol_required'.tr);
-          return false;
-        }
-        if (selectedGender.value.toLowerCase() == 'female' &&
-            selectedHijab.value.isEmpty) {
-          _handleError(null, 'hijab_status_required'.tr);
-          return false;
-        }
         return true;
       case 7: // Hobbies
-        if (selectedHobbies.isEmpty) {
-          _handleError(null, 'select_min_hobbies'.trParams({'count': '1'}));
-          return false;
-        }
         if (selectedHobbies.length > maxHobbiesSelection) {
           _handleError(
             null,
@@ -1039,25 +1089,8 @@ class SignupController extends GetxController {
         }
         return true;
       case 8: // Profession
-        if (jobTitleController.text.isEmpty ||
-            selectedEducation.value.isEmpty) {
-          _handleError(null, 'profession_required'.tr);
-          return false;
-        }
-        if (selectedLanguages.isEmpty) {
-          _handleError(null, 'Please select at least one language.');
-          return false;
-        }
-        if (selectedNationalities.isEmpty) {
-          _handleError(null, 'Please select at least one nationality.');
-          return false;
-        }
-        if (selectedEthnicity.value.isEmpty) {
-          _handleError(null, 'Please select your ethnicity.');
-          return false;
-        }
-        if (hasChildren.value == null) {
-          _handleError(null, 'Please specify if you have children.');
+        if (selectedMarriageTimeline.value.trim().isEmpty) {
+          _handleError(null, 'marriage_timeline_required'.tr);
           return false;
         }
         if ((hasChildren.value ?? false) && _parseChildrenCount() == null) {
@@ -1067,8 +1100,8 @@ class SignupController extends GetxController {
           );
           return false;
         }
-        if (selectedFamilyValues.isEmpty) {
-          _handleError(null, 'Please select at least one family value.');
+        if (selectedNationalities.length > 2) {
+          _handleError(null, 'You can select up to 2 nationalities only.');
           return false;
         }
         return true;
@@ -1104,6 +1137,9 @@ class SignupController extends GetxController {
         confirmPassword: confirmPasswordController.text,
         firstName: firstNameController.text.trim(),
         lastName: lastNameController.text.trim(),
+        agreeToTerms: agreePrivacy.value,
+        agreeToPrivacyPolicy: agreePrivacy.value,
+        oathAccepted: agreeOath.value,
         username: usernameController.text.trim().isNotEmpty
             ? usernameController.text.trim()
             : null,
@@ -1158,6 +1194,64 @@ class SignupController extends GetxController {
 
   String _toEnumValue(String label) {
     return label.toLowerCase().replaceAll("'", "").replaceAll(' ', '_');
+  }
+
+  String _normalizeTimelineKey(String timelineKey) {
+    return timelineKey.trim().toUpperCase().replaceAll('-', '_').replaceAll(
+      ' ',
+      '_',
+    );
+  }
+
+  String _normalizeStoredMarriageTimeline(String value) {
+    switch (_normalizeTimelineKey(value)) {
+      case 'WITHIN_MONTHS':
+        return '1-3 MONTHS';
+      case 'WITHIN_YEAR':
+        return 'UP TO 1 YEAR';
+      default:
+        return value;
+    }
+  }
+
+  String? _marriageIntentionFromTimeline(String timelineKey) {
+    switch (_normalizeTimelineKey(timelineKey)) {
+      case '1_3_MONTHS':
+      case 'WITHIN_MONTHS':
+        return 'within_months';
+      case '3_6_MONTHS':
+      case 'UP_TO_1_YEAR':
+      case 'WITHIN_YEAR':
+        return 'within_year';
+      case '1_2_YEARS':
+      case 'ONE_TO_TWO_YEARS':
+        return 'one_to_two_years';
+      case 'NOT_SURE':
+        return 'not_sure';
+      case 'JUST_EXPLORING':
+        return 'just_exploring';
+      default:
+        return null;
+    }
+  }
+
+  String? _intentModeFromTimeline(String timelineKey) {
+    switch (_normalizeTimelineKey(timelineKey)) {
+      case '1_3_MONTHS':
+      case 'WITHIN_MONTHS':
+        return 'family_introduction';
+      case '3_6_MONTHS':
+      case 'UP_TO_1_YEAR':
+      case 'WITHIN_YEAR':
+      case '1_2_YEARS':
+      case 'ONE_TO_TWO_YEARS':
+        return 'serious_marriage';
+      case 'NOT_SURE':
+      case 'JUST_EXPLORING':
+        return 'exploring';
+      default:
+        return null;
+    }
   }
 
   int _uploadedPhotoCount(UserModel? user) {
@@ -1238,9 +1332,14 @@ class SignupController extends GetxController {
       if (selectedCountry.value.trim().isEmpty) {
         selectedCountry.value = 'Algeria';
       }
-      if (selectedCity.value.trim().isEmpty && availableCities.isNotEmpty) {
-        selectedCity.value = availableCities.first;
-      }
+      selectedCity.value = cityController.text.trim();
+
+      final resolvedMarriageIntention = _marriageIntentionFromTimeline(
+        selectedMarriageTimeline.value,
+      );
+      final resolvedIntentMode = _intentModeFromTimeline(
+        selectedMarriageTimeline.value,
+      );
 
       final profileData = {
         'gender': selectedGender.value.toLowerCase(),
@@ -1270,9 +1369,18 @@ class SignupController extends GetxController {
           'nationality': selectedNationalities.first,
         if (selectedEthnicity.value.isNotEmpty)
           'ethnicity': selectedEthnicity.value,
+        if (selectedSkinComplexion.value.isNotEmpty)
+          'skinComplexion': selectedSkinComplexion.value,
+        if (selectedBodyBuild.value.isNotEmpty)
+          'build': selectedBodyBuild.value,
         if (selectedFamilyValues.isNotEmpty)
           'familyValues': selectedFamilyValues.map(_toEnumValue).toList(),
+        if (resolvedMarriageIntention != null)
+          'marriageIntention': resolvedMarriageIntention,
+        if (resolvedIntentMode != null) 'intentMode': resolvedIntentMode,
         if (hasChildren.value != null) 'hasChildren': hasChildren.value,
+        if (willingToRelocate.value != null)
+          'willingToRelocate': willingToRelocate.value,
         if ((hasChildren.value ?? false) && _parseChildrenCount() != null)
           'numberOfChildren': _parseChildrenCount(),
         if (jobTitleController.text.isNotEmpty)
@@ -1281,7 +1389,11 @@ class SignupController extends GetxController {
           'company': companyController.text.trim(),
         if (heightController.text.isNotEmpty)
           'height': int.tryParse(heightController.text),
+        if (weightController.text.isNotEmpty)
+          'weight': int.tryParse(weightController.text),
         if (bioController.text.isNotEmpty) 'bio': bioController.text.trim(),
+        if (describeIdealSpouseController.text.trim().isNotEmpty)
+          'aboutPartner': describeIdealSpouseController.text.trim(),
         'country': selectedCountry.value,
         if (selectedCity.value.isNotEmpty) 'city': selectedCity.value,
       };
@@ -1325,6 +1437,7 @@ class SignupController extends GetxController {
         final optimizedPhoto = await UploadImageOptimizer.optimizeProfilePhoto(
           file,
         );
+        final subtype = _imageSubtypeFromPath(optimizedPhoto.path);
         Object? lastError;
         var uploaded = false;
 
@@ -1334,7 +1447,8 @@ class SignupController extends GetxController {
               'photo': await MultipartFile.fromFile(
                 optimizedPhoto.path,
                 filename:
-                    'photo_${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+                    'photo_${DateTime.now().millisecondsSinceEpoch}_$i.${_fileExtensionForSubtype(subtype)}',
+                contentType: MediaType('image', subtype),
               ),
               'isMain': i == mainPhotoIndex.value,
             });
@@ -1369,6 +1483,40 @@ class SignupController extends GetxController {
       rethrow;
     } finally {
       isProcessing.value = false;
+    }
+  }
+
+  String _imageSubtypeFromPath(String path) {
+    final ext = p.extension(path).toLowerCase();
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+      case '.jpe':
+        return 'jpeg';
+      case '.png':
+        return 'png';
+      case '.webp':
+        return 'webp';
+      case '.heic':
+        return 'heic';
+      case '.heif':
+        return 'heif';
+      default:
+        return 'jpeg';
+    }
+  }
+
+  String _fileExtensionForSubtype(String subtype) {
+    switch (subtype) {
+      case 'jpeg':
+        return 'jpg';
+      case 'png':
+      case 'webp':
+      case 'heic':
+      case 'heif':
+        return subtype;
+      default:
+        return 'jpg';
     }
   }
 
@@ -1475,7 +1623,7 @@ class SignupController extends GetxController {
             final result = await verificationService.verifySelfie().timeout(
               const Duration(seconds: 30),
             );
-            verificationTriggered = result != null;
+            verificationTriggered = result.success;
           } else {
             await _api
                 .post(
@@ -1758,11 +1906,26 @@ class SignupController extends GetxController {
     _triggerSave();
   }
 
+  void setSkinComplexion(String value) {
+    selectedSkinComplexion.value = value;
+    _triggerSave();
+  }
+
+  void setBodyBuild(String value) {
+    selectedBodyBuild.value = value;
+    _triggerSave();
+  }
+
   void setHasChildren(bool value) {
     hasChildren.value = value;
     if (!value) {
       numberOfChildrenController.clear();
     }
+    _triggerSave();
+  }
+
+  void setWillingToRelocate(bool value) {
+    willingToRelocate.value = value;
     _triggerSave();
   }
 
@@ -1772,6 +1935,11 @@ class SignupController extends GetxController {
     } else {
       selectedFamilyValues.add(value);
     }
+    _triggerSave();
+  }
+
+  void setMarriageTimeline(String timelineKey) {
+    selectedMarriageTimeline.value = timelineKey;
     _triggerSave();
   }
 
@@ -1855,14 +2023,17 @@ class SignupController extends GetxController {
       lastNameController,
       emailController,
       phoneController,
+      cityController,
       passwordController,
       confirmPasswordController,
       otpController,
       jobTitleController,
       companyController,
       heightController,
+      weightController,
       numberOfChildrenController,
       bioController,
+      describeIdealSpouseController,
     ];
 
     for (var c in controllers) {

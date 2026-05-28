@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:methna_app/app/controllers/chat_controller.dart';
+import 'package:methna_app/app/controllers/home_controller.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
@@ -12,11 +15,17 @@ import 'package:methna_app/app/data/models/conversation_model.dart';
 import 'package:methna_app/app/data/models/who_liked_me_item_model.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/core/constants/api_constants.dart';
+import 'package:methna_app/core/utils/match_found_presentation_guard.dart';
+import 'package:methna_app/screens/main/home/match_found_screen.dart';
 
 import 'package:methna_app/app/data/models/success_story_model.dart';
 import 'package:methna_app/app/data/services/storage_service.dart';
 
 class UsersController extends GetxController {
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
   static const List<String> _likedInteractionGroupKeys = <String>[
     'liked',
     'likes',
@@ -73,11 +82,35 @@ class UsersController extends GetxController {
   final RxInt whoLikedMeCount = 0.obs;
   final RxBool whoLikedMeRequiresPremium = false.obs;
   final RxBool isLoadingWhoLikedMe = false.obs;
+  final RxBool isLoadingInteractions = false.obs;
+  final RxBool isLoadingMatches = false.obs;
   final RxMap<String, DateTime> interactionTimestamps =
       <String, DateTime>{}.obs;
+  static const Duration _bucketStaleAfter = Duration(seconds: 45);
+  static const int _discoverPrefetchThreshold = 6;
+  DateTime? _interactionsFetchedAt;
+  DateTime? _whoLikedMeFetchedAt;
+  DateTime? _matchesFetchedAt;
+  bool _hasFetchedMatchesOnce = false;
 
   // Compatibility scores: userId -> score (0-100)
   final RxMap<String, int> compatibilityScores = <String, int>{}.obs;
+  final RxnInt requestedUsersTabIndex = RxnInt();
+
+  int normalizeUsersTabIndex(int index) => index.clamp(0, 3).toInt();
+
+  void requestUsersTab(int tabIndex, {bool forceRefresh = false}) {
+    final normalized = normalizeUsersTabIndex(tabIndex);
+    requestedUsersTabIndex.value = normalized;
+    if (forceRefresh) {
+      unawaited(ensureUsersTabData(force: true, tabIndex: normalized));
+    }
+  }
+
+  void clearRequestedUsersTab() {
+    requestedUsersTabIndex.value = null;
+  }
+
   // â”€â”€â”€ UI state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   final RxBool isLoading = false.obs;
   final RxBool isLoadingStories = false.obs;
@@ -88,11 +121,33 @@ class UsersController extends GetxController {
   final RxBool hasMore = true.obs;
   Worker? _currentUserWorker;
   bool _isFetchingUsersPage = false;
+  int _discoverFeedGeneration = 0;
   final Set<String> _swipeInFlight = <String>{};
   final Set<String> _seenUserIds = <String>{};
+  final Map<String, String> _matchIdByUserId = <String, String>{};
   final Map<String, UserModel> _publicUserCache = <String, UserModel>{};
   final Map<String, Future<UserModel?>> _publicHydrationTasks =
       <String, Future<UserModel?>>{};
+
+  void _presentMatchFound(UserModel? matchedUser, {String? matchId}) {
+    if (matchedUser == null || matchedUser.id.isEmpty) return;
+    if (!MatchFoundPresentationGuard.beginPresentation(
+      matchId: matchId,
+      userId: matchedUser.id,
+    )) {
+      return;
+    }
+    debugPrint(
+      '[UsersController] Presenting match overlay for ${matchedUser.id} (matchId=${matchId ?? 'unknown'})',
+    );
+    unawaited(
+      MatchFoundScreen.showOverlay(matchedUser).then(
+        (displayed) => MatchFoundPresentationGuard.endPresentation(
+          markDismissed: displayed,
+        ),
+      ),
+    );
+  }
 
   // Built-in filter tabs (fixed + dynamic from backend)
   List<String> get categories {
@@ -123,7 +178,7 @@ class UsersController extends GetxController {
     try {
       final cached = _storage.getCachedAllUsers();
       if (cached != null && cached.isNotEmpty) {
-        final users = _sanitizeUsers(
+        final users = _sanitizeDiscoverFeedUsers(
           cached.map((json) => UserModel.fromJson(json)),
         );
         allUsers.assignAll(users);
@@ -135,47 +190,162 @@ class UsersController extends GetxController {
     } catch (e) {
       debugPrint('[UsersController] Failed to load cached users: $e');
     }
+
+    // Restore liked users from local cache
+    try {
+      final cachedLiked = _storage.getCachedLikedUsers();
+      if (cachedLiked != null && cachedLiked.isNotEmpty && likedUsers.isEmpty) {
+        final users = _sanitizeUsers(
+          cachedLiked.map((json) => UserModel.fromJson(json)),
+        );
+        likedUsers.assignAll(users);
+        debugPrint(
+          '[UsersController] Restored ${users.length} cached liked users',
+        );
+      }
+    } catch (e) {
+      debugPrint('[UsersController] Failed to load cached liked users: $e');
+    }
+
+    // Restore passed users from local cache
+    try {
+      final cachedPassed = _storage.getCachedPassedUsers();
+      if (cachedPassed != null &&
+          cachedPassed.isNotEmpty &&
+          passedUsers.isEmpty) {
+        final users = _sanitizeUsers(
+          cachedPassed.map((json) => UserModel.fromJson(json)),
+        );
+        passedUsers.assignAll(users);
+        debugPrint(
+          '[UsersController] Restored ${users.length} cached passed users',
+        );
+      }
+    } catch (e) {
+      debugPrint('[UsersController] Failed to load cached passed users: $e');
+    }
+
+    if (allUsers.isNotEmpty) {
+      allUsers.assignAll(_sanitizeDiscoverFeedUsers(allUsers));
+      _refreshLiveTodayUsers();
+    }
+  }
+
+  List<UserModel> _sanitizeDiscoverFeedUsers(Iterable<UserModel> users) {
+    final seenIds = <String>{
+      ..._seenUserIds,
+      ..._storage.getSeenDiscoverUserIds(),
+      ...likedUsers.map((user) => user.id.trim()),
+      ...passedUsers.map((user) => user.id.trim()),
+      ...matches.map((user) => user.id.trim()),
+    }..removeWhere((id) => id.isEmpty);
+
+    return _sanitizeUsers(users)
+        .where((user) => !seenIds.contains(user.id.trim()))
+        .toList(growable: false);
+  }
+
+  void _prefetchDiscoverFeedIfNeeded() {
+    if (_isFetchingUsersPage || isLoadingMore.value || !hasMore.value) {
+      return;
+    }
+    if (allUsers.length > _discoverPrefetchThreshold) {
+      return;
+    }
+    unawaited(fetchUsers());
+  }
+
+  void _refreshRelationshipSurfaces({bool includeChat = false}) {
+    unawaited(fetchInteractions());
+    unawaited(fetchWhoLikedMe());
+    unawaited(fetchMatches());
+
+    if (includeChat && Get.isRegistered<ChatController>()) {
+      unawaited(Get.find<ChatController>().fetchConversations());
+    }
   }
 
   Future<void> _loadSecondaryData() async {
-    await Future.delayed(const Duration(milliseconds: 350));
+    final jobs = <Future<void>>[];
 
     if (backendCategories.isEmpty) {
-      await fetchBackendCategories().catchError((e) {
-        debugPrint('[UsersController] fetchBackendCategories failed: $e');
-      });
+      jobs.add(
+        fetchBackendCategories().catchError((e) {
+          debugPrint('[UsersController] fetchBackendCategories failed: $e');
+        }),
+      );
     }
-
-    await Future.delayed(const Duration(milliseconds: 250));
 
     if (successStories.isEmpty) {
-      await fetchSuccessStories().catchError((e) {
-        debugPrint('[UsersController] fetchSuccessStories failed: $e');
-      });
+      jobs.add(
+        fetchSuccessStories().catchError((e) {
+          debugPrint('[UsersController] fetchSuccessStories failed: $e');
+        }),
+      );
     }
-
-    await Future.delayed(const Duration(milliseconds: 250));
 
     if (matches.isEmpty) {
-      await fetchMatches().catchError((e) {
-        debugPrint('[UsersController] fetchMatches failed: $e');
-      });
+      jobs.add(
+        fetchMatches().catchError((e) {
+          debugPrint('[UsersController] fetchMatches failed: $e');
+        }),
+      );
     }
-
-    await Future.delayed(const Duration(milliseconds: 250));
 
     if (likesReceived.isEmpty) {
-      await fetchWhoLikedMe().catchError((e) {
-        debugPrint('[UsersController] fetchWhoLikedMe failed: $e');
-      });
+      jobs.add(
+        fetchWhoLikedMe().catchError((e) {
+          debugPrint('[UsersController] fetchWhoLikedMe failed: $e');
+        }),
+      );
     }
 
-    await Future.delayed(const Duration(milliseconds: 200));
-
     if (likedUsers.isEmpty && passedUsers.isEmpty) {
-      await fetchInteractions().catchError((e) {
-        debugPrint('[UsersController] fetchInteractions failed: $e');
-      });
+      jobs.add(
+        fetchInteractions().catchError((e) {
+          debugPrint('[UsersController] fetchInteractions failed: $e');
+        }),
+      );
+    }
+
+    if (jobs.isNotEmpty) {
+      await Future.wait(jobs);
+    }
+  }
+
+  bool _isBucketStale(DateTime? fetchedAt) {
+    if (fetchedAt == null) return true;
+    return DateTime.now().difference(fetchedAt) >= _bucketStaleAfter;
+  }
+
+  Future<void> ensureUsersTabData({bool force = false, int? tabIndex}) async {
+    if (tabIndex == null) {
+      await Future.wait([
+        if (force || _isBucketStale(_interactionsFetchedAt))
+          fetchInteractions(),
+        if (force || _isBucketStale(_whoLikedMeFetchedAt)) fetchWhoLikedMe(),
+        if (force || _isBucketStale(_matchesFetchedAt)) fetchMatches(),
+      ]);
+      return;
+    }
+
+    switch (tabIndex) {
+      case 0:
+      case 2:
+        if (force || _isBucketStale(_interactionsFetchedAt)) {
+          await fetchInteractions();
+        }
+        return;
+      case 1:
+        if (force || _isBucketStale(_whoLikedMeFetchedAt)) {
+          await fetchWhoLikedMe();
+        }
+        return;
+      case 3:
+        if (force || _isBucketStale(_matchesFetchedAt)) {
+          await fetchMatches();
+        }
+        return;
     }
   }
 
@@ -271,6 +441,97 @@ class UsersController extends GetxController {
     return null;
   }
 
+  String? _interactionParticipantId(
+    Map<String, dynamic> record,
+    List<String> keys,
+  ) {
+    final swipe = _asMap(record['swipe']);
+    final interaction = _asMap(record['interaction']);
+
+    for (final key in keys) {
+      final direct = record[key]?.toString().trim();
+      if (direct != null &&
+          direct.isNotEmpty &&
+          direct.toLowerCase() != 'null') {
+        return direct;
+      }
+
+      final fromSwipe = swipe?[key]?.toString().trim();
+      if (fromSwipe != null &&
+          fromSwipe.isNotEmpty &&
+          fromSwipe.toLowerCase() != 'null') {
+        return fromSwipe;
+      }
+
+      final fromInteraction = interaction?[key]?.toString().trim();
+      if (fromInteraction != null &&
+          fromInteraction.isNotEmpty &&
+          fromInteraction.toLowerCase() != 'null') {
+        return fromInteraction;
+      }
+    }
+
+    return null;
+  }
+
+  String? _interactionActorId(Map<String, dynamic> record) {
+    return _interactionParticipantId(record, const <String>[
+      'actorId',
+      'actor_id',
+      'sourceUserId',
+      'source_user_id',
+      'swiperId',
+      'swiper_id',
+      'fromUserId',
+      'from_user_id',
+      'initiatorId',
+      'initiator_id',
+      'userId',
+      'user_id',
+    ]);
+  }
+
+  String? _interactionTargetId(Map<String, dynamic> record) {
+    return _interactionParticipantId(record, const <String>[
+      'targetUserId',
+      'target_user_id',
+      'toUserId',
+      'to_user_id',
+      'recipientId',
+      'recipient_id',
+      'likedUserId',
+      'liked_user_id',
+      'passedUserId',
+      'passed_user_id',
+      'profileUserId',
+      'profile_user_id',
+    ]);
+  }
+
+  bool _isOutgoingInteractionRecord(Map<String, dynamic> record) {
+    final currentUserId = _currentUserId;
+    if (currentUserId == null || currentUserId.isEmpty) {
+      return true;
+    }
+
+    final actorId = _interactionActorId(record);
+    if (actorId != null && actorId.isNotEmpty) {
+      return actorId == currentUserId;
+    }
+
+    final targetId = _interactionTargetId(record);
+    if (targetId != null && targetId.isNotEmpty) {
+      return targetId != currentUserId;
+    }
+
+    return true;
+  }
+
+  bool _isPositiveLikeType(String rawType) {
+    final normalized = _normalizeInteractionAction(rawType);
+    return normalized == 'like' || normalized == 'compliment';
+  }
+
   List<dynamic> _extractInteractionRecordList(dynamic source) {
     if (source is List) return source;
     if (source is! Map) return const <dynamic>[];
@@ -349,6 +610,7 @@ class UsersController extends GetxController {
   }
 
   Future<void> fetchInteractions() async {
+    isLoadingInteractions.value = true;
     try {
       final response = await _api.get(
         ApiConstants.interactions,
@@ -375,6 +637,9 @@ class UsersController extends GetxController {
       for (final raw in recordList) {
         if (raw is! Map) continue;
         final record = Map<String, dynamic>.from(raw);
+        if (!_isOutgoingInteractionRecord(record)) {
+          continue;
+        }
         final user = _extractUserFromMatchRecord(record);
         if (user == null || user.id.isEmpty || _isCurrentUser(user)) continue;
 
@@ -411,19 +676,117 @@ class UsersController extends GetxController {
       passedUsers.assignAll(
         _sanitizeUsers(_hydrateUsersFromKnownSources(hydratedPassed)),
       );
+      _interactionsFetchedAt = DateTime.now();
+      _normalizeRelationshipBuckets();
 
       debugPrint(
         '[UsersController] interactions loaded: liked=${likedUsers.length}, passed=${passedUsers.length}',
       );
+      _persistInteractionsCache();
     } catch (e) {
       debugPrint('[UsersController] fetchInteractions error: $e');
+    } finally {
+      isLoadingInteractions.value = false;
     }
   }
 
-  void registerOutgoingSwipe(
+  List<WhoLikedMeItem> _dedupeWhoLikedMeItems(Iterable<WhoLikedMeItem> items) {
+    final blockedIds = _storage.getBlockedUserIds();
+    final sorted = items.toList(growable: false)
+      ..sort((a, b) {
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+    final seen = <String>{};
+    final deduped = <WhoLikedMeItem>[];
+
+    for (final item in sorted) {
+      final userId = item.user.id.trim();
+      if (userId.isEmpty ||
+          blockedIds.contains(userId) ||
+          _isCurrentUser(item.user) ||
+          !seen.add(userId)) {
+        continue;
+      }
+      deduped.add(item);
+    }
+
+    return deduped;
+  }
+
+  int _removeIncomingLikeStateForIds(Iterable<String> userIds) {
+    final normalizedIds = userIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (normalizedIds.isEmpty) return 0;
+
+    final before = likesReceived.length;
+    likesReceived.removeWhere(
+      (item) => normalizedIds.contains(item.user.id.trim()),
+    );
+    final removedCount = before - likesReceived.length;
+    if (removedCount > 0 && whoLikedMeCount.value > 0) {
+      whoLikedMeCount.value = math.max(0, whoLikedMeCount.value - removedCount);
+    }
+    return removedCount;
+  }
+
+  void _removeOutgoingInteractionStateForIds(Iterable<String> userIds) {
+    final normalizedIds = userIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (normalizedIds.isEmpty) return;
+
+    likedUsers.removeWhere((candidate) => normalizedIds.contains(candidate.id));
+    passedUsers.removeWhere(
+      (candidate) => normalizedIds.contains(candidate.id),
+    );
+  }
+
+  void _normalizeRelationshipBuckets() {
+    final matchedIds = matches
+        .map((user) => user.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (matchedIds.isNotEmpty) {
+      _removeOutgoingInteractionStateForIds(matchedIds);
+      _removeIncomingLikeStateForIds(matchedIds);
+    }
+
+    final passedIds = passedUsers
+        .map((user) => user.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (passedIds.isNotEmpty) {
+      likedUsers.removeWhere((candidate) => passedIds.contains(candidate.id));
+      _removeIncomingLikeStateForIds(passedIds);
+    }
+
+    final likedIds = likedUsers
+        .map((user) => user.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (likedIds.isNotEmpty) {
+      passedUsers.removeWhere((candidate) => likedIds.contains(candidate.id));
+    }
+
+    matches.assignAll(_sanitizeUsers(_mergeUniqueUsers(matches)));
+    likedUsers.assignAll(
+      _sortByInteractionRecency(_sanitizeUsers(_mergeUniqueUsers(likedUsers))),
+    );
+    passedUsers.assignAll(
+      _sortByInteractionRecency(_sanitizeUsers(_mergeUniqueUsers(passedUsers))),
+    );
+    likesReceived.assignAll(_dedupeWhoLikedMeItems(likesReceived));
+    _persistInteractionsCache();
+  }
+
+  void _promoteUserToMatch(
     UserModel user, {
-    required String action,
-    bool matched = false,
+    String? matchId,
     DateTime? occurredAt,
   }) {
     if (user.id.trim().isEmpty || _isCurrentUser(user)) return;
@@ -431,21 +794,61 @@ class UsersController extends GetxController {
     final hydratedUsers = _hydrateUsersFromKnownSources([
       _mergeUserWithPublicCache(user),
     ]);
-    final normalizedUser = hydratedUsers.isNotEmpty ? hydratedUsers.first : user;
+    final normalizedUser = hydratedUsers.isNotEmpty
+        ? hydratedUsers.first
+        : user;
+    final timestamp = occurredAt ?? DateTime.now();
+
+    _rememberMatchIdForUser(normalizedUser.id, matchId);
+    _rememberInteractionTimestamp(normalizedUser.id, timestamp);
+    _removeOutgoingInteractionStateForIds(<String>[normalizedUser.id]);
+    _removeIncomingLikeStateForIds(<String>[normalizedUser.id]);
+
+    if (!matches.any((candidate) => candidate.id == normalizedUser.id)) {
+      matches.insert(0, normalizedUser);
+    }
+
+    _matchesFetchedAt = DateTime.now();
+    _interactionsFetchedAt = DateTime.now();
+    _whoLikedMeFetchedAt = DateTime.now();
+    _normalizeRelationshipBuckets();
+  }
+
+  void registerOutgoingSwipe(
+    UserModel user, {
+    required String action,
+    bool matched = false,
+    String? matchId,
+    DateTime? occurredAt,
+  }) {
+    if (user.id.trim().isEmpty || _isCurrentUser(user)) return;
+
+    final hydratedUsers = _hydrateUsersFromKnownSources([
+      _mergeUserWithPublicCache(user),
+    ]);
+    final normalizedUser = hydratedUsers.isNotEmpty
+        ? hydratedUsers.first
+        : user;
     final timestamp = occurredAt ?? DateTime.now();
 
     _rememberInteractionTimestamp(normalizedUser.id, timestamp);
 
     switch (action) {
       case 'pass':
-        likedUsers.removeWhere((candidate) => candidate.id == normalizedUser.id);
-        if (!passedUsers.any((candidate) => candidate.id == normalizedUser.id)) {
+        likedUsers.removeWhere(
+          (candidate) => candidate.id == normalizedUser.id,
+        );
+        if (!passedUsers.any(
+          (candidate) => candidate.id == normalizedUser.id,
+        )) {
           passedUsers.insert(0, normalizedUser);
         }
         break;
       case 'compliment':
       case 'like':
-        passedUsers.removeWhere((candidate) => candidate.id == normalizedUser.id);
+        passedUsers.removeWhere(
+          (candidate) => candidate.id == normalizedUser.id,
+        );
         if (!likedUsers.any((candidate) => candidate.id == normalizedUser.id)) {
           likedUsers.insert(0, normalizedUser);
         }
@@ -454,19 +857,33 @@ class UsersController extends GetxController {
         return;
     }
 
-    if (matched) {
-      if (!matches.any((candidate) => candidate.id == normalizedUser.id)) {
-        matches.insert(0, normalizedUser);
-      }
+    _interactionsFetchedAt = DateTime.now();
 
-      final hadIncomingLike = likesReceived.any(
-        (item) => item.user.id == normalizedUser.id,
+    if (matched) {
+      _promoteUserToMatch(
+        normalizedUser,
+        matchId: matchId ?? _resolveMatchIdForUser(normalizedUser.id),
+        occurredAt: timestamp,
       );
-      likesReceived.removeWhere((item) => item.user.id == normalizedUser.id);
-      if (hadIncomingLike && whoLikedMeCount.value > 0) {
-        whoLikedMeCount.value -= 1;
-      }
+      return;
     }
+
+    if (action == 'pass') {
+      _removeIncomingLikeStateForIds(<String>[normalizedUser.id]);
+    }
+
+    _normalizeRelationshipBuckets();
+    _persistInteractionsCache();
+  }
+
+  void undoOutgoingSwipe(String userId) {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) return;
+
+    likedUsers.removeWhere((candidate) => candidate.id == normalizedUserId);
+    passedUsers.removeWhere((candidate) => candidate.id == normalizedUserId);
+    interactionTimestamps.remove(normalizedUserId);
+    _persistInteractionsCache();
   }
 
   DateTime? interactionDateFor(String userId) {
@@ -645,6 +1062,7 @@ class UsersController extends GetxController {
   }) async {
     final normalizedUserId = userId.trim();
     if (normalizedUserId.isEmpty) return seed;
+    if (!_isRouteableUserId(normalizedUserId)) return seed;
 
     final cached = _publicUserCache[normalizedUserId];
     if (cached != null) {
@@ -704,6 +1122,11 @@ class UsersController extends GetxController {
   ) async {
     return await Future.wait(
       items.map((item) async {
+        if (item.isBlurred) {
+          // Blurred liked-me entries are server-locked placeholders. Never
+          // hydrate them through the public profile endpoint.
+          return item;
+        }
         final hydratedUser = await _fetchPublicUserById(
           item.user.id,
           seed: item.user,
@@ -713,6 +1136,7 @@ class UsersController extends GetxController {
           type: item.type,
           complimentMessage: item.complimentMessage,
           createdAt: item.createdAt,
+          isBlurred: item.isBlurred,
         );
       }),
     );
@@ -849,6 +1273,53 @@ class UsersController extends GetxController {
     return _hydrateUsersFromKnownSources(_sanitizeUsers(users));
   }
 
+  List<MapEntry<String?, UserModel>> _extractMatchEvents(dynamic payload) {
+    final records = _extractMatchRecordList(payload);
+    final events = <MapEntry<String?, UserModel>>[];
+
+    for (final raw in records) {
+      if (raw is! Map) continue;
+      final record = Map<String, dynamic>.from(raw);
+      final parsedUser = _extractUserFromMatchRecord(record);
+      if (parsedUser == null) continue;
+      events.add(
+        MapEntry<String?, UserModel>(
+          MatchFoundPresentationGuard.extractMatchId(record),
+          parsedUser,
+        ),
+      );
+    }
+
+    return events;
+  }
+
+  void _rememberMatchIdForUser(String userId, String? matchId) {
+    final normalizedUserId = userId.trim();
+    final normalizedMatchId = (matchId ?? '').trim();
+    if (normalizedUserId.isEmpty || normalizedMatchId.isEmpty) {
+      return;
+    }
+    _matchIdByUserId[normalizedUserId] = normalizedMatchId;
+  }
+
+  String? _resolveMatchIdForUser(String userId) {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) return null;
+    final matchId = _matchIdByUserId[normalizedUserId]?.trim();
+    if (matchId == null || matchId.isEmpty) return null;
+    return matchId;
+  }
+
+  void _pruneMatchIdMappings(Iterable<UserModel> users) {
+    final activeUserIds = users
+        .map((user) => user.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    _matchIdByUserId.removeWhere(
+      (userId, _) => !activeUserIds.contains(userId),
+    );
+  }
+
   List<UserModel> _mergeUniqueUsers(Iterable<UserModel> users) {
     final seenIds = <String>{};
     final merged = <UserModel>[];
@@ -915,15 +1386,149 @@ class UsersController extends GetxController {
   }
 
   List<UserModel> _sanitizeUsers(Iterable<UserModel> users) {
+    final blockedIds = _storage.getBlockedUserIds();
     return _mergeUniqueUsers(
-      users.where((u) => u.id.isNotEmpty && !_isCurrentUser(u)),
+      users.where(
+        (u) =>
+            u.id.isNotEmpty &&
+            !_isCurrentUser(u) &&
+            !blockedIds.contains(u.id.trim()) &&
+            u.status.trim().toLowerCase() != 'blocked',
+      ),
     );
+  }
+
+  void evictUsersByIds(Iterable<String> userIds) {
+    final blockedIds = userIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (blockedIds.isEmpty) return;
+
+    allUsers.removeWhere((user) => blockedIds.contains(user.id));
+    nearbyUsers.removeWhere((user) => blockedIds.contains(user.id));
+    liveTodayUsers.removeWhere((user) => blockedIds.contains(user.id));
+    matches.removeWhere((user) => blockedIds.contains(user.id));
+    likedUsers.removeWhere((user) => blockedIds.contains(user.id));
+    passedUsers.removeWhere((user) => blockedIds.contains(user.id));
+    likesReceived.removeWhere((item) => blockedIds.contains(item.user.id));
+    if (whoLikedMeCount.value > likesReceived.length) {
+      whoLikedMeCount.value = likesReceived.length;
+    }
+    recentConversations.removeWhere(
+      (conversation) => blockedIds.contains(conversation.otherUser?.id ?? ''),
+    );
+    for (final userId in blockedIds) {
+      _publicUserCache.remove(userId);
+      _publicHydrationTasks.remove(userId);
+      _matchIdByUserId.remove(userId);
+    }
+    _refreshLiveTodayUsers();
+    _persistVisibleUsersCache();
+  }
+
+  void registerIncomingMatch(
+    UserModel user, {
+    String? matchId,
+    DateTime? occurredAt,
+    bool presentPopup = false,
+  }) {
+    if (user.id.trim().isEmpty || _isCurrentUser(user)) return;
+    if (Get.isRegistered<ChatController>()) {
+      Get.find<ChatController>().restoreConversationVisibilityForUser(user.id);
+    }
+    final hydratedUsers = _hydrateUsersFromKnownSources([
+      _mergeUserWithPublicCache(user),
+    ]);
+    final normalizedUser = hydratedUsers.isNotEmpty
+        ? hydratedUsers.first
+        : user;
+    final timestamp = occurredAt ?? DateTime.now();
+    _promoteUserToMatch(
+      normalizedUser,
+      matchId: matchId,
+      occurredAt: timestamp,
+    );
+
+    if (presentPopup) {
+      _presentMatchFound(normalizedUser, matchId: matchId);
+    }
+  }
+
+  void resetForLogout() {
+    allUsers.clear();
+    nearbyUsers.clear();
+    liveTodayUsers.clear();
+    backendCategories.clear();
+    recentConversations.clear();
+    matches.clear();
+    likedUsers.clear();
+    passedUsers.clear();
+    likesReceived.clear();
+    successStories.clear();
+    whoLikedMeCount.value = 0;
+    whoLikedMeRequiresPremium.value = false;
+    interactionTimestamps.clear();
+    compatibilityScores.clear();
+    hasError.value = false;
+    isLoading.value = false;
+    isLoadingInteractions.value = false;
+    isLoadingMatches.value = false;
+    isLoadingWhoLikedMe.value = false;
+    _interactionsFetchedAt = null;
+    _whoLikedMeFetchedAt = null;
+    _matchesFetchedAt = null;
+    _hasFetchedMatchesOnce = false;
+    _matchIdByUserId.clear();
+    _publicUserCache.clear();
+    _publicHydrationTasks.clear();
+    MatchFoundPresentationGuard.resetRuntimeState();
+  }
+
+  Future<void> resetDiscoveryFeedForFilterRefresh({
+    bool clearSeenHistory = false,
+  }) async {
+    _discoverFeedGeneration++;
+    page.value = 1;
+    hasMore.value = true;
+    hasError.value = false;
+    isLoadingMore.value = false;
+    selectedCategory.value = 'all';
+    allUsers.clear();
+    nearbyUsers.clear();
+    liveTodayUsers.clear();
+
+    if (clearSeenHistory) {
+      _seenUserIds.clear();
+      await _storage.clearSeenDiscoverUserIds();
+    }
+
+    await _storage.clearAllUsersCache();
+    isLoading.value = true;
+    try {
+      await fetchUsers(refresh: true);
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   void _persistVisibleUsersCache() {
     unawaited(
       _storage
           .cacheAllUsers(allUsers.map((u) => u.toJson()).toList())
+          .catchError((_) {}),
+    );
+  }
+
+  void _persistInteractionsCache() {
+    unawaited(
+      _storage
+          .cacheLikedUsers(likedUsers.map((u) => u.toJson()).toList())
+          .catchError((_) {}),
+    );
+    unawaited(
+      _storage
+          .cachePassedUsers(passedUsers.map((u) => u.toJson()).toList())
           .catchError((_) {}),
     );
   }
@@ -947,6 +1552,36 @@ class UsersController extends GetxController {
     }
 
     return false;
+  }
+
+  bool isMatchedWithUser(String userId) {
+    final normalized = userId.trim();
+    if (normalized.isEmpty) return false;
+    return matches.any((candidate) => candidate.id == normalized);
+  }
+
+  bool hasLikedUser(String userId) {
+    final normalized = userId.trim();
+    if (normalized.isEmpty) return false;
+    return likedUsers.any((candidate) => candidate.id == normalized);
+  }
+
+  bool hasPassedUser(String userId) {
+    final normalized = userId.trim();
+    if (normalized.isEmpty) return false;
+    return passedUsers.any((candidate) => candidate.id == normalized);
+  }
+
+  bool isSwipeInFlight(String userId) {
+    final normalized = userId.trim();
+    if (normalized.isEmpty) return false;
+    return _swipeInFlight.contains(normalized);
+  }
+
+  bool isLikedByUser(String userId) {
+    final normalized = userId.trim();
+    if (normalized.isEmpty) return false;
+    return likesReceived.any((item) => item.user.id == normalized);
   }
 
   void _refreshLiveTodayUsers() {
@@ -978,6 +1613,17 @@ class UsersController extends GetxController {
     unawaited(_loadSecondaryData());
   }
 
+  Map<String, dynamic> _buildSearchQueryParameters() {
+    if (Get.isRegistered<HomeController>()) {
+      return Get.find<HomeController>().buildDiscoverSearchParams(
+        page: page.value,
+        limit: 20,
+      );
+    }
+
+    return {'page': page.value, 'limit': 20};
+  }
+
   // â”€â”€â”€ All users (Primary Source: /search, Secondary: /matches/discover) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> fetchUsers({bool refresh = false}) async {
     if (_isFetchingUsersPage && !refresh) return;
@@ -986,6 +1632,7 @@ class UsersController extends GetxController {
       hasMore.value = true;
     }
     if (!hasMore.value && !refresh) return;
+    final requestGeneration = _discoverFeedGeneration;
     _isFetchingUsersPage = true;
     final isPaginationLoad = !refresh && page.value > 1;
     if (isPaginationLoad) {
@@ -999,7 +1646,7 @@ class UsersController extends GetxController {
 
       final searchResponse = await _api.get(
         ApiConstants.search,
-        queryParameters: {'page': page.value, 'limit': 20},
+        queryParameters: _buildSearchQueryParameters(),
       );
 
       final searchUsers = _parseUsers(searchResponse.data);
@@ -1053,8 +1700,13 @@ class UsersController extends GetxController {
         }
       }
 
+      if (requestGeneration != _discoverFeedGeneration) {
+        debugPrint('[UsersController] Ignoring stale discover feed response');
+        return;
+      }
+
       if (refresh || page.value == 1) {
-        final sanitized = _sanitizeUsers(mergedFirstPageUsers);
+        final sanitized = _sanitizeDiscoverFeedUsers(mergedFirstPageUsers);
         if (sanitized.isNotEmpty) {
           allUsers.assignAll(sanitized);
           _persistVisibleUsersCache();
@@ -1063,7 +1715,9 @@ class UsersController extends GetxController {
           liveTodayUsers.clear();
         }
       } else if (searchUsers.isNotEmpty) {
-        allUsers.assignAll(_sanitizeUsers([...allUsers, ...searchUsers]));
+        allUsers.assignAll(
+          _sanitizeDiscoverFeedUsers([...allUsers, ...searchUsers]),
+        );
         _persistVisibleUsersCache();
       }
 
@@ -1077,6 +1731,7 @@ class UsersController extends GetxController {
       }
       hasMore.value = searchUsers.length >= 20;
       page.value++;
+      _prefetchDiscoverFeedIfNeeded();
     } catch (e, stackTrace) {
       if (refresh) hasError.value = true;
       debugPrint('[UsersController] fetchUsers CRITICAL ERROR: $e');
@@ -1090,7 +1745,7 @@ class UsersController extends GetxController {
           );
           final discoveryData = discoveryResponse.data;
           if (discoveryData is Map) {
-            final fallbackUsers = _sanitizeUsers([
+            final fallbackUsers = _sanitizeDiscoverFeedUsers([
               ..._parseUsers(discoveryData['users']),
               ..._parseUsers(discoveryData['nearby']),
               ..._parseUsers(discoveryData['results']),
@@ -1156,15 +1811,44 @@ class UsersController extends GetxController {
 
   // â”€â”€â”€ Matches â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> fetchMatches() async {
+    isLoadingMatches.value = true;
     try {
+      final previousMatchIds = matches.map((user) => user.id).toSet();
       final response = await _api.get(ApiConstants.matches);
+      final matchEvents = _extractMatchEvents(response.data);
+      final extractedUsers = matchEvents.isNotEmpty
+          ? matchEvents.map((event) => event.value).toList(growable: false)
+          : _extractMatchUsers(response.data);
       final users = await _hydrateMissingUsersWithPublicProfiles(
-        _extractMatchUsers(response.data),
+        extractedUsers,
       );
       matches.assignAll(users);
+      for (final event in matchEvents) {
+        _rememberMatchIdForUser(event.value.id, event.key);
+      }
+      _pruneMatchIdMappings(users);
+      _matchesFetchedAt = DateTime.now();
+      _normalizeRelationshipBuckets();
+
+      if (_hasFetchedMatchesOnce) {
+        final newlyDetectedUsers = users
+            .where((user) => !previousMatchIds.contains(user.id))
+            .toList(growable: false);
+        if (newlyDetectedUsers.isNotEmpty) {
+          final firstNewUser = newlyDetectedUsers.first;
+          final matchingEvent = matchEvents.firstWhereOrNull(
+            (event) => event.value.id == firstNewUser.id,
+          );
+          _presentMatchFound(firstNewUser, matchId: matchingEvent?.key);
+        }
+      }
+
+      _hasFetchedMatchesOnce = true;
       debugPrint('[UsersController] Found ${matches.length} matches');
     } catch (e) {
       debugPrint('[UsersController] fetchMatches error: $e');
+    } finally {
+      isLoadingMatches.value = false;
     }
   }
 
@@ -1177,28 +1861,46 @@ class UsersController extends GetxController {
       final list = data is List
           ? data
           : (data is Map ? (data['users'] as List? ?? const []) : const []);
+      final requiresPremium = data is Map && data['isPremiumFeature'] == true;
 
       final parsedItems = list
           .whereType<Map>()
-          .map(
-            (entry) =>
-                WhoLikedMeItem.fromJson(Map<String, dynamic>.from(entry)),
-          )
+          .map((entry) {
+            final item = WhoLikedMeItem.fromJson(
+              Map<String, dynamic>.from(entry),
+            );
+            if (!requiresPremium || item.isBlurred) return item;
+            return WhoLikedMeItem(
+              user: item.user,
+              type: item.type,
+              complimentMessage: null,
+              createdAt: item.createdAt,
+              isBlurred: true,
+            );
+          })
           .where(
-            (item) => item.user.id.isNotEmpty && !_isCurrentUser(item.user),
+            (item) =>
+                item.user.id.isNotEmpty &&
+                !_isCurrentUser(item.user) &&
+                _isPositiveLikeType(item.type),
           )
           .toList();
 
       final hydratedItems = await _hydrateWhoLikedMeItems(parsedItems);
+      final blockedIds = _storage.getBlockedUserIds();
+      final visibleItems = hydratedItems
+          .where((item) => !blockedIds.contains(item.user.id.trim()))
+          .toList(growable: false);
 
-      likesReceived.assignAll(hydratedItems);
+      likesReceived.assignAll(visibleItems);
       whoLikedMeCount.value = data is Map
-          ? (data['count'] as num?)?.toInt() ?? hydratedItems.length
-          : hydratedItems.length;
-      whoLikedMeRequiresPremium.value =
-          data is Map && data['isPremiumFeature'] == true;
+          ? (data['count'] as num?)?.toInt() ?? visibleItems.length
+          : visibleItems.length;
+      whoLikedMeRequiresPremium.value = requiresPremium;
+      _whoLikedMeFetchedAt = DateTime.now();
+      _normalizeRelationshipBuckets();
 
-      for (final item in hydratedItems) {
+      for (final item in visibleItems) {
         _rememberInteractionTimestamp(item.user.id, item.createdAt);
       }
 
@@ -1274,8 +1976,12 @@ class UsersController extends GetxController {
     }
   }
 
-  void openUserDetail(UserModel user) {
+  void openUserDetail(UserModel user, {String? sourceTab}) {
     if (_isCurrentUser(user)) return;
+    if (_isLockedPlaceholderUserId(user.id)) {
+      _openLockedLikedMePaywall();
+      return;
+    }
 
     final hydrated = _hydrateUsersFromKnownSources([user]);
     final selected = hydrated.isNotEmpty ? hydrated.first : user;
@@ -1283,59 +1989,112 @@ class UsersController extends GetxController {
       Get.snackbar('error'.tr, 'user_not_found'.tr);
       return;
     }
+    if (_isLockedPlaceholderUserId(selected.id)) {
+      _openLockedLikedMePaywall();
+      return;
+    }
+    if (!_isRouteableUserId(selected.id)) {
+      Get.snackbar('error'.tr, 'user_not_found'.tr);
+      return;
+    }
 
-    unawaited(openUserDetailById(selected.id, fallbackUser: selected));
+    unawaited(
+      openUserDetailById(
+        selected.id,
+        fallbackUser: selected,
+        showLoader: false,
+        sourceTab: sourceTab,
+      ),
+    );
   }
 
   /// Opens user detail by fetching the profile from backend.
   Future<void> openUserDetailById(
     String userId, {
     UserModel? fallbackUser,
+    bool showLoader = false,
+    String? sourceTab,
   }) async {
-    if (userId.trim().isEmpty) {
+    final normalizedSourceTab = sourceTab?.trim();
+    final normalizedUserId = userId.trim();
+    Map<String, dynamic> detailArguments(UserModel user) => {
+      'user': user,
+      if (normalizedSourceTab != null && normalizedSourceTab.isNotEmpty)
+        'sourceTab': normalizedSourceTab,
+    };
+
+    if (_isLockedPlaceholderUserId(normalizedUserId)) {
+      _openLockedLikedMePaywall();
+      return;
+    }
+    if (!_isRouteableUserId(normalizedUserId)) {
+      Get.snackbar('error'.tr, 'user_not_found'.tr);
+      return;
+    }
+
+    if (_storage.getBlockedUserIds().contains(normalizedUserId)) {
+      Get.snackbar('profile'.tr, 'This profile is unavailable.');
+      return;
+    }
+    if (normalizedUserId.isEmpty) {
       if (fallbackUser != null && !_isCurrentUser(fallbackUser)) {
-        Get.toNamed(AppRoutes.userDetail, arguments: {'user': fallbackUser});
+        Get.toNamed(
+          AppRoutes.userDetail,
+          arguments: detailArguments(fallbackUser),
+        );
         return;
       }
       Get.snackbar('error'.tr, 'user_not_found'.tr);
       return;
     }
 
-    // Show loading
-    Get.dialog(
-      const Center(child: CircularProgressIndicator()),
-      barrierDismissible: false,
-    );
+    var loaderShown = false;
+    if (showLoader) {
+      Get.dialog(
+        const Center(child: CircularProgressIndicator()),
+        barrierDismissible: false,
+      );
+      loaderShown = true;
+    }
     try {
       final hydratedUser = await _fetchPublicUserById(
-        userId,
+        normalizedUserId,
         seed: fallbackUser,
       );
-      if (Get.isDialogOpen ?? false) {
+      if (loaderShown && (Get.isDialogOpen ?? false)) {
         Get.back();
       }
 
       if (hydratedUser != null &&
           hydratedUser.id.isNotEmpty &&
           !_isCurrentUser(hydratedUser)) {
-        Get.toNamed(AppRoutes.userDetail, arguments: {'user': hydratedUser});
+        Get.toNamed(
+          AppRoutes.userDetail,
+          arguments: detailArguments(hydratedUser),
+        );
         return;
       }
 
       if (fallbackUser != null && !_isCurrentUser(fallbackUser)) {
-        Get.toNamed(AppRoutes.userDetail, arguments: {'user': fallbackUser});
+        Get.toNamed(
+          AppRoutes.userDetail,
+          arguments: detailArguments(fallbackUser),
+        );
         return;
       }
 
       Get.snackbar('error'.tr, 'user_not_found'.tr);
     } catch (e) {
-      if (Get.isDialogOpen ?? false) {
+      if (loaderShown && (Get.isDialogOpen ?? false)) {
         Get.back();
       }
       debugPrint('[UsersController] openUserDetailById error: $e');
 
       if (fallbackUser != null && !_isCurrentUser(fallbackUser)) {
-        Get.toNamed(AppRoutes.userDetail, arguments: {'user': fallbackUser});
+        Get.toNamed(
+          AppRoutes.userDetail,
+          arguments: detailArguments(fallbackUser),
+        );
         return;
       }
 
@@ -1349,6 +2108,26 @@ class UsersController extends GetxController {
 
   void openWhoLikedMe() {
     Get.toNamed(AppRoutes.whoLikedMe);
+  }
+
+  bool isLockedLikedMePlaceholder(String userId) =>
+      _isLockedPlaceholderUserId(userId);
+
+  bool _isRouteableUserId(String userId) =>
+      _uuidPattern.hasMatch(userId.trim());
+
+  bool _isLockedPlaceholderUserId(String userId) {
+    final normalized = userId.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return normalized.startsWith('locked_like_') ||
+        normalized.startsWith('locked_liked_me_') ||
+        normalized.startsWith('placeholder_like_') ||
+        (!_uuidPattern.hasMatch(normalized) && normalized.contains('locked'));
+  }
+
+  void _openLockedLikedMePaywall() {
+    if (Get.currentRoute == AppRoutes.subscription) return;
+    Get.toNamed(AppRoutes.subscription);
   }
 
   UserModel? _removeUserFromLists(String userId) {
@@ -1435,12 +2214,20 @@ class UsersController extends GetxController {
         }
       }
       _persistVisibleUsersCache();
+      _prefetchDiscoverFeedIfNeeded();
       if (matched && removedUser != null) {
-        if (!matches.any((u) => u.id == removedUser.id)) {
-          matches.insert(0, removedUser);
-        }
-        Get.toNamed(AppRoutes.matchFound, arguments: {'user': removedUser});
+        final matchId = MatchFoundPresentationGuard.extractMatchId(data);
+        _promoteUserToMatch(
+          removedUser,
+          matchId: matchId,
+          occurredAt: DateTime.now(),
+        );
+        _presentMatchFound(removedUser, matchId: matchId);
+      } else if (removedUser != null) {
+        _interactionsFetchedAt = DateTime.now();
+        _normalizeRelationshipBuckets();
       }
+      _refreshRelationshipSurfaces(includeChat: matched);
     } catch (e) {
       _restoreUserInLists(removedUser);
       Get.snackbar(
@@ -1463,8 +2250,80 @@ class UsersController extends GetxController {
     String message = 'Salam, I would like to know you better.',
   }) => _swipeUser(userId, 'compliment', complimentMessage: message);
 
+  Future<void> _deleteMatchWithFallback(
+    String userId, {
+    String? matchId,
+  }) async {
+    final normalizedUserId = userId.trim();
+    final normalizedMatchId = (matchId ?? '').trim();
+    if (normalizedUserId.isEmpty) return;
+
+    if (normalizedMatchId.isNotEmpty && normalizedMatchId != normalizedUserId) {
+      try {
+        await _api.delete(ApiConstants.unmatch(normalizedMatchId));
+        return;
+      } catch (e) {
+        debugPrint(
+          '[UsersController] unmatch via matchId failed for $normalizedUserId (matchId=$normalizedMatchId): $e',
+        );
+      }
+    }
+
+    await _api.delete(ApiConstants.unmatch(normalizedUserId));
+  }
+
+  Future<bool> unmatchUser(String userId) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) return false;
+
+    final chatController = Get.isRegistered<ChatController>()
+        ? Get.find<ChatController>()
+        : null;
+
+    var resolvedMatchId = _resolveMatchIdForUser(normalizedUserId);
+    if (resolvedMatchId == null || resolvedMatchId.isEmpty) {
+      await fetchMatches();
+      resolvedMatchId = _resolveMatchIdForUser(normalizedUserId);
+    }
+
+    evictUsersByIds({normalizedUserId});
+    if (chatController != null) {
+      await chatController.deleteConversationForUser(
+        normalizedUserId,
+        remoteDelete: true,
+      );
+    }
+
+    try {
+      await _deleteMatchWithFallback(
+        normalizedUserId,
+        matchId: resolvedMatchId,
+      );
+      MatchFoundPresentationGuard.clearDismissal(
+        matchId: resolvedMatchId,
+        userId: normalizedUserId,
+      );
+      _matchIdByUserId.remove(normalizedUserId);
+      await Future.wait([
+        fetchMatches(),
+        fetchInteractions(),
+        fetchWhoLikedMe(),
+      ]);
+      return true;
+    } catch (e) {
+      debugPrint('[UsersController] unmatchUser error: $e');
+      await Future.wait([
+        fetchMatches(),
+        fetchInteractions(),
+        fetchWhoLikedMe(),
+      ]);
+      Get.snackbar('error'.tr, 'Unable to remove this match right now.');
+      return false;
+    }
+  }
+
   Future<void> refreshUsers() async {
-    await _loadAll(isRefresh: true);
+    await ensureUsersTabData(force: true);
   }
 
   void loadMore() => fetchUsers();

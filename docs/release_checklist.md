@@ -100,6 +100,7 @@ Test on real devices:
 - Chat send/receive notifications
 - Subscription purchase + post-purchase entitlement unlock
 - App restart and session restore
+- Run the focused dating UX regression checklist in `docs/manual_qa/dating_ux_completion_checklist.md`
 
 ## 10) Post-Release Monitoring
 

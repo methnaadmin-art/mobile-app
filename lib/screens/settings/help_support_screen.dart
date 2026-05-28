@@ -4,6 +4,7 @@ import 'package:methna_app/app/controllers/settings_controller.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/settings_flow.dart';
 import 'package:methna_app/screens/settings/static_content_screen.dart'
@@ -110,12 +111,12 @@ class HelpSupportScreen extends GetView<SettingsController> {
               SettingsPlainTile(
                 title: 'rate_us'.tr,
                 onTap: () => _launchExternal(
-                  'https://play.google.com/store/apps/details?id=com.methna.app',
+                  'https://play.google.com/store/apps/details?id=com.methnapp.app',
                 ),
               ),
               SettingsPlainTile(
                 title: 'visit_website'.tr,
-                onTap: () => _launchExternal('https://methna.app'),
+                onTap: () => _launchExternal(AppConstants.websiteUrl),
               ),
               SettingsPlainTile(
                 title: 'follow_social'.tr,
@@ -127,5 +128,4 @@ class HelpSupportScreen extends GetView<SettingsController> {
       ),
     );
   }
-
 }

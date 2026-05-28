@@ -27,7 +27,7 @@ class AuthPageScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: backgroundColor ??
-          (isDark ? AppColors.canvasDark : AppColors.canvasLight),
+          (isDark ? AppColors.canvasDark : Colors.white),
       body: DatifyBackground(
         compact: compact,
         child: SafeArea(child: child),

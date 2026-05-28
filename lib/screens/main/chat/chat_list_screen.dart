@@ -1,4 +1,4 @@
-import 'package:cached_network_image/cached_network_image.dart';
+﻿import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -8,8 +8,9 @@ import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/utils/cloudinary_url.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/utils/google_fonts_stub.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/animated_empty_state.dart';
@@ -21,7 +22,9 @@ class ChatListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : Colors.white,
       body: SafeArea(
         bottom: false,
         child: Obx(() {
@@ -30,12 +33,17 @@ class ChatListScreen extends StatelessWidget {
           if (controller.isLoading.value &&
               controller.conversations.isEmpty &&
               controller.onlineTodayUsers.isEmpty) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            );
+            return _ChatLoadingState(isDark: isDark);
           }
 
           final currentUserId = Get.find<AuthService>().userId ?? '';
+          final currentUser = Get.find<AuthService>().currentUser.value;
+          final greetingName =
+              currentUser?.publicShortName.trim().isNotEmpty == true
+              ? currentUser!.publicShortName.trim()
+              : (currentUser?.publicDisplayName.trim().isNotEmpty == true
+                    ? currentUser!.publicDisplayName.trim().split(' ').first
+                    : 'John');
           final conversations = controller.filteredConversations;
 
           return RefreshIndicator(
@@ -48,82 +56,40 @@ class ChatListScreen extends StatelessWidget {
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 118),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                10,
+                AppSpacing.lg,
+                118,
+              ),
               children: [
-                _ChatsTopBar(
+                _LiveTodayPanel(
+                  isDark: isDark,
+                  greetingName: greetingName,
+                  users: controller.onlineTodayUsers,
+                  onSeeAll: () => _showActiveUsersSheet(context, controller),
+                  onOpenUser: controller.openConversationWithUser,
                   onSearch: () => _showSearchSheet(context, controller),
+                  onSettings: () => Get.toNamed(AppRoutes.messageSettings),
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Text(
-                      'now_active'.tr,
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark
-                            ? AppColors.textPrimaryDark
-                            : const Color(0xFF232129),
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () => _showActiveUsersSheet(context, controller),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(56, 20),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        'see_all'.tr,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 72,
-                  child: controller.onlineTodayUsers.isEmpty
-                      ? ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: 5,
-                          separatorBuilder: (context, index) =>
-                            const SizedBox(width: 12),
-                          itemBuilder: (context, index) =>
-                            const _ActiveAvatarPlaceholder(),
-                        )
-                      : ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: controller.onlineTodayUsers.length,
-                          separatorBuilder: (context, index) =>
-                            const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            final user = controller.onlineTodayUsers[index];
-                            return _ActiveAvatarItem(
-                              user: user,
-                              onTap: () => controller.openConversationWithUser(user),
+                const SizedBox(height: 16),
+                _ConversationsSurface(
+                  isDark: isDark,
+                  totalConversations: conversations.length,
+                  child: conversations.isEmpty
+                      ? const _EmptyChatsState()
+                      : Column(
+                          children: List.generate(conversations.length, (
+                            index,
+                          ) {
+                            final conversation = conversations[index];
+                            return _ConversationTile(
+                              conversation: conversation,
+                              currentUserId: currentUserId,
                             );
-                          },
+                          }),
                         ),
                 ),
-                const SizedBox(height: 18),
-                if (conversations.isEmpty)
-                  const _EmptyChatsState()
-                else
-                  ...List.generate(conversations.length, (index) {
-                    final conversation = conversations[index];
-                    return _ConversationTile(
-                      conversation: conversation,
-                      currentUserId: currentUserId,
-                    );
-                  }),
               ],
             ),
           );
@@ -145,7 +111,7 @@ class ChatListScreen extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Theme.of(context).brightness == Brightness.dark
           ? AppColors.surfaceDark
-          : Colors.white,
+          : AppColors.smoothBeige,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -165,7 +131,9 @@ class ChatListScreen extends StatelessWidget {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.handleDark : const Color(0xFFE8E7EC),
+                  color: isDark
+                      ? AppColors.handleDark
+                      : const Color(0xFFE8E7EC),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -184,7 +152,9 @@ class ChatListScreen extends StatelessWidget {
                         : const Color(0xFF7F798E),
                   ),
                   filled: true,
-                  fillColor: isDark ? AppColors.cardDark : const Color(0xFFF6F6F8),
+                  fillColor: isDark
+                      ? AppColors.cardDark
+                      : const Color(0xFFF6F6F8),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -207,7 +177,7 @@ class ChatListScreen extends StatelessWidget {
       context: context,
       backgroundColor: Theme.of(context).brightness == Brightness.dark
           ? AppColors.surfaceDark
-          : Colors.white,
+          : AppColors.smoothBeige,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -226,19 +196,19 @@ class ChatListScreen extends StatelessWidget {
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.handleDark : const Color(0xFFE8E7EC),
+                    color: isDark
+                        ? AppColors.handleDark
+                        : const Color(0xFFE8E7EC),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
                 const SizedBox(height: 18),
                 Text(
                   'now_active'.tr,
-                  style: GoogleFonts.poppins(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
+                  style: AppTextStyles.titleLarge.copyWith(
                     color: isDark
                         ? AppColors.textPrimaryDark
-                        : const Color(0xFF232129),
+                        : AppColors.textPrimaryLight,
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -255,21 +225,18 @@ class ChatListScreen extends StatelessWidget {
                         leading: _AvatarBubble(user: user, size: 50),
                         title: Text(
                           _displayName(user),
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                          style: AppTextStyles.titleSmall.copyWith(
                             color: isDark
                                 ? AppColors.textPrimaryDark
-                                : const Color(0xFF232129),
+                                : AppColors.textPrimaryLight,
                           ),
                         ),
                         subtitle: Text(
                           'start_chatting'.tr,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
+                          style: AppTextStyles.bodySmall.copyWith(
                             color: isDark
                                 ? AppColors.textSecondaryDark
-                                : const Color(0xFF8B8797),
+                                : AppColors.textSecondaryLight,
                           ),
                         ),
                         onTap: () {
@@ -289,55 +256,173 @@ class ChatListScreen extends StatelessWidget {
   }
 }
 
-class _ChatsTopBar extends StatelessWidget {
-  const _ChatsTopBar({required this.onSearch});
+class _ChatLoadingState extends StatelessWidget {
+  const _ChatLoadingState({required this.isDark});
 
-  final VoidCallback onSearch;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SizedBox(
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 28),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isDark
+                ? AppColors.borderDark
+                : AppColors.primary.withValues(alpha: 0.16),
+          ),
+        ),
+        child: Text(
+          'loading'.tr,
+          style: AppTextStyles.labelLarge.copyWith(
+            color: isDark
+                ? AppColors.textSecondaryDark
+                : AppColors.textSecondaryLight,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveTodayPanel extends StatelessWidget {
+  const _LiveTodayPanel({
+    required this.isDark,
+    required this.greetingName,
+    required this.users,
+    required this.onSeeAll,
+    required this.onOpenUser,
+    required this.onSearch,
+    required this.onSettings,
+  });
+
+  final bool isDark;
+  final String greetingName;
+  final List<UserModel> users;
+  final VoidCallback onSeeAll;
+  final ValueChanged<UserModel> onOpenUser;
+  final VoidCallback onSearch;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xFF22153D), Color(0xFF351F61)]
+              : const [Color(0xFFEDE9FE), Color(0xFFF5C5CE)],
+        ),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF4E347D)
+              : AppColors.primary.withValues(alpha: 0.22),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.13),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ClipOval(
-              child: Image.asset(
-                AppConstants.appLogoAsset,
-                width: 20,
-                height: 20,
-                fit: BoxFit.cover,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hi $greetingName.',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.titleLarge.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: isDark
+                            ? AppColors.textPrimaryDark
+                            : AppColors.secondary,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      'Here are your Connections',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.secondary.withValues(alpha: 0.72),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: onSeeAll,
+                    style: TextButton.styleFrom(
+                      foregroundColor: isDark
+                          ? const Color(0xFFFAD0D8)
+                          : AppColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(64, 26),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('View List'),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      _TopActionIcon(icon: LucideIcons.search, onTap: onSearch),
+                      const SizedBox(width: 6),
+                      _TopActionIcon(
+                        icon: LucideIcons.moreVertical,
+                        onTap: onSettings,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ),
-          Text(
-            'chats'.tr,
-            style: GoogleFonts.poppins(
-              fontSize: 15.5,
-              fontWeight: FontWeight.w700,
-              color: isDark ? AppColors.textPrimaryDark : const Color(0xFF232129),
-              letterSpacing: -0.3,
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _TopActionIcon(
-                  icon: LucideIcons.search,
-                  onTap: onSearch,
-                ),
-                const SizedBox(width: 4),
-                _TopActionIcon(
-                  icon: LucideIcons.moreVertical,
-                  onTap: () => Get.toNamed(AppRoutes.messageSettings),
-                ),
-              ],
-            ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 92,
+            child: users.isEmpty
+                ? ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 4,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (_, _) => const _ActiveAvatarPlaceholder(),
+                  )
+                : ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: users.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final user = users[index];
+                      return _ActiveAvatarItem(
+                        user: user,
+                        onTap: () => onOpenUser(user),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -345,11 +430,113 @@ class _ChatsTopBar extends StatelessWidget {
   }
 }
 
-class _TopActionIcon extends StatelessWidget {
-  const _TopActionIcon({
-    required this.icon,
-    required this.onTap,
+class _ConversationsSurface extends StatelessWidget {
+  const _ConversationsSurface({
+    required this.isDark,
+    required this.totalConversations,
+    required this.child,
   });
+
+  final bool isDark;
+  final int totalConversations;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: isDark
+              ? AppColors.borderDark
+              : AppColors.primary.withValues(alpha: 0.12),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _ConversationsSectionHeader(
+            isDark: isDark,
+            totalConversations: totalConversations,
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ConversationsSectionHeader extends StatelessWidget {
+  const _ConversationsSectionHeader({
+    required this.isDark,
+    required this.totalConversations,
+  });
+
+  final bool isDark;
+  final int totalConversations;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: isDark
+                ? const Color(0xFF222C3A)
+                : AppColors.primary.withValues(alpha: 0.12),
+          ),
+          child: const Icon(
+            LucideIcons.messageSquare,
+            size: 14,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'messages'.tr,
+          style: AppTextStyles.titleMedium.copyWith(
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimaryLight,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF263244)
+                : AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            '$totalConversations',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: isDark ? const Color(0xFF9ACBFF) : AppColors.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopActionIcon extends StatelessWidget {
+  const _TopActionIcon({required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
@@ -358,17 +545,20 @@ class _TopActionIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: Colors.transparent,
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.09)
+          : Colors.white.withValues(alpha: 0.86),
+      borderRadius: BorderRadius.circular(11),
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
+        borderRadius: BorderRadius.circular(11),
         child: SizedBox(
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           child: Icon(
             icon,
-            size: 19,
-            color: isDark ? AppColors.textPrimaryDark : const Color(0xFF232129),
+            size: 18,
+            color: isDark ? AppColors.textPrimaryDark : AppColors.primary,
           ),
         ),
       ),
@@ -377,10 +567,7 @@ class _TopActionIcon extends StatelessWidget {
 }
 
 class _ActiveAvatarItem extends StatelessWidget {
-  const _ActiveAvatarItem({
-    required this.user,
-    required this.onTap,
-  });
+  const _ActiveAvatarItem({required this.user, required this.onTap});
 
   final UserModel user;
   final VoidCallback onTap;
@@ -389,22 +576,39 @@ class _ActiveAvatarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: _AvatarBubble(user: user, size: 56),
+      child: SizedBox(
+        width: 66,
+        child: Column(
+          children: [
+            _AvatarBubble(user: user, size: 56),
+            const SizedBox(height: 6),
+            Text(
+              _displayName(user),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimaryLight,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 class _AvatarBubble extends StatelessWidget {
-  const _AvatarBubble({
-    required this.user,
-    required this.size,
-  });
+  const _AvatarBubble({required this.user, required this.size});
 
   final UserModel? user;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final imageUrl = CloudinaryUrl.thumbnail(user?.mainPhotoUrl);
 
     return SizedBox(
@@ -416,11 +620,13 @@ class _AvatarBubble extends StatelessWidget {
           Container(
             width: size,
             height: size,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFA020F9), Color(0xFF7C1EFF)],
+                colors: isDark
+                    ? const [Color(0xFF3A4A63), Color(0xFF1F2B3D)]
+                    : const [Color(0xFF6E3DFB), Color(0xFFEDE9FE)],
               ),
               shape: BoxShape.circle,
             ),
@@ -442,7 +648,7 @@ class _AvatarBubble extends StatelessWidget {
               width: 12,
               height: 12,
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                color: AppColors.primaryLight,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
               ),
@@ -462,7 +668,7 @@ class _AvatarFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFF1E8FF),
+      color: const Color(0xFFF4F0FF),
       alignment: Alignment.center,
       child: Text(
         Helpers.getInitials(user?.firstName, user?.lastName),
@@ -481,12 +687,33 @@ class _ActiveAvatarPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: const BoxDecoration(
-        color: Color(0xFFF2F1F6),
-        shape: BoxShape.circle,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SizedBox(
+      width: 66,
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF283345)
+                  : AppColors.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: 44,
+            height: 8,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF2B3444)
+                  : AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -507,101 +734,147 @@ class _ConversationTile extends StatelessWidget {
     final controller = Get.find<ChatController>();
     final otherUser = conversation.otherUser;
     final unreadCount = conversation.unreadCount(currentUserId);
-    final preview = (conversation.lastMessageContent ?? '').trim().isEmpty
+    final isLocked = conversation.isLocked;
+    final isPremium = otherUser?.isPremium ?? false;
+    final preview = isLocked
+        ? (conversation.lockReason ??
+              'This conversation is no longer available.')
+        : (conversation.lastMessageContent ?? '').trim().isEmpty
         ? 'say_hi'.tr
         : conversation.lastMessageContent!.trim();
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => controller.openConversation(conversation),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            children: [
-              _AvatarBubble(
-                user: otherUser,
-                size: 52,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: isDark ? const Color(0xFF171C27) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () => controller.openConversation(conversation),
+          borderRadius: BorderRadius.circular(16),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark ? const Color(0xFF273041) : Colors.transparent,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _conversationName(otherUser),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        color: isDark
-                            ? AppColors.textPrimaryDark
-                            : const Color(0xFF232129),
-                        letterSpacing: -0.15,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      preview,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w400,
-                        color: isDark
-                            ? AppColors.textSecondaryDark
-                            : const Color(0xFF8D8899),
-                      ),
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.26 : 0),
+                  blurRadius: isDark ? 14 : 0,
+                  offset: isDark ? const Offset(0, 6) : Offset.zero,
                 ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+              child: Row(
                 children: [
-                  Text(
-                    conversation.lastMessageAt != null
-                        ? Helpers.formatTime(conversation.lastMessageAt!)
-                        : '',
-                    style: GoogleFonts.poppins(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w400,
-                      color: unreadCount > 0
-                          ? AppColors.primary
-                          : (isDark
-                              ? AppColors.textSecondaryDark
-                              : const Color(0xFF8D8899)),
+                  _AvatarBubble(user: otherUser, size: 54),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _conversationName(otherUser),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.titleSmall.copyWith(
+                                  fontSize: 14,
+                                  color: isLocked
+                                      ? AppColors.error
+                                      : (isDark
+                                            ? AppColors.textPrimaryDark
+                                            : AppColors.textPrimaryLight),
+                                ),
+                              ),
+                            ),
+                            if (isPremium)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 4),
+                                child: Icon(
+                                  LucideIcons.crown,
+                                  size: 13,
+                                  color: Color(0xFFA78BFA),
+                                ),
+                              ),
+                            if (isLocked)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4),
+                                child: Icon(
+                                  LucideIcons.lock,
+                                  size: 13,
+                                  color: AppColors.error.withValues(
+                                    alpha: 0.74,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          preview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: isLocked
+                                ? AppColors.error.withValues(alpha: 0.76)
+                                : (isDark
+                                      ? AppColors.textSecondaryDark
+                                      : AppColors.textSecondaryLight),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  unreadCount > 0
-                      ? Container(
-                          constraints: const BoxConstraints(
-                            minWidth: 18,
-                            minHeight: 18,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 5),
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '$unreadCount',
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        )
-                      : const SizedBox(height: 18),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        conversation.lastMessageAt != null
+                            ? Helpers.formatTime(conversation.lastMessageAt!)
+                            : '',
+                        style: AppTextStyles.caption.copyWith(
+                          color: unreadCount > 0
+                              ? AppColors.primary
+                              : (isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondaryLight),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      unreadCount > 0
+                          ? Container(
+                              constraints: const BoxConstraints(
+                                minWidth: 20,
+                                minHeight: 20,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '$unreadCount',
+                                style: AppTextStyles.caption.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            )
+                          : const SizedBox(height: 20),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -613,12 +886,7 @@ class _ConversationTile extends StatelessWidget {
       return 'conversation'.tr;
     }
 
-    final fullName = user.fullName.trim();
-    if (fullName.isNotEmpty) {
-      return fullName;
-    }
-
-    final displayName = user.displayName.trim();
+    final displayName = user.publicDisplayName.trim();
     if (displayName.isNotEmpty) {
       return displayName;
     }
@@ -644,12 +912,7 @@ class _EmptyChatsState extends StatelessWidget {
 }
 
 String _displayName(UserModel user) {
-  final firstName = user.firstName?.trim() ?? '';
-  if (firstName.isNotEmpty) {
-    return firstName;
-  }
-
-  final displayName = user.displayName.trim();
+  final displayName = user.publicDisplayName.trim();
   if (displayName.isNotEmpty) {
     return displayName;
   }

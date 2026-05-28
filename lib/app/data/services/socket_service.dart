@@ -4,10 +4,12 @@ import 'package:get/get.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:methna_app/core/constants/api_constants.dart';
 import 'package:methna_app/app/data/services/storage_service.dart';
+import 'package:methna_app/app/data/services/monetization_service.dart';
 import 'package:methna_app/app/data/services/notification_service.dart';
 import 'package:methna_app/app/data/services/message_queue_service.dart';
 import 'package:methna_app/app/data/models/notification_model.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/core/utils/notification_route_resolver.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class SocketService extends GetxService with WidgetsBindingObserver {
@@ -344,9 +346,17 @@ class SocketService extends GetxService with WidgetsBindingObserver {
 
   void _showNotificationToast(NotificationModel notif) {
     final icon = _notifIcon(notif.type);
+    final shouldMaskLikeIdentity = _shouldMaskLikeIdentity(notif);
+    final title = shouldMaskLikeIdentity
+        ? 'notification_like_private_title'.tr
+        : notif.title;
+    final body = shouldMaskLikeIdentity
+        ? 'notification_like_private_body'.tr
+        : notif.body;
+
     Get.snackbar(
-      notif.title,
-      notif.body,
+      title,
+      body,
       snackPosition: SnackPosition.TOP,
       backgroundColor: AppColors.surfaceLight,
       colorText: AppColors.textPrimaryLight,
@@ -372,6 +382,19 @@ class SocketService extends GetxService with WidgetsBindingObserver {
       animationDuration: const Duration(milliseconds: 300),
       forwardAnimationCurve: Curves.easeOutCubic,
     );
+  }
+
+  bool _shouldMaskLikeIdentity(NotificationModel notif) {
+    final normalizedType = normalizeNotificationType(notif.type);
+    if (normalizedType != 'like' && normalizedType != 'who_liked_me') {
+      return false;
+    }
+
+    if (!Get.isRegistered<MonetizationService>()) {
+      return true;
+    }
+
+    return !Get.find<MonetizationService>().hasWhoLikedMeAccess;
   }
 
   IconData _notifIcon(String type) {

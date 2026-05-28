@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/utils/validators.dart';
+import 'package:methna_app/core/widgets/app_phone_field.dart';
 import 'package:methna_app/core/widgets/signup_exact_frame.dart';
 
 class ProfileDetailsScreen extends GetView<SignupController> {
@@ -20,16 +26,47 @@ class ProfileDetailsScreen extends GetView<SignupController> {
       progress: controller.progressPercent,
       onBack: controller.goBack,
       footer: Obx(
-        () => ExactSignupPrimaryButton(
-          label: 'continue'.tr,
-          isLoading: controller.isLoading.value,
-          onTap: controller.isLoading.value
-              ? null
-              : () {
-                  if (controller.profileFormKey.currentState!.validate()) {
-                    controller.registerAccount();
-                  }
-                },
+        () => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _PrivacyTermsCheckbox(controller: controller),
+            const SizedBox(height: 10),
+            _RegistrationOathCheckbox(controller: controller),
+            const SizedBox(height: 12),
+            ExactSignupPrimaryButton(
+              label: 'continue'.tr,
+              isLoading: controller.isLoading.value,
+              onTap: controller.isLoading.value
+                  ? null
+                  : () {
+                      if (!controller.agreePrivacy.value) {
+                        Get.snackbar(
+                          '',
+                          'must_agree_terms'.tr,
+                          snackPosition: SnackPosition.BOTTOM,
+                          backgroundColor: AppColors.error,
+                          colorText: Colors.white,
+                          margin: const EdgeInsets.all(16),
+                        );
+                        return;
+                      }
+                      if (!controller.agreeOath.value) {
+                        Get.snackbar(
+                          '',
+                          'must_agree_registration_oath'.tr,
+                          snackPosition: SnackPosition.BOTTOM,
+                          backgroundColor: AppColors.error,
+                          colorText: Colors.white,
+                          margin: const EdgeInsets.all(16),
+                        );
+                        return;
+                      }
+                      if (controller.profileFormKey.currentState!.validate()) {
+                        controller.registerAccount();
+                      }
+                    },
+            ),
+          ],
         ),
       ),
       child: Form(
@@ -40,9 +77,8 @@ class ProfileDetailsScreen extends GetView<SignupController> {
             const SizedBox(height: 8),
             Text(
               'profile_details'.tr,
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.w700,
+              style: AppTextStyles.screenTitle.copyWith(
+                fontWeight: FontWeight.w800,
                 height: isRtl ? 1.32 : 1.2,
                 color: signupText(isDark),
               ),
@@ -82,28 +118,28 @@ class ProfileDetailsScreen extends GetView<SignupController> {
               ),
             ),
             const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 124,
-                  child: _CountryCodePickerCard(controller: controller),
-                ),
-                SizedBox(width: isRtl ? 10 : 12),
-                Expanded(
-                  child: ExactSignupTextField(
-                    controller: controller.phoneController,
-                    hint: 'phone_hint'.tr,
-                    keyboardType: TextInputType.phone,
-                    validator: Validators.phone,
-                    prefix: const Icon(
-                      LucideIcons.phone,
-                      size: 18,
-                      color: exactSignupMuted,
-                    ),
-                  ),
-                ),
-              ],
+            Obx(
+              () => AppPhoneField(
+                controller: controller.phoneController,
+                label: 'phone_label'.tr,
+                hint: 'phone_hint'.tr,
+                dialCode: controller.selectedPhoneDialCode.value,
+                countryCode: controller.selectedPhoneCountryCode.value,
+                countryName: controller.selectedPhoneCountryName.value,
+                onCountrySelected: (country) {
+                  controller.setPhoneCountry(
+                    dialCode: '+${country.phoneCode}',
+                    countryCode: country.countryCode,
+                    countryName: country.name,
+                  );
+                  controller.onCountryChanged(country.name);
+                },
+                validator: Validators.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  const _PhoneNumberFormatter(),
+                ],
+              ),
             ),
             const SizedBox(height: 14),
             _FlatSectionTitle('security_section'.tr),
@@ -157,43 +193,189 @@ class ProfileDetailsScreen extends GetView<SignupController> {
               children: [
                 Expanded(
                   child: Obx(
-                    () => _ExactDropdownField(
+                    () => _CountryPickerField(
                       label: 'country'.tr,
                       value: controller.selectedCountry.value,
-                      items: controller.arabicCountries,
-                      onChanged: (value) {
-                        if (value != null) {
-                          controller.onCountryChanged(value);
-                        }
+                      onTap: () {
+                        showCountryPicker(
+                          context: context,
+                          showPhoneCode: true,
+                          countryListTheme: CountryListThemeData(
+                            borderRadius: BorderRadius.circular(AppRadii.lg),
+                            inputDecoration: InputDecoration(
+                              hintText: 'country_picker_search_hint'.tr,
+                              prefixIcon: const Icon(Icons.search_rounded),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppRadii.lg,
+                                ),
+                              ),
+                            ),
+                          ),
+                          onSelect: (country) {
+                            controller.onCountryChanged(country.name);
+                            controller.setPhoneCountry(
+                              dialCode: '+${country.phoneCode}',
+                              countryCode: country.countryCode,
+                              countryName: country.name,
+                            );
+                          },
+                        );
                       },
                     ),
                   ),
                 ),
                 SizedBox(width: isRtl ? 10 : 12),
                 Expanded(
-                  child: Obx(() {
-                    final cities = controller.availableCities;
-                    final currentValue =
-                        cities.contains(controller.selectedCity.value)
-                        ? controller.selectedCity.value
-                        : (cities.isNotEmpty ? cities.first : null);
-
-                    return _ExactDropdownField(
-                      label: 'city'.tr,
-                      value: currentValue,
-                      items: cities,
-                      onChanged: (value) {
-                        if (value != null) {
-                          controller.selectedCity.value = value;
-                        }
-                      },
-                    );
-                  }),
+                  child: ExactSignupTextField(
+                    controller: controller.cityController,
+                    label: 'city'.tr,
+                    hint: 'city'.tr,
+                    validator: (value) => Validators.required(value, 'city'.tr),
+                    onChanged: (value) {
+                      controller.selectedCity.value = value.trim();
+                    },
+                  ),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PasswordRequirementsHint extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mutedColor = isDark
+        ? AppColors.textHintDark
+        : AppColors.textHintLight;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 4, right: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'password_requirements_title'.tr,
+            style: AppTextStyles.caption.copyWith(
+              color: mutedColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          _ReqRow(text: 'password_req_length'.tr, color: mutedColor),
+          _ReqRow(text: 'password_req_uppercase'.tr, color: mutedColor),
+          _ReqRow(text: 'password_req_lowercase'.tr, color: mutedColor),
+          _ReqRow(text: 'password_req_number'.tr, color: mutedColor),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReqRow extends StatelessWidget {
+  const _ReqRow({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        children: [
+          Icon(LucideIcons.dot, size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: AppTextStyles.caption.copyWith(color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivacyTermsCheckbox extends StatelessWidget {
+  const _PrivacyTermsCheckbox({required this.controller});
+
+  final SignupController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+
+    return Obx(
+      () => Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: controller.agreePrivacy.value,
+              onChanged: (value) => controller.agreePrivacy.value = value ?? false,
+              activeColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              side: BorderSide(
+                color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                width: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'agree_terms_prefix'.tr,
+                  style: AppTextStyles.caption.copyWith(color: textColor),
+                ),
+                GestureDetector(
+                  onTap: () => Get.toNamed(AppRoutes.termsConditions),
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(
+                    'terms_of_service_link'.tr,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.primary,
+                    ),
+                  ),
+                ),
+                Text(
+                  'and_text'.tr,
+                  style: AppTextStyles.caption.copyWith(color: textColor),
+                ),
+                GestureDetector(
+                  onTap: () => Get.toNamed(AppRoutes.privacyPolicy),
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(
+                    'privacy_policy_link'.tr,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -208,21 +390,69 @@ class _FlatSectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Text(
         title,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: signupText(isDark),
-        ),
+        style: AppTextStyles.inputLabel.copyWith(color: signupText(isDark)),
       ),
     );
   }
 }
 
-class _CountryCodePickerCard extends StatelessWidget {
-  const _CountryCodePickerCard({required this.controller});
+class _RegistrationOathCheckbox extends StatelessWidget {
+  const _RegistrationOathCheckbox({required this.controller});
+
+  final SignupController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+
+    return Obx(
+      () => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: controller.agreeOath.value,
+              onChanged: (value) =>
+                  controller.agreeOath.value = value ?? false,
+              activeColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              side: BorderSide(
+                color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                width: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'registration_oath_label'.tr,
+                style: AppTextStyles.caption.copyWith(
+                  color: textColor,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CountryCodePickerCardLegacy extends StatelessWidget {
+  const CountryCodePickerCardLegacy({super.key, required this.controller});
 
   final SignupController controller;
 
@@ -248,11 +478,7 @@ class _CountryCodePickerCard extends StatelessWidget {
         children: [
           Text(
             'code'.tr,
-            style: TextStyle(
-              fontSize: 12.8,
-              fontWeight: FontWeight.w600,
-              color: signupText(isDark),
-            ),
+            style: AppTextStyles.inputLabel.copyWith(color: signupText(isDark)),
           ),
           const SizedBox(height: 8),
           InkWell(
@@ -261,12 +487,12 @@ class _CountryCodePickerCard extends StatelessWidget {
                 context: context,
                 showPhoneCode: true,
                 countryListTheme: CountryListThemeData(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppRadii.lg),
                   inputDecoration: InputDecoration(
                     hintText: 'country_picker_search_hint'.tr,
                     prefixIcon: const Icon(Icons.search_rounded),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppRadii.lg),
                     ),
                   ),
                 ),
@@ -276,19 +502,17 @@ class _CountryCodePickerCard extends StatelessWidget {
                     countryCode: country.countryCode,
                     countryName: country.name,
                   );
-                  if (controller.arabicCountries.contains(country.name)) {
-                    controller.onCountryChanged(country.name);
-                  }
+                  controller.onCountryChanged(country.name);
                 },
               );
             },
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppRadii.lg),
             child: Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              height: 54,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
                 color: signupField(isDark),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppRadii.lg),
                 border: Border.all(color: signupBorder(isDark)),
               ),
               child: Row(
@@ -296,7 +520,9 @@ class _CountryCodePickerCard extends StatelessWidget {
                 children: [
                   Text(
                     _flagEmoji(countryCode),
-                    style: const TextStyle(fontSize: 16),
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: signupText(isDark),
+                    ),
                   ),
                   const SizedBox(width: 5),
                   Expanded(
@@ -309,9 +535,8 @@ class _CountryCodePickerCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           softWrap: false,
-                          style: TextStyle(
-                            fontSize: 14.2,
-                            fontWeight: FontWeight.w600,
+                          style: AppTextStyles.titleSmall.copyWith(
+                            fontWeight: FontWeight.w700,
                             color: signupText(isDark),
                             height: 1,
                           ),
@@ -333,18 +558,16 @@ class _CountryCodePickerCard extends StatelessWidget {
   }
 }
 
-class _ExactDropdownField extends StatelessWidget {
-  const _ExactDropdownField({
+class _CountryPickerField extends StatelessWidget {
+  const _CountryPickerField({
     required this.label,
     required this.value,
-    required this.items,
-    required this.onChanged,
+    required this.onTap,
   });
 
   final String label;
-  final String? value;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
+  final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -354,50 +577,67 @@ class _ExactDropdownField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12.8,
-            fontWeight: FontWeight.w600,
-            color: signupText(isDark),
-          ),
+          style: AppTextStyles.inputLabel.copyWith(color: signupText(isDark)),
         ),
-        const SizedBox(height: 8),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: signupField(isDark),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: signupBorder(isDark)),
-          ),
-          child: DropdownButtonFormField<String>(
-            initialValue: value,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 14,
-              ),
+        const SizedBox(height: AppSpacing.xs),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          child: Container(
+            height: AppSpacing.inputHeight,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: signupField(isDark),
+              borderRadius: BorderRadius.circular(AppRadii.lg),
+              border: Border.all(color: signupBorder(isDark)),
             ),
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w500,
-              color: signupText(isDark),
-            ),
-            icon: Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: signupMuted(isDark),
-            ),
-            items: items
-                .map(
-                  (item) => DropdownMenuItem<String>(
-                    value: item,
-                    child: Text(item.tr, overflow: TextOverflow.ellipsis),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value.trim().isEmpty ? 'country'.tr : value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w400,
+                      color: signupText(isDark),
+                    ),
                   ),
-                )
-                .toList(),
-            onChanged: onChanged,
+                ),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: signupMuted(isDark),
+                ),
+              ],
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PhoneNumberFormatter extends TextInputFormatter {
+  const _PhoneNumberFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final buffer = StringBuffer();
+    for (var index = 0; index < digits.length; index++) {
+      if (index > 0 && index % 3 == 0) {
+        buffer.write(' ');
+      }
+      buffer.write(digits[index]);
+    }
+
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

@@ -5,8 +5,10 @@ import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_shadows.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
+import 'package:methna_app/core/widgets/backend_wait_overlay.dart';
+import 'package:methna_app/core/widgets/backend_wait_dots.dart';
 
-enum CustomButtonVariant { primary, secondary, outline, ghost }
+enum CustomButtonVariant { primary, secondary, outline, ghost, destructive }
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -29,8 +31,8 @@ class CustomButton extends StatelessWidget {
     this.isLoading = false,
     this.isOutlined = false,
     this.isFullWidth = true,
-    this.height = 56,
-    this.borderRadius = 20,
+    this.height = AppSpacing.buttonHeight,
+    this.borderRadius = AppRadii.lg,
     this.backgroundColor,
     this.textColor,
     this.icon,
@@ -41,9 +43,10 @@ class CustomButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final enabled = onPressed != null && !isLoading;
+    final enabled = onPressed != null;
+    final interactive = enabled && !isLoading;
     final effectiveVariant = isOutlined ? CustomButtonVariant.outline : variant;
-    final radiusValue = borderRadius == 20 ? AppRadii.lg : borderRadius;
+    final radiusValue = borderRadius > AppRadii.lg ? AppRadii.lg : borderRadius;
 
     Color foreground;
     Color fillColor;
@@ -94,11 +97,20 @@ class CustomButton extends StatelessWidget {
         fillGradient = null;
         shadows = const [];
         break;
+      case CustomButtonVariant.destructive:
+        foreground = textColor ?? Colors.white;
+        fillColor = enabled
+            ? (backgroundColor ?? AppColors.error)
+            : Colors.grey.shade300;
+        borderSide = BorderSide.none;
+        fillGradient = null;
+        shadows = enabled ? AppShadows.buttonGlow(AppColors.error) : const [];
+        break;
     }
 
     return SizedBox(
       width: isFullWidth ? double.infinity : null,
-      height: height == 56 ? AppSpacing.buttonHeight : height,
+      height: height,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: fillGradient,
@@ -110,7 +122,8 @@ class CustomButton extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: enabled ? onPressed : null,
+            onTap: interactive ? onPressed : null,
+            enableFeedback: interactive,
             borderRadius: BorderRadius.circular(radiusValue),
             child: Center(child: _buildChild(foreground)),
           ),
@@ -122,11 +135,11 @@ class CustomButton extends StatelessWidget {
   Widget _buildChild(Color color) {
     if (isLoading) {
       return SizedBox(
-        height: 22,
-        width: 22,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.5,
-          valueColor: AlwaysStoppedAnimation<Color>(color),
+        width: 28,
+        child: BackendWaitDots(
+          color: color,
+          size: 6,
+          spacing: 4,
         ),
       );
     }
@@ -136,7 +149,7 @@ class CustomButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           Text(text, style: AppTextStyles.button.copyWith(color: color)),
         ],
       );

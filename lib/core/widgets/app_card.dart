@@ -36,7 +36,7 @@ class AppCard extends StatelessWidget {
       case AppCardVariant.surface:
         background = isDark
             ? AppColors.surfaceGlassDark
-            : AppColors.surfaceGlassLight;
+            : AppColors.surfaceMutedLight;
         borderSide = BorderSide(
           color: isDark ? AppColors.borderDark : AppColors.borderLight,
         );

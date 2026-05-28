@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/premium_theme.dart';
@@ -68,9 +68,9 @@ class _PremiumBarakaMeterState extends State<PremiumBarakaMeter>
   }
 
   Color get _color {
-    if (widget.score >= 75) return const Color(0xFF2E7D32);
+    if (widget.score >= 75) return const Color(0xFF8B5CF6);
     if (widget.score >= 45) return AppTheme.gold;
-    return const Color(0xFFB71C1C);
+    return const Color(0xFF4F26D9);
   }
 
   String get _levelLabel {

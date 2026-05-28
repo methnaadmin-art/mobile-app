@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -27,11 +27,15 @@ class PremiumProfileScreen extends GetView<ProfileController> {
             return const _LoadingState();
           }
 
+          final displayName = user.publicDisplayName.trim().isNotEmpty
+              ? user.publicDisplayName.trim()
+              : 'profile'.tr;
+
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               // Parallax Photo Header
-              _ParallaxPhotoHeader(user: user),
+              _ParallaxPhotoHeader(user: user, displayName: displayName),
 
               // Content
               SliverToBoxAdapter(
@@ -81,8 +85,12 @@ class PremiumProfileScreen extends GetView<ProfileController> {
 
 class _ParallaxPhotoHeader extends StatelessWidget {
   final UserModel user;
+  final String displayName;
 
-  const _ParallaxPhotoHeader({required this.user});
+  const _ParallaxPhotoHeader({
+    required this.user,
+    required this.displayName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +170,7 @@ class _ParallaxPhotoHeader extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          '${user.displayName}, ${user.profile?.age ?? ''}',
+                          '$displayName, ${user.profile?.age ?? ''}',
                           style: const TextStyle(
                             fontSize: 36,
                             fontWeight: FontWeight.w900,
@@ -314,7 +322,7 @@ class _NameStatsCard extends StatelessWidget {
                 icon: LucideIcons.heart,
                 value: '0',
                 label: 'matches'.tr,
-                color: Colors.redAccent,
+                color: const Color(0xFF4F26D9),
               ),
               Container(width: 1, height: 40, color: AppTheme.white10),
               _StatItem(
@@ -589,9 +597,9 @@ class _InterestsSection extends StatelessWidget {
     final colors = [
       AppTheme.gold,
       AppTheme.success,
-      const Color(0xFF6C63FF),
-      const Color(0xFF00B4D8),
-      const Color(0xFFAB47BC),
+      const Color(0xFF6E3DFB),
+      const Color(0xFFA78BFA),
+      const Color(0xFF6E3DFB),
     ];
 
     return GlassContainer(

@@ -1,3 +1,4 @@
+import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
@@ -8,7 +9,65 @@ class LocationService extends GetxService {
   final Rx<Position?> currentPosition = Rx<Position?>(null);
   final RxString currentCity = ''.obs;
   final RxString currentCountry = ''.obs;
+  final RxString currentCountryCode = ''.obs;
   final RxBool isFetching = false.obs;
+
+  /// Resolve an arbitrary country string or ISO-3166 alpha-2 code to the
+  /// canonical English name used by the backend (e.g. "Algerie" → "Algeria",
+  /// "DZ" → "Algeria"). Returns the trimmed input if no canonical form can
+  /// be found, so legacy data is never lost.
+  static String canonicalizeCountry({String? name, String? isoCode}) {
+    final code = (isoCode ?? '').trim().toUpperCase();
+    if (code.length == 2) {
+      try {
+        final byCode = CountryService().findByCode(code);
+        if (byCode != null && byCode.name.trim().isNotEmpty) {
+          return byCode.name.trim();
+        }
+      } catch (_) {}
+    }
+
+    final raw = (name ?? '').trim();
+    if (raw.isEmpty) return '';
+
+    try {
+      final byName = CountryService().findByName(raw);
+      if (byName != null && byName.name.trim().isNotEmpty) {
+        return byName.name.trim();
+      }
+    } catch (_) {}
+
+    // Last-resort manual aliases for locales the picker can't match.
+    const aliases = <String, String>{
+      'algerie': 'Algeria',
+      'algérie': 'Algeria',
+      'الجزائر': 'Algeria',
+      'maroc': 'Morocco',
+      'المغرب': 'Morocco',
+      'tunisie': 'Tunisia',
+      'تونس': 'Tunisia',
+      'égypte': 'Egypt',
+      'egypte': 'Egypt',
+      'مصر': 'Egypt',
+      'arabie saoudite': 'Saudi Arabia',
+      'السعودية': 'Saudi Arabia',
+      'émirats arabes unis': 'United Arab Emirates',
+      'emirats arabes unis': 'United Arab Emirates',
+      'الإمارات': 'United Arab Emirates',
+      'états-unis': 'United States',
+      'etats-unis': 'United States',
+      'royaume-uni': 'United Kingdom',
+      'france': 'France',
+      'espagne': 'Spain',
+      'allemagne': 'Germany',
+      'italie': 'Italy',
+    };
+    final lowered = raw.toLowerCase();
+    final alias = aliases[lowered];
+    if (alias != null) return alias;
+
+    return raw;
+  }
 
   Future<LocationService> init() async {
     return this;
@@ -163,8 +222,14 @@ class LocationService extends GetxService {
         position.longitude,
       );
       if (placemarks.isNotEmpty) {
-        currentCity.value = placemarks.first.locality ?? '';
-        currentCountry.value = placemarks.first.country ?? '';
+        final place = placemarks.first;
+        currentCity.value = place.locality ?? '';
+        final iso = (place.isoCountryCode ?? '').trim().toUpperCase();
+        currentCountryCode.value = iso;
+        currentCountry.value = canonicalizeCountry(
+          name: place.country,
+          isoCode: iso,
+        );
       }
     } catch (_) {}
   }

@@ -6,6 +6,7 @@ import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
+import 'package:methna_app/core/utils/cloudinary_url.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/app_card.dart';
 import 'package:methna_app/core/widgets/custom_button.dart';
@@ -86,7 +87,7 @@ class BlockedUsersScreen extends GetView<SettingsController> {
               Text('unblock_user'.tr, style: Get.textTheme.headlineSmall),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '${'unblock_confirm'.tr} ${user.firstName ?? user.username ?? 'this user'}?',
+                '${'unblock_confirm'.tr} ${user.publicDisplayName.trim().isNotEmpty ? user.publicDisplayName.trim() : 'this user'}?',
                 textAlign: TextAlign.center,
                 style: Get.textTheme.bodyMedium,
               ),
@@ -129,9 +130,9 @@ class _BlockedUserTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final photo = user.mainPhotoUrl;
-    final name = user.firstName?.trim().isNotEmpty == true
-        ? user.firstName!
-        : (user.username ?? 'User');
+    final name = user.publicDisplayName.trim().isNotEmpty
+        ? user.publicDisplayName.trim()
+        : 'User';
     final age = user.profile?.age != null ? ' (${user.profile!.age})' : '';
 
     return GestureDetector(
@@ -143,7 +144,7 @@ class _BlockedUserTile extends StatelessWidget {
           children: [
             if (photo != null && photo.isNotEmpty)
               Image.network(
-                photo,
+                CloudinaryUrl.medium(photo),
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => _FallbackAvatar(name: name),
               )

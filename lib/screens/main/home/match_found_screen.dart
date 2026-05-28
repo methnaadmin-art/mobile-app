@@ -1,4 +1,4 @@
-import 'dart:math';
+﻿import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -14,13 +14,46 @@ import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/utils/helpers.dart';
-import 'package:methna_app/core/widgets/app_card.dart';
 import 'package:methna_app/core/widgets/custom_button.dart';
 import 'package:methna_app/core/widgets/datify_shell.dart';
-import 'package:methna_app/core/widgets/discovery_flow.dart';
 
 class MatchFoundScreen extends StatefulWidget {
-  const MatchFoundScreen({super.key});
+  const MatchFoundScreen({super.key, this.user, this.overlayMode = false});
+
+  final UserModel? user;
+  final bool overlayMode;
+
+  static Future<bool> showOverlay(UserModel matchedUser) async {
+    final context = Get.overlayContext ?? Get.context;
+    if (context == null) {
+      debugPrint('[MatchFound] Overlay context missing, cannot present.');
+      return false;
+    }
+
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'match_found',
+      barrierColor: Colors.black.withValues(alpha: 0.46),
+      transitionDuration: const Duration(milliseconds: 280),
+      pageBuilder: (context, _, _) =>
+          MatchFoundScreen(user: matchedUser, overlayMode: true),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.975, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
+    return true;
+  }
 
   @override
   State<MatchFoundScreen> createState() => _MatchFoundScreenState();
@@ -28,57 +61,69 @@ class MatchFoundScreen extends StatefulWidget {
 
 class _MatchFoundScreenState extends State<MatchFoundScreen>
     with TickerProviderStateMixin {
-  late AnimationController _entranceCtrl;
-  late AnimationController _pulseCtrl;
-  late AnimationController _confettiCtrl;
-  late Animation<double> _scaleAnim;
-  late Animation<double> _fadeAnim;
-  late Animation<Offset> _slideAnim;
+  late final AnimationController _entranceCtrl;
+  late final AnimationController _haloCtrl;
+  late final AnimationController _particleCtrl;
+  late final Animation<double> _fadeAnim;
+  late final Animation<Offset> _slideAnim;
+  late final Animation<double> _scaleAnim;
 
   @override
   void initState() {
     super.initState();
     _entranceCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _pulseCtrl = AnimationController(
+      duration: const Duration(milliseconds: 760),
+    )..forward();
+    _haloCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
-    _confettiCtrl = AnimationController(
+    _particleCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 2600),
     )..forward();
 
-    _scaleAnim = CurvedAnimation(
-      parent: _entranceCtrl,
-      curve: Curves.elasticOut,
-    );
     _fadeAnim = CurvedAnimation(
       parent: _entranceCtrl,
-      curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+      curve: const Interval(0.08, 1, curve: Curves.easeOut),
     );
-    _slideAnim = Tween(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _entranceCtrl,
+            curve: const Interval(0.12, 1, curve: Curves.easeOutCubic),
+          ),
+        );
+    _scaleAnim = Tween<double>(begin: 0.92, end: 1).animate(
       CurvedAnimation(
         parent: _entranceCtrl,
-        curve: const Interval(0.25, 1.0, curve: Curves.easeOutCubic),
+        curve: const Interval(0, 1, curve: Curves.easeOutBack),
       ),
     );
-
-    _entranceCtrl.forward();
   }
 
   @override
   void dispose() {
     _entranceCtrl.dispose();
-    _pulseCtrl.dispose();
-    _confettiCtrl.dispose();
+    _haloCtrl.dispose();
+    _particleCtrl.dispose();
     super.dispose();
   }
 
+  void _dismissSelf() {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back();
+    }
+  }
+
   Future<void> _openConversation(UserModel matchedUser) async {
-    Get.back();
+    _dismissSelf();
 
     try {
       final chatController = Get.find<ChatController>();
@@ -99,211 +144,94 @@ class _MatchFoundScreenState extends State<MatchFoundScreen>
     if (Get.isRegistered<NavigationController>()) {
       Get.find<NavigationController>().goToHome();
     }
-    Get.back();
+    _dismissSelf();
   }
 
   @override
   Widget build(BuildContext context) {
-    final args = Get.arguments as Map<String, dynamic>?;
-    final matchedUser = args?['user'] as UserModel?;
+    final matchedUser = widget.user ?? _matchedUserFromArguments(Get.arguments);
     final currentUser = Get.find<AuthService>().currentUser.value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentName = _preferredShortName(currentUser) ?? 'you'.tr;
+    final matchedName = _preferredShortName(matchedUser) ?? 'someone'.tr;
+    final intentLabel = _bestContextLabel(matchedUser);
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: isDark ? AppColors.canvasDark : AppColors.canvasLight,
       body: DatifyBackground(
+        compact: true,
         child: Stack(
           children: [
-            Positioned.fill(child: _MatchBackdrop(animation: _pulseCtrl)),
-            ..._buildLightParticles(context),
+            Positioned.fill(
+              child: _MatchAtmosphere(haloAnimation: _haloCtrl, isDark: isDark),
+            ),
+            ..._buildCelebrationParticles(context, isDark: isDark),
             SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.md,
-                  AppSpacing.lg,
-                  0,
-                ),
-                child: Column(
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: DiscoveryIconButton(
-                        icon: LucideIcons.chevronLeft,
-                        onTap: () => Get.back(),
-                      ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.sm,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    ScaleTransition(
-                      scale: _scaleAnim,
-                      child: DiscoveryInfoPill(
-                        icon: LucideIcons.sparkles,
-                        label: 'its_a_match'.tr,
-                        color: AppColors.gold,
-                        filled: true,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - AppSpacing.sm,
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    FadeTransition(
-                      opacity: _fadeAnim,
-                      child: Text(
-                        'meaningful_connection_opened'.tr,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.displaySmall.copyWith(
-                          color: AppColors.textPrimaryLight,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    FadeTransition(
-                      opacity: _fadeAnim,
-                      child: Text(
-                        'celebrate_connection_start'.tr,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.textSecondaryLight,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    SlideTransition(
-                      position: _slideAnim,
                       child: FadeTransition(
                         opacity: _fadeAnim,
-                        child: AppCard(
-                          radius: AppRadii.hero,
-                          padding: const EdgeInsets.all(AppSpacing.xl),
+                        child: SlideTransition(
+                          position: _slideAnim,
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              SizedBox(
-                                height: 170,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    Positioned(
-                                      left: 24,
-                                      child: _MatchAvatar(
-                                        imageUrl: currentUser?.mainPhotoUrl,
-                                        firstName: currentUser?.firstName,
-                                        lastName: currentUser?.lastName,
-                                        borderColor: AppColors.gold,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      right: 24,
-                                      child: _MatchAvatar(
-                                        imageUrl: matchedUser?.mainPhotoUrl,
-                                        firstName: matchedUser?.firstName,
-                                        lastName: matchedUser?.lastName,
-                                        borderColor: AppColors.like,
-                                      ),
-                                    ),
-                                    ScaleTransition(
-                                      scale: _scaleAnim,
-                                      child: Container(
-                                        width: 68,
-                                        height: 68,
-                                        decoration: BoxDecoration(
-                                          gradient: AppGradients.primary,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppColors.primary
-                                                  .withValues(alpha: 0.28),
-                                              blurRadius: 24,
-                                              spreadRadius: 2,
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          LucideIcons.heart,
-                                          color: Colors.white,
-                                          size: 28,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              Text(
-                                '${currentUser?.firstName ?? 'you'.tr} & ${matchedUser?.firstName ?? 'someone'.tr}',
-                                textAlign: TextAlign.center,
-                                style: AppTextStyles.headlineLarge.copyWith(
-                                  color: AppColors.textPrimaryLight,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              Text(
-                                'connection_baraka_message'.tr,
-                                textAlign: TextAlign.center,
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                  color: AppColors.textSecondaryLight,
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: DatifyBackButton(
+                                  onTap: () => Get.back(),
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.lg),
-                              Wrap(
-                                alignment: WrapAlignment.center,
-                                spacing: AppSpacing.sm,
-                                runSpacing: AppSpacing.sm,
-                                children: [
-                                  DiscoveryInfoPill(
-                                    icon: LucideIcons.messageCircle,
-                                    label: 'chat_unlocked'.tr,
-                                    color: AppColors.primary,
-                                  ),
-                                  if (matchedUser?.selfieVerified == true)
-                                    DiscoveryInfoPill(
-                                      icon: LucideIcons.badgeCheck,
-                                      label: 'verified_profile'.tr,
-                                      color: AppColors.gold,
-                                    ),
-                                  DiscoveryInfoPill(
-                                    icon: LucideIcons.sparkles,
-                                    label:
-                                        matchedUser?.profile?.intentMode ??
-                                        'new_connection'.tr,
-                                    color: AppColors.like,
-                                  ),
-                                ],
+                              ScaleTransition(
+                                scale: _scaleAnim,
+                                child: _MatchHeader(isDark: isDark),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    SlideTransition(
-                      position: _slideAnim,
-                      child: FadeTransition(
-                        opacity: _fadeAnim,
-                        child: Column(
-                          children: [
-                            SizedBox(
-                              width: double.infinity,
-                              child: CustomButton(
+                              const SizedBox(height: AppSpacing.xl),
+                              _MatchHeroCard(
+                                currentUser: currentUser,
+                                matchedUser: matchedUser,
+                                currentName: currentName,
+                                matchedName: matchedName,
+                                intentLabel: intentLabel,
+                                isDark: isDark,
+                                scaleAnimation: _scaleAnim,
+                              ),
+                              SizedBox(
+                                height: constraints.maxHeight > 760 ? 30 : 20,
+                              ),
+                              CustomButton(
                                 text: 'send_message'.tr,
                                 icon: LucideIcons.messageCircle,
                                 onPressed: matchedUser == null
                                     ? null
                                     : () => _openConversation(matchedUser),
                               ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            SizedBox(
-                              width: double.infinity,
-                              child: CustomButton(
+                              const SizedBox(height: AppSpacing.md),
+                              CustomButton(
                                 text: 'keep_swiping'.tr,
                                 variant: CustomButtonVariant.secondary,
                                 onPressed: _continueSwiping,
                               ),
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -312,38 +240,45 @@ class _MatchFoundScreenState extends State<MatchFoundScreen>
     );
   }
 
-  List<Widget> _buildLightParticles(BuildContext context) {
-    final rng = Random(21);
-    return List.generate(16, (index) {
-      final left = rng.nextDouble() * MediaQuery.of(context).size.width;
-      final delay = rng.nextDouble();
-      final size = 4.0 + rng.nextDouble() * 8;
-      final color = [
-        AppColors.gold,
-        AppColors.like,
-        AppColors.primaryLight,
-      ][index % 3];
+  List<Widget> _buildCelebrationParticles(
+    BuildContext context, {
+    required bool isDark,
+  }) {
+    final rng = Random(41);
+    final colors = <Color>[
+      AppColors.gold,
+      AppColors.like,
+      AppColors.primaryLight,
+    ];
+
+    return List<Widget>.generate(18, (index) {
+      final baseLeft = rng.nextDouble() * MediaQuery.of(context).size.width;
+      final baseTop = rng.nextDouble() * 220;
+      final size = 5 + rng.nextDouble() * 8;
+      final color = colors[index % colors.length];
+      final delay = rng.nextDouble() * 0.28;
+
       return AnimatedBuilder(
-        animation: _confettiCtrl,
+        animation: _particleCtrl,
         builder: (context, child) {
-          final t = (_confettiCtrl.value - delay * 0.25).clamp(0.0, 1.0);
-          final startY = MediaQuery.of(context).size.height * 0.72;
-          final y = startY - t * (startY + 90);
-          final opacity = t < 0.3
-              ? t / 0.3
-              : (t < 0.75 ? 1.0 : (1.0 - (t - 0.75) / 0.25));
+          final progress = (_particleCtrl.value - delay).clamp(0.0, 1.0);
+          final drift = sin(progress * pi * 2) * 14;
+          final offsetY = progress * 42;
+          final opacity = progress < 0.2
+              ? progress / 0.2
+              : (progress > 0.85 ? (1 - progress) / 0.15 : 1.0);
 
           return Positioned(
-            left: left + sin(t * pi * 2) * 14,
-            top: y,
+            left: baseLeft + drift,
+            top: baseTop + offsetY,
             child: Opacity(
               opacity: opacity.clamp(0.0, 1.0),
               child: Container(
                 width: size,
                 height: size,
                 decoration: BoxDecoration(
+                  color: color.withValues(alpha: isDark ? 0.52 : 0.42),
                   shape: BoxShape.circle,
-                  color: color.withValues(alpha: 0.55),
                 ),
               ),
             ),
@@ -354,100 +289,599 @@ class _MatchFoundScreenState extends State<MatchFoundScreen>
   }
 }
 
-class _MatchBackdrop extends StatelessWidget {
-  final Animation<double> animation;
+class _MatchHeader extends StatelessWidget {
+  const _MatchHeader({required this.isDark});
 
-  const _MatchBackdrop({required this.animation});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            gradient: AppColors.goldButtonGradient,
+            borderRadius: BorderRadius.circular(AppRadii.pill),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.gold.withValues(alpha: 0.22),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.sparkles, size: 14, color: Colors.white),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'its_a_match'.tr,
+                style: AppTextStyles.labelLarge.copyWith(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          'meaningful_connection_opened'.tr,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.displaySmall.copyWith(
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimaryLight,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'celebrate_connection_start'.tr,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodyLarge.copyWith(
+            color: isDark
+                ? AppColors.textSecondaryDark
+                : AppColors.textSecondaryLight,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MatchHeroCard extends StatelessWidget {
+  const _MatchHeroCard({
+    required this.currentUser,
+    required this.matchedUser,
+    required this.currentName,
+    required this.matchedName,
+    required this.intentLabel,
+    required this.isDark,
+    required this.scaleAnimation,
+  });
+
+  final UserModel? currentUser;
+  final UserModel? matchedUser;
+  final String currentName;
+  final String matchedName;
+  final String intentLabel;
+  final bool isDark;
+  final Animation<double> scaleAnimation;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: isDark
+          ? <Color>[
+              const Color(0xFF4F26D9),
+              const Color(0xFF8B5CF6),
+              const Color(0xFF4F26D9),
+            ]
+          : <Color>[
+              Colors.white,
+              const Color(0xFFF4F0FF),
+              const Color(0xFFFFF8F1),
+            ],
+    );
+
+    return ScaleTransition(
+      scale: scaleAnimation,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          gradient: cardGradient,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.white.withValues(alpha: 0.9),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: isDark ? 0.22 : 0.12),
+              blurRadius: 34,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 288,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          colors: [
+                            AppColors.primary.withValues(
+                              alpha: isDark ? 0.18 : 0.12,
+                            ),
+                            AppColors.like.withValues(
+                              alpha: isDark ? 0.1 : 0.08,
+                            ),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Transform.rotate(
+                      angle: -0.08,
+                      child: _MatchPortraitPanel(
+                        imageUrl: currentUser?.mainPhotoUrl,
+                        displayName: currentName,
+                        caption: currentUser?.profile?.city?.trim(),
+                        edgeColor: AppColors.primary,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Transform.rotate(
+                      angle: 0.08,
+                      child: _MatchPortraitPanel(
+                        imageUrl: matchedUser?.mainPhotoUrl,
+                        displayName: matchedName,
+                        caption: matchedUser?.profile?.city?.trim(),
+                        edgeColor: AppColors.like,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                  const _HeartBridge(),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              '$currentName & $matchedName',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.displaySmall.copyWith(
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimaryLight,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'connection_baraka_message'.tr,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                const _MatchMetaChip(
+                  icon: LucideIcons.messageCircle,
+                  labelKey: 'chat_unlocked',
+                  color: AppColors.primary,
+                ),
+                if (matchedUser?.selfieVerified == true)
+                  const _MatchMetaChip(
+                    icon: LucideIcons.badgeCheck,
+                    labelKey: 'verified_profile',
+                    color: AppColors.gold,
+                  ),
+                if (intentLabel.isNotEmpty)
+                  _MatchTextChip(
+                    icon: LucideIcons.heartHandshake,
+                    label: intentLabel,
+                    color: AppColors.like,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MatchPortraitPanel extends StatelessWidget {
+  const _MatchPortraitPanel({
+    required this.imageUrl,
+    required this.displayName,
+    required this.caption,
+    required this.edgeColor,
+    required this.isDark,
+  });
+
+  final String? imageUrl;
+  final String displayName;
+  final String? caption;
+  final Color edgeColor;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 138,
+      height: 224,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: edgeColor.withValues(alpha: 0.34)),
+        boxShadow: [
+          BoxShadow(
+            color: edgeColor.withValues(alpha: isDark ? 0.26 : 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (imageUrl != null && imageUrl!.trim().isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: imageUrl!,
+                fit: BoxFit.cover,
+                errorWidget: (_, _, _) => _PortraitFallback(
+                  displayName: displayName,
+                  edgeColor: edgeColor,
+                  isDark: isDark,
+                ),
+              )
+            else
+              _PortraitFallback(
+                displayName: displayName,
+                edgeColor: edgeColor,
+                isDark: isDark,
+              ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.04),
+                      Colors.black.withValues(alpha: 0.64),
+                    ],
+                    stops: const [0.15, 0.55, 1],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              bottom: AppSpacing.md,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.titleLarge.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (caption != null && caption!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      caption!.trim(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: Colors.white.withValues(alpha: 0.82),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PortraitFallback extends StatelessWidget {
+  const _PortraitFallback({
+    required this.displayName,
+    required this.edgeColor,
+    required this.isDark,
+  });
+
+  final String displayName;
+  final Color edgeColor;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            edgeColor.withValues(alpha: 0.88),
+            (isDark ? AppColors.secondaryLight : AppColors.primaryLight),
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        Helpers.getInitials(displayName, ''),
+        style: AppTextStyles.displayMedium.copyWith(color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _HeartBridge extends StatelessWidget {
+  const _HeartBridge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            AppColors.like.withValues(alpha: 0.24),
+            AppColors.primary.withValues(alpha: 0.12),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Container(
+        width: 74,
+        height: 74,
+        decoration: BoxDecoration(
+          gradient: AppGradients.premium,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.78)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.like.withValues(alpha: 0.28),
+              blurRadius: 26,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: const Icon(LucideIcons.heart, color: Colors.white, size: 30),
+      ),
+    );
+  }
+}
+
+class _MatchMetaChip extends StatelessWidget {
+  const _MatchMetaChip({
+    required this.icon,
+    required this.labelKey,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String labelKey;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MatchTextChip(icon: icon, label: labelKey.tr, color: color);
+  }
+}
+
+class _MatchTextChip extends StatelessWidget {
+  const _MatchTextChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: AppSpacing.xs),
+          Text(label, style: AppTextStyles.labelMedium.copyWith(color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchAtmosphere extends StatelessWidget {
+  const _MatchAtmosphere({required this.haloAnimation, required this.isDark});
+
+  final Animation<double> haloAnimation;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: animation,
+      animation: haloAnimation,
       builder: (context, child) {
-        final pulse = 0.9 + (animation.value * 0.12);
-        return Center(
-          child: Transform.scale(
-            scale: pulse,
-            child: Container(
-              width: 360,
-              height: 360,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.like.withValues(alpha: 0.2),
-                    AppColors.primary.withValues(alpha: 0.12),
-                    Colors.transparent,
-                  ],
+        final pulse = 0.92 + (haloAnimation.value * 0.1);
+        return Stack(
+          children: [
+            Center(
+              child: Transform.scale(
+                scale: pulse,
+                child: Container(
+                  width: 420,
+                  height: 420,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppColors.primary.withValues(
+                          alpha: isDark ? 0.16 : 0.12,
+                        ),
+                        AppColors.like.withValues(alpha: isDark ? 0.08 : 0.06),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+            Positioned(
+              top: -90,
+              right: -50,
+              child: Container(
+                width: 210,
+                height: 210,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.gold.withValues(alpha: isDark ? 0.14 : 0.1),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
   }
 }
 
-class _MatchAvatar extends StatelessWidget {
-  final String? imageUrl;
-  final String? firstName;
-  final String? lastName;
-  final Color borderColor;
-
-  const _MatchAvatar({
-    this.imageUrl,
-    this.firstName,
-    this.lastName,
-    required this.borderColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 124,
-      height: 124,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: borderColor, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: borderColor.withValues(alpha: 0.22),
-            blurRadius: 22,
-            spreadRadius: 3,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(3),
-      child: ClipOval(
-        child: imageUrl != null
-            ? CachedNetworkImage(
-                imageUrl: imageUrl!,
-                fit: BoxFit.cover,
-                errorWidget: (_, _, _) =>
-                    _AvatarFallback(firstName: firstName, lastName: lastName),
-              )
-            : _AvatarFallback(firstName: firstName, lastName: lastName),
-      ),
-    );
-  }
+String? _preferredShortName(UserModel? user) {
+  if (user == null) return null;
+  final short = user.publicShortName.trim();
+  if (short.isNotEmpty) return short;
+  final full = user.publicDisplayName.trim();
+  if (full.isNotEmpty) return full;
+  return null;
 }
 
-class _AvatarFallback extends StatelessWidget {
-  final String? firstName;
-  final String? lastName;
+UserModel? _matchedUserFromArguments(dynamic args) {
+  if (args is UserModel) return args;
+  if (args is! Map) return null;
 
-  const _AvatarFallback({this.firstName, this.lastName});
+  final map = Map<String, dynamic>.from(args);
+  final directUser = map['user'];
+  if (directUser is UserModel) return directUser;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.primarySurface,
-      alignment: Alignment.center,
-      child: Text(
-        Helpers.getInitials(firstName, lastName),
-        style: AppTextStyles.displaySmall.copyWith(color: AppColors.primary),
-      ),
-    );
+  final nested = [
+    map['user'],
+    map['matchedUser'],
+    map['matched_user'],
+    map['otherUser'],
+    map['other_user'],
+  ].whereType<Map>().map((value) => Map<String, dynamic>.from(value));
+
+  for (final candidate in nested) {
+    final user = UserModel.fromApiEntry(candidate);
+    if (user.id.trim().isNotEmpty) return user;
   }
+
+  final matchedUserId = _firstPayloadString([
+    map['matchedUserId'],
+    map['matched_user_id'],
+    map['userId'],
+    map['user_id'],
+    map['actorId'],
+    map['senderId'],
+  ]);
+  if (matchedUserId == null) return null;
+
+  final displayName = _firstPayloadString([
+    map['matchedUserName'],
+    map['matched_user_name'],
+    map['displayName'],
+    map['name'],
+    map['title'],
+  ]);
+
+  return UserModel.fromApiEntry({
+    'id': matchedUserId,
+    'userId': matchedUserId,
+    'firstName': displayName ?? 'Someone',
+    'email': '',
+  });
+}
+
+String? _firstPayloadString(List<dynamic> values) {
+  for (final value in values) {
+    final normalized = value?.toString().trim() ?? '';
+    if (normalized.isNotEmpty && normalized.toLowerCase() != 'null') {
+      return normalized;
+    }
+  }
+  return null;
+}
+
+String _bestContextLabel(UserModel? user) {
+  final raw = user?.profile?.intentMode?.trim() ?? '';
+  if (raw.isEmpty) return '';
+  final translated = raw.tr;
+  if (translated != raw) return translated;
+  return raw
+      .replaceAll('_', ' ')
+      .split(' ')
+      .where((word) => word.trim().isNotEmpty)
+      .map(
+        (word) => '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}',
+      )
+      .join(' ');
 }

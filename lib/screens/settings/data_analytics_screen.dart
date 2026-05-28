@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/controllers/analytics_controller.dart';
-import 'package:methna_app/app/controllers/settings_controller.dart';
 import 'package:methna_app/app/data/services/analytics_service.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/theme/app_radii.dart';
@@ -14,10 +13,6 @@ class DataAnalyticsScreen extends GetView<AnalyticsController> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = Get.isRegistered<SettingsController>()
-        ? Get.find<SettingsController>()
-        : null;
-
     return SettingsSimplePageScaffold(
       title: 'data_analytics'.tr,
       trailing: IconButton(
@@ -46,13 +41,6 @@ class DataAnalyticsScreen extends GetView<AnalyticsController> {
                     subtitle:
                         '${data.totalViews} views, ${data.totalLikes} likes, ${data.totalMatches} matches',
                     onTap: () => _showUsageSheet(context, data),
-                  ),
-                  SettingsPlainTile(
-                    title: 'download_my_data'.tr,
-                    subtitle: 'download_data_desc'.tr,
-                    onTap: settings == null
-                        ? null
-                        : () => settings.requestDataDownload(),
                   ),
                 ],
               ),

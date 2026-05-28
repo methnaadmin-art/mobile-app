@@ -134,7 +134,9 @@ class _ChatHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  otherUser?.firstName ?? 'user'.tr,
+                  otherUser?.publicDisplayName.trim().isNotEmpty == true
+                      ? otherUser!.publicDisplayName
+                      : 'user'.tr,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -256,7 +258,7 @@ class _MessageBubble extends StatelessWidget {
                             ? const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [Color(0xFFD4AF37), Color(0xFFFFD700)],
+                                colors: [Color(0xFF6E3DFB), Color(0xFFA78BFA)],
                               )
                             : null,
                         color: isMe ? null : const Color(0xFF22222E),
@@ -273,7 +275,7 @@ class _MessageBubble extends StatelessWidget {
                             ? [
                                 BoxShadow(
                                   color: const Color(
-                                    0xFFD4AF37,
+                                    0xFF6E3DFB,
                                   ).withValues(alpha: 0.3),
                                   blurRadius: 15,
                                   offset: const Offset(0, 4),
@@ -290,16 +292,13 @@ class _MessageBubble extends StatelessWidget {
                       child: Text(
                         message.content,
                         style: TextStyle(
-                          color: isMe ? AppTheme.background : Colors.white,
+                          color: isMe ? Colors.white : Colors.white,
                           fontSize: 15,
                           height: 1.4,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                    )
-                    .animate()
-                    .fadeIn(duration: 300.ms)
-                    .slideX(begin: isMe ? 0.3 : -0.3, end: 0),
+                    ),
           ),
         ],
       ),
@@ -414,24 +413,6 @@ class _MessageInputState extends State<_MessageInput> {
       ),
       child: Row(
         children: [
-          // Attach button
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.white10,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                LucideIcons.plus,
-                color: AppTheme.white70,
-                size: 20,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-
           // Text field
           Expanded(
             child: Container(
@@ -469,12 +450,12 @@ class _MessageInputState extends State<_MessageInput> {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xFFD4AF37), Color(0xFFFFD700)],
+                          colors: [Color(0xFF6E3DFB), Color(0xFFA78BFA)],
                         ),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Color(0xFFD4AF37),
+                            color: Color(0xFF6E3DFB),
                             blurRadius: 15,
                             offset: Offset(0, 4),
                           ),
@@ -508,5 +489,4 @@ class _MessageInputState extends State<_MessageInput> {
     );
   }
 }
-
 

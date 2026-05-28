@@ -14,17 +14,24 @@ class WhoLikedMeItem {
   final String type;
   final String? complimentMessage;
   final DateTime? createdAt;
+  final bool isBlurred;
 
   const WhoLikedMeItem({
     required this.user,
     required this.type,
     this.complimentMessage,
     this.createdAt,
+    this.isBlurred = false,
   });
 
   factory WhoLikedMeItem.fromJson(Map<String, dynamic> json) {
     final userPayload = Map<String, dynamic>.from(json);
     final userId = (json['userId'] ?? json['id'] ?? json['_id'])?.toString();
+    final isBlurred =
+        json['isBlurred'] == true ||
+        json['blurred'] == true ||
+        json['locked'] == true ||
+        json['requiresPremium'] == true;
 
     if (userId != null && userId.isNotEmpty) {
       userPayload['id'] = userId;
@@ -41,6 +48,7 @@ class WhoLikedMeItem {
           ? null
           : rawCompliment,
       createdAt: _parseDate(json['createdAt']),
+      isBlurred: isBlurred,
     );
   }
 }

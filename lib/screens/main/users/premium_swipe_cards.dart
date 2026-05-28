@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
@@ -163,7 +163,7 @@ class _PremiumSwipeCardsScreenState extends State<PremiumSwipeCardsScreen> {
         children: [
           _ActionButton(
             icon: LucideIcons.x,
-            color: Colors.redAccent,
+            color: const Color(0xFF4F26D9),
             onTap: () {
               if (controller.allUsers.isNotEmpty) {
                 _swiperController.swipe(CardSwiperDirection.left);

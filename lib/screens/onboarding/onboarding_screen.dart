@@ -1,10 +1,11 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/controllers/onboarding_controller.dart';
 import 'package:methna_app/core/utils/google_fonts_stub.dart';
+import 'package:methna_app/screens/onboarding/widgets/onboarding_phone_previews.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -42,7 +43,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return const AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: Color(0xFF941AFF),
+        backgroundColor: Color(0xFF6E3DFB),
         body: _OnboardingPager(),
       ),
     );
@@ -98,7 +99,7 @@ class _OnboardingPage extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF9A1FFF), Color(0xFF8A14FF)],
+                  colors: [Color(0xFF6E3DFB), Color(0xFF8B5CF6)],
                 ),
               ),
             ),
@@ -251,14 +252,14 @@ class _BottomPrimaryButton extends StatelessWidget {
               : const LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [Color(0xFF8C18FF), Color(0xFFA741FF)],
+                  colors: [Color(0xFF6E3DFB), Color(0xFFA78BFA)],
                 ),
-          color: isSecondary ? const Color(0xFFF7EFFF) : null,
+          color: isSecondary ? const Color(0xFFF4F0FF) : null,
           boxShadow: isSecondary
               ? const []
               : [
                   BoxShadow(
-                    color: const Color(0xFF9627FF).withValues(alpha: 0.24),
+                    color: const Color(0xFF6E3DFB).withValues(alpha: 0.24),
                     blurRadius: 18,
                     offset: const Offset(0, 10),
                   ),
@@ -275,9 +276,7 @@ class _BottomPrimaryButton extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: isSecondary
-                      ? const Color(0xFFB35DFF)
-                      : Colors.white,
+                  color: isSecondary ? const Color(0xFFA78BFA) : Colors.white,
                 ),
               ),
             ),
@@ -305,7 +304,7 @@ class _OnboardingIndicator extends StatelessWidget {
           width: active ? 22 : 7,
           height: 7,
           decoration: BoxDecoration(
-            color: active ? const Color(0xFF9423FF) : const Color(0xFFE3D8F6),
+            color: active ? const Color(0xFF6E3DFB) : const Color(0xFFEDE9FE),
             borderRadius: BorderRadius.circular(999),
           ),
         );
@@ -347,7 +346,7 @@ class _PhonePreviewCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Container(color: const Color(0xFFFDFBFF)),
+            Container(color: const Color(0xFFFFFAFB)),
             Positioned(
               top: 6,
               left: width * 0.24,
@@ -365,9 +364,9 @@ class _PhonePreviewCard extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                 child: switch (pageIndex) {
-                  0 => const _MatchesMockup(),
-                  1 => const _ProfileMockup(),
-                  _ => const _MatchCardMockup(),
+                  0 => const OnboardingAuthPhonePreview(),
+                  1 => const OnboardingChatPhonePreview(),
+                  _ => const OnboardingDiscoverPhonePreview(),
                 },
               ),
             ),
@@ -378,6 +377,7 @@ class _PhonePreviewCard extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _MatchesMockup extends StatelessWidget {
   const _MatchesMockup();
 
@@ -394,7 +394,7 @@ class _MatchesMockup extends StatelessWidget {
                 height: 30,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF8F23FF), Color(0xFFAA47FF)],
+                    colors: [Color(0xFF6E3DFB), Color(0xFFA78BFA)],
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -440,9 +440,18 @@ class _MatchesMockup extends StatelessWidget {
             childAspectRatio: 0.72,
             children: const [
               _PhotoCardPlaceholder(name: 'Amina (24)'),
-              _PhotoCardPlaceholder(name: 'Fatima (25)', tint: Color(0xFFFFD87A)),
-              _PhotoCardPlaceholder(name: 'Mariam (23)', tint: Color(0xFFD3E9FF)),
-              _PhotoCardPlaceholder(name: 'Khadija (22)', tint: Color(0xFFDAD1FF)),
+              _PhotoCardPlaceholder(
+                name: 'Fatima (25)',
+                tint: Color(0xFFFFD87A),
+              ),
+              _PhotoCardPlaceholder(
+                name: 'Mariam (23)',
+                tint: Color(0xFFD3E9FF),
+              ),
+              _PhotoCardPlaceholder(
+                name: 'Khadija (22)',
+                tint: Color(0xFFEDE9FE),
+              ),
             ],
           ),
         ),
@@ -451,6 +460,7 @@ class _MatchesMockup extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _ProfileMockup extends StatelessWidget {
   const _ProfileMockup();
 
@@ -464,7 +474,7 @@ class _ProfileMockup extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF8D22FF), Color(0xFFA745FF)],
+              colors: [Color(0xFF6E3DFB), Color(0xFFA78BFA)],
             ),
             borderRadius: BorderRadius.circular(12),
           ),
@@ -509,7 +519,11 @@ class _ProfileMockup extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFCEB18F), Color(0xFFB48D74), Color(0xFF8F6759)],
+                colors: [
+                  Color(0xFFCEB18F),
+                  Color(0xFFB48D74),
+                  Color(0xFF8F6759),
+                ],
               ),
             ),
             child: Stack(
@@ -525,7 +539,7 @@ class _ProfileMockup extends StatelessWidget {
                         width: 22,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF8F23FF),
+                          color: const Color(0xFF6E3DFB),
                           borderRadius: BorderRadius.circular(999),
                         ),
                       ),
@@ -554,6 +568,7 @@ class _ProfileMockup extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _MatchCardMockup extends StatelessWidget {
   const _MatchCardMockup();
 
@@ -572,7 +587,7 @@ class _MatchCardMockup extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF8E2CFF).withValues(alpha: 0.14),
+                    color: const Color(0xFF6E3DFB).withValues(alpha: 0.14),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -587,7 +602,7 @@ class _MatchCardMockup extends StatelessWidget {
                       const Icon(
                         Icons.favorite_border_rounded,
                         size: 84,
-                        color: Color(0xFF8F23FF),
+                        color: Color(0xFF6E3DFB),
                       ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -605,7 +620,7 @@ class _MatchCardMockup extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF8F23FF),
+                      color: Color(0xFF6E3DFB),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -638,7 +653,7 @@ class _MockTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(Icons.circle_outlined, size: 18, color: Color(0xFF8F23FF)),
+        const Icon(Icons.circle_outlined, size: 18, color: Color(0xFF6E3DFB)),
         const Spacer(),
         Text(
           title,
@@ -717,18 +732,8 @@ class _OnboardingSheetClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final path = Path()..lineTo(0, 36);
 
-    path.quadraticBezierTo(
-      size.width * 0.18,
-      0,
-      size.width * 0.5,
-      0,
-    );
-    path.quadraticBezierTo(
-      size.width * 0.82,
-      0,
-      size.width,
-      36,
-    );
+    path.quadraticBezierTo(size.width * 0.18, 0, size.width * 0.5, 0);
+    path.quadraticBezierTo(size.width * 0.82, 0, size.width, 36);
 
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);

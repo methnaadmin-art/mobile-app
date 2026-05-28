@@ -1,4 +1,4 @@
-﻿const Map<String, String> enUS = {
+const Map<String, String> enUS = {
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ General ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
   'app_name': 'Methna',
   'app_tagline': 'Find your perfect match',
@@ -105,6 +105,8 @@
   '1-3 MONTHS': '1-3 MONTHS',
   '3-6 MONTHS': '3-6 MONTHS',
   'UP TO 1 YEAR': 'UP TO 1 YEAR',
+  'marriage_timeline': 'Marriage timeline',
+  'marriage_timeline_required': 'Please choose your marriage timeline.',
   'female': 'Female',
   'you_are': 'You are',
   'marital_status': 'Marital Status',
@@ -328,6 +330,7 @@
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ Chat ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
   'chats': 'Chats',
   'now_active': 'Now Active',
+  'active_in_last_24h': 'Active in the last 24 hours',
   'see_all': 'See All',
   'no_conversations': 'No conversations yet',
   'start_chatting': 'Start chatting with your matches!',
@@ -399,6 +402,7 @@
   'notification': 'Notification',
   'account_security': 'Account & Security',
   'subscription': 'Subscription',
+  'shop': 'Shop',
   'app_appearance': 'App Appearance',
   'third_party_integrations': 'Third Party Integrations',
   'data_analytics': 'Data & Analytics',
@@ -548,8 +552,13 @@
   'deactivate': 'Deactivate',
   'delete_account_confirm':
       'This action is permanent. All your data will be lost forever.',
+  'delete_account_second_confirm':
+      'This action cannot be undone. Your profile, matches, and chats will be permanently removed.',
   'delete_account_desc':
-      'Permanently remove your profile and data from Darify. Proceed with caution.',
+      'Permanently remove your profile, matches, chats, and local data.',
+  'remove_match': 'Remove Match',
+  'remove_match_confirm':
+      'This will remove the match and close the conversation for both of you.',
 
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ Notification Settings Screen ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
   'email_notifications': 'Email Notifications',
@@ -651,6 +660,8 @@
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ Google Sign-In ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
   'continue_with_google': 'Continue with Google',
   'google_signin_failed': 'Google Sign-In Failed',
+  'continue_with_apple': 'Continue with Apple',
+  'apple_signin_failed': 'Apple Sign-In Failed',
 
   // --- Home Screen ---
   'salaam': 'Salaam',
@@ -713,7 +724,19 @@
   'blocked_users_desc': 'Manage the people you have blocked.',
   'camera': 'Camera',
   'cancel_sub_confirm': 'Are you sure you want to cancel your subscription?',
+  'no_refund_policy_note':
+      'Cancellation stops renewal only. Payments already made are non-refundable.',
+  'same_plan_active_message':
+      'This plan is already active. You can renew after the current period ends.',
+  'current_plan_badge': 'Current Plan',
   'cancel_subscription': 'Cancel Subscription',
+  'manage_sub_google_play':
+      'Redirecting to Google Play to manage your subscription. Your access remains active until the current period ends.',
+  'no_active_sub': 'No active subscription found.',
+  'ends_on_label': 'Ends on',
+  'auto_renew_off': 'auto-renew off',
+  'pending_cancellation_note':
+      'Subscription will not renew. Access ends at expiry.',
   'capture_failed': 'Unable to capture the photo. Please try again.',
   'capture_selfie': 'Capture Selfie',
   'categories': 'Categories',
@@ -735,6 +758,28 @@
   'country_picker_search_hint': 'Search country',
   'country_hint': 'Select your country',
   'country_label': 'Country',
+  'country_filter_all': 'Show users from all countries',
+  'city_filter_all': 'Show users from all cities',
+  'enter_city': 'Enter city name',
+  'city_filter_hint': 'e.g. London, Dubai, Istanbul',
+  'all': 'All',
+  'preparing_payment': 'Preparing payment',
+  'preparing_payment_desc': 'Preparing your Google Play purchase...',
+  'opening_checkout': 'Opening checkout',
+  'opening_checkout_desc': 'Opening Google Play purchase flow...',
+  'complete_payment': 'Complete your payment',
+  'complete_payment_desc':
+      'Complete the purchase in Google Play and return to the app.',
+  'confirming_payment': 'Confirming payment',
+  'confirming_payment_desc': 'Waiting for payment confirmation...',
+  'payment_failed': 'Payment failed',
+  'payment_failed_desc': 'Something went wrong. Please try again.',
+  'payment_timeout': 'Payment confirmation timed out',
+  'payment_timeout_desc':
+      'Your payment may still be processing. You can retry or check back later.',
+  'payment_cancelled': 'Payment cancelled',
+  'payment_cancelled_desc': 'You cancelled the payment. No charges were made.',
+  'dismiss': 'Dismiss',
   'data_privacy_settings': 'Data privacy settings',
   'dd': 'Dd',
   'diet_and_alcohol_required':
@@ -1105,14 +1150,19 @@
   'on': 'On',
   'off': 'Off',
   'go_global': 'Go Global',
-  'go_global_desc': 'Browse people from anywhere instead of nearby only',
+  'go_global_desc':
+      'Expand discovery beyond your local country and 400 km radius. Premium only.',
+  'passport_mode_desc':
+      'Set a passport location to discover from that area and to be visible to people there.',
   'show_me': 'Show Me',
   'show_distance_in': 'Show Distance In',
   'km': 'Kilometers',
   'miles': 'Miles',
   'distance_radius': 'Distance Radius',
   'distance_ignored_global': 'Distance is ignored while Go Global is enabled.',
-  'distance_helper': 'Show the people who are closer to you first.',
+  'distance_helper': 'Only show profiles within this distance from your location.',
+  'country_filter_info':
+      'Selecting a country refreshes your Home feed to profiles from that country.',
   'age_range_helper': 'Only show profiles inside your preferred age range.',
   'verified_only': 'Verified Profiles Only',
   'verified_only_desc': 'Only show members with verified profiles',
@@ -1145,7 +1195,7 @@
   'invalid_plan': 'Invalid plan configuration from backend.',
   'continue_btn': 'Continue',
   'period_year_short': '/yr',
-  'period_month_short': '/mo',
+  // 'period_month_short': '/mo', // Duplicate removed
   'period_day_short': '/day',
   'days_remaining_label': 'days remaining',
   'unlimited': 'Unlimited',
@@ -1155,7 +1205,7 @@
       'Subscriptions auto-renew unless cancelled at least 24 hours before the current period ends.',
   'advanced_filters': 'Advanced filters',
   'boost': 'Boost profile',
-  'who_liked_me': 'See who liked you',
+  'who_liked_me': 'Liked Me',
   'passport_mode': 'Passport mode',
   'invisible_mode': 'Invisible mode',
 
@@ -1203,6 +1253,8 @@
   'notification_body_match': 'You have a new match. Start the conversation.',
   'notification_title_like': 'New like',
   'notification_body_like': '@name liked your profile.',
+  'notification_like_private_title': 'Someone liked you',
+  'notification_like_private_body': 'Someone liked you.',
   'notification_title_compliment': 'New compliment',
   'notification_body_compliment': '@name sent you a compliment.',
   'notification_title_message': 'New message',
@@ -1213,6 +1265,9 @@
   'notification_body_verification': 'Your verification status was updated.',
   'notification_title_default': 'Notification',
   'notification_body_default': 'You have a new update.',
+  'clear_all': 'Clear All',
+  'clear_all_notifications_confirm':
+      'Delete all notifications? This action cannot be undone.',
 
   // â”€â”€ Profile Screen â”€â”€
   'complete_your_profile': 'Complete your profile',
@@ -1264,6 +1319,24 @@
   'company': 'Company',
   'height': 'Height',
   'weight': 'Weight',
+  'enter_height': 'Enter height',
+  'enter_weight': 'Enter weight',
+  'skin_complexion': 'Skin Complexion',
+  'select_skin_complexion': 'Select skin complexion',
+  'body_build': 'Build',
+  'select_body_build': 'Select build',
+  'describe_ideal_spouse': 'Describe Ideal Spouse',
+  'describe_ideal_spouse_hint':
+      'Describe the character, values, and life you hope to build together',
+  'very_fair': 'Very Fair',
+  'fair': 'Fair',
+  'medium': 'Medium',
+  'olive': 'Olive',
+  'prefer_not_to_say': 'Prefer not to say',
+  'slim': 'Slim',
+  'average': 'Average',
+  'athletic': 'Athletic',
+  'curvy': 'Curvy',
   'health_wellness': 'Health & Wellness',
   'vaccination': 'Vaccination',
   'vaccinated': 'Vaccinated',
@@ -1295,7 +1368,11 @@
   // â”€â”€ Home Card Facts â”€â”€
   'ethnicity': 'Ethnicity',
   'marriage_intention': 'Marriage Intention',
-  'intent_mode': 'Intent Mode',
+  'intent_mode': 'Time Frame',
+  'time_frame': 'Time Frame',
+  'communication_styles': 'Communication Styles',
+  'filter_communication_styles': 'Filter by communication style',
+  'max_communication_styles_selected': 'Select up to 2 communication styles.',
   'second_wife_preference': 'Second Wife Preference',
   'relocate': 'Relocate',
   'open_to_relocate': 'Open to relocate',
@@ -1307,7 +1384,6 @@
   'health': 'Health',
 
   // â”€â”€ Auth Screens â”€â”€
-  'continue_with_apple': 'Continue with Apple',
   'continue_with_facebook': 'Continue with Facebook',
   'continue_with_twitter': 'Continue with Twitter',
   'coming_soon': 'Coming soon',
@@ -1393,6 +1469,7 @@
   'home_action_compliment': 'SEND COMPLIMENT',
   'home_action_boost': 'BOOST',
   'home_action_relay': 'RELAY',
+  'home_swipe_hint': 'Swipe up to know more',
   'home_swipe_down_details': 'Swipe down to open full details',
   'home_swipe_up_details': 'Swipe up to collapse details',
 
@@ -1430,7 +1507,7 @@
   // â”€â”€ Third Party Integrations (extended) â”€â”€
   'supported_today': 'Supported today',
   'supported_today_desc':
-      'Methna currently supports email sign in and Google sign in. Extra social linking is not enabled on the live backend yet.',
+      'Methna supports email sign in plus platform sign in on supported devices. Extra social linking is not enabled on the live backend yet.',
   'billing_privacy': 'Billing privacy',
   'billing_privacy_desc':
       'Saved card numbers are not stored inside Methna. Checkout is handled by the payment provider when you subscribe.',
@@ -1447,12 +1524,7 @@
       'Google sign in is available from the login screen for supported accounts.',
   'unlimited_likes_active': 'Unlimited likes active',
   'likes_left_today': 'likes left today',
-  'stripe_billing': 'Stripe Billing',
   'ready': 'Ready',
-  'stripe_active_desc':
-      'Your current subscription checkout is managed through Stripe.',
-  'stripe_ready_desc':
-      'Stripe powers subscription checkout whenever you upgrade.',
   'google_pay': 'Google Pay',
   'supported': 'Supported',
   'device_dependent': 'Device dependent',
@@ -1479,6 +1551,7 @@
   'boosts_weekly': 'profile boosts each week',
   'plan_benefits_default':
       'Plan benefits are loaded from your subscription settings.',
+  'manage_subscription': 'Manage Subscription',
 
   // â”€â”€ Success Stories â”€â”€
   'no_stories_yet': 'No stories yet',
@@ -1495,7 +1568,7 @@
 
   // --- Localized Main Screens ---
   'profiles': 'Profiles',
-  'person_i_liked': 'Person I Liked',
+  'person_i_liked': 'Liked By Me',
   'no_profiles_right_now': 'No profiles right now',
   'no_matches_yet': 'No matches yet',
   'no_liked_users_yet': 'No liked profiles yet',
@@ -1626,4 +1699,32 @@
   'get_assistance': 'Get assistance',
   'read_our_terms': 'Read our terms',
   'how_we_protect_you': 'How we protect you',
+
+  // Password Requirements
+  'password_requirements_title': 'Password must contain:',
+  'password_req_length': 'At least 8 characters',
+  'password_req_uppercase': 'At least 1 uppercase letter (A-Z)',
+  'password_req_lowercase': 'At least 1 lowercase letter (a-z)',
+  'password_req_number': 'At least 1 number (0-9)',
+
+  // Privacy & Terms Agreement
+  'agree_terms_prefix': 'I agree to the ',
+  'terms_of_service_link': 'Terms of Service',
+  'and_text': ' and ',
+  'privacy_policy_link': 'Privacy Policy',
+  'must_agree_terms': 'You must agree to the Terms & Privacy Policy',
+  'registration_oath_label':
+      'I swear by Allah that my details are truthful and I will not use this app for haram relationships.',
+  'must_agree_registration_oath':
+      'You must accept the registration oath before continuing.',
+  'profile_engagement': 'Profile Engagement',
+  'likes_sent': 'Likes Sent',
+  'likes_received': 'Likes Received',
+  'compliments_sent': 'Compliments Sent',
+  'profile_gallery': 'Profile Gallery',
+  'profile_gallery_hint': 'Your visible photos',
+  'view_all_photos': 'View all photos',
+  'boost_profile_title': 'Boost your visibility',
+  'boost_profile_hint':
+      'Get highlighted in discovery and reach more matches faster.',
 };

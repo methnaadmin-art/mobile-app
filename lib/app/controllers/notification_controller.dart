@@ -32,9 +32,15 @@ class NotificationController extends GetxController {
 
   Future<void> markAllAsRead() => _service.markAllAsRead();
 
+  Future<void> deleteNotification(NotificationModel notification) {
+    return _service.deleteNotificationEntry(notification);
+  }
+
+  Future<bool> clearAllNotifications() => _service.clearAllNotifications();
+
   void setCategory(String category) => _service.setCategory(category);
 
   void openNotification(NotificationModel notification) {
-    _service.handleNotificationClick(notification);
+    _service.openNotificationFromInbox(notification);
   }
 }

@@ -1,3 +1,5 @@
+import 'package:methna_app/app/routes/app_routes.dart';
+
 // Safe parsers — backend may return String or num for numeric fields
 int _safeInt(dynamic v, [int fallback = 0]) {
   if (v is int) return v;
@@ -45,6 +47,65 @@ String? _firstNonEmptyString(Iterable<dynamic> values) {
   return null;
 }
 
+String? _capitalizeNameValue(String? value) {
+  final trimmed = value?.trim() ?? '';
+  if (trimmed.isEmpty) return null;
+
+  return trimmed
+      .split(RegExp(r'\s+'))
+      .where((segment) => segment.trim().isNotEmpty)
+      .map((segment) {
+        final lowerCased = segment.toLowerCase();
+        return '${lowerCased[0].toUpperCase()}${lowerCased.substring(1)}';
+      })
+      .join(' ');
+}
+
+String? _normalizeLifecycleStatus(String? value) {
+  final normalized = value?.trim().toLowerCase() ?? '';
+  switch (normalized) {
+    case 'pending-review':
+    case 'pending_review':
+    case 'under_review':
+    case 'under-review':
+    case 'in_review':
+    case 'in-review':
+    case 'review':
+      return 'pending_verification';
+    case 'verification_rejected':
+    case 'declined':
+    case 'denied':
+    case 'reverify_required':
+      return 'rejected';
+    case 'blacklisted':
+    case 'blocked_permanently':
+      return 'banned';
+    case 'disabled':
+    case 'frozen':
+      return 'suspended';
+    case 'shadow_banned':
+    case 'shadow-banned':
+    case 'shadowban':
+      return 'shadow_suspended';
+    case 'restricted':
+    case 'limited_access':
+    case 'limited-access':
+      return 'limited';
+    default:
+      return normalized.isEmpty ? null : normalized;
+  }
+}
+
+bool _isRestrictedLifecycleStatus(String? value) {
+  final normalized = _normalizeLifecycleStatus(value);
+  return normalized == 'pending_verification' ||
+      normalized == 'rejected' ||
+      normalized == 'banned' ||
+      normalized == 'suspended' ||
+      normalized == 'limited' ||
+      normalized == 'shadow_suspended';
+}
+
 double? _safeDouble(dynamic v) {
   if (v == null) return null;
   if (v is double) return v;
@@ -59,6 +120,40 @@ Map<String, dynamic>? _asMap(dynamic value) {
   return null;
 }
 
+Map<String, dynamic>? _normalizedLocationMap(dynamic value) {
+  final root = _asMap(value);
+  if (root == null) return null;
+
+  final nested = _asMap(root['location']);
+  final source = nested ?? root;
+  final latitude = _safeDouble(source['latitude']);
+  final longitude = _safeDouble(source['longitude']);
+  final city = _firstNonEmptyString([
+    source['city'],
+    source['cityName'],
+    source['city_name'],
+  ]);
+  final country = _firstNonEmptyString([
+    source['country'],
+    source['countryName'],
+    source['country_name'],
+  ]);
+
+  if (latitude == null &&
+      longitude == null &&
+      (city == null || city.isEmpty) &&
+      (country == null || country.isEmpty)) {
+    return null;
+  }
+
+  return {
+    'latitude': latitude,
+    'longitude': longitude,
+    'city': city,
+    'country': country,
+  };
+}
+
 class UserModel {
   final String id;
   final String? username;
@@ -69,6 +164,9 @@ class UserModel {
   final String role;
   final String status;
   final bool emailVerified;
+  final bool agreedToTerms;
+  final bool agreedToPrivacyPolicy;
+  final bool oathAccepted;
   final bool phoneVerified;
   final bool selfieVerified;
   final String? selfieUrl;
@@ -78,6 +176,15 @@ class UserModel {
   final DateTime? documentVerifiedAt;
   final String? documentRejectionReason;
   final bool isShadowBanned;
+  final String? statusReason;
+  final String? moderationReasonCode;
+  final String? moderationReasonText;
+  final String? actionRequired;
+  final String? supportMessage;
+  final bool isUserVisible;
+  final DateTime? moderationExpiresAt;
+  final String? internalAdminNote;
+  final String? updatedByAdminId;
   final int trustScore;
   final String backgroundCheckStatus;
   final DateTime? backgroundCheckedAt;
@@ -91,7 +198,16 @@ class UserModel {
   final ProfileModel? profile;
   final List<PhotoModel>? photos;
   final String? fallbackPhotoUrl;
+  final bool backendPremium;
+  final DateTime? premiumStartDate;
+  final DateTime? premiumExpiryDate;
   final SubscriptionModel? subscription;
+  final String? subscriptionPlanId;
+  final bool isGhostModeEnabled;
+  final bool isPassportActive;
+  final Map<String, dynamic>? passportLocation;
+  final Map<String, dynamic>? realLocation;
+  final bool canViewAllPhotos;
   final int sentComplimentsCount;
   final int profileBoostsCount;
 
@@ -105,6 +221,9 @@ class UserModel {
     this.role = 'user',
     this.status = 'active',
     this.emailVerified = false,
+    this.agreedToTerms = false,
+    this.agreedToPrivacyPolicy = false,
+    this.oathAccepted = false,
     this.phoneVerified = false,
     this.selfieVerified = false,
     this.selfieUrl,
@@ -114,6 +233,15 @@ class UserModel {
     this.documentVerifiedAt,
     this.documentRejectionReason,
     this.isShadowBanned = false,
+    this.statusReason,
+    this.moderationReasonCode,
+    this.moderationReasonText,
+    this.actionRequired,
+    this.supportMessage,
+    this.isUserVisible = true,
+    this.moderationExpiresAt,
+    this.internalAdminNote,
+    this.updatedByAdminId,
     this.trustScore = 100,
     this.backgroundCheckStatus = 'not_started',
     this.backgroundCheckedAt,
@@ -127,7 +255,16 @@ class UserModel {
     this.profile,
     this.photos,
     this.fallbackPhotoUrl,
+    this.backendPremium = false,
+    this.premiumStartDate,
+    this.premiumExpiryDate,
     this.subscription,
+    this.subscriptionPlanId,
+    this.isGhostModeEnabled = false,
+    this.isPassportActive = false,
+    this.passportLocation,
+    this.realLocation,
+    this.canViewAllPhotos = true,
     this.sentComplimentsCount = 0,
     this.profileBoostsCount = 0,
   });
@@ -148,6 +285,10 @@ class UserModel {
     final activityMap = json['activity'] is Map
       ? Map<String, dynamic>.from(json['activity'] as Map)
       : null;
+    final trustSafety =
+        json['trustSafety'] is Map ? (json['trustSafety'] as Map) : null;
+    final verification =
+        json['verification'] is Map ? (json['verification'] as Map) : null;
     final lastSeenAt =
         _safeDate(json['lastLoginAt']) ??
         _safeDate(json['lastSeenAt']) ??
@@ -177,12 +318,32 @@ class UserModel {
       _safeDate(activityMap?['activeAt']) ??
         _safeDate(json['lastSeen']) ??
         _safeDate(json['last_seen']);
-    final rawStatus = _firstNonEmptyString([
+    final rawLifecycleStatus = _firstNonEmptyString([
+      json['accountStatus'],
+      json['account_status'],
+      json['userStatus'],
+      json['user_status'],
+      json['moderationStatus'],
+      json['moderation_status'],
       json['status'],
+      json['state'],
+      verification?['accountStatus'],
+      verification?['account_status'],
+      verification?['status'],
+      trustSafety?['accountStatus'],
+      trustSafety?['account_status'],
+      trustSafety?['status'],
+    ]);
+    final normalizedLifecycleStatus =
+        _normalizeLifecycleStatus(rawLifecycleStatus);
+    final rawPresenceStatus = _firstNonEmptyString([
       if (rawPresence is Map) rawPresence['status'],
       if (rawPresence is Map) rawPresence['state'],
       if (rawPresence is! Map) rawPresence,
-      json['state'],
+      json['presenceStatus'],
+      json['presence_status'],
+      activityMap?['status'],
+      activityMap?['state'],
     ]);
     final explicitOnline =
         _safeBool(json['isOnline']) ||
@@ -196,8 +357,45 @@ class UserModel {
       _safeBool(presenceMap?['online']) ||
       _safeBool(activityMap?['isOnline']) ||
       _safeBool(activityMap?['online']) ||
-        (rawStatus?.toLowerCase() == 'online');
+        (rawPresenceStatus?.toLowerCase() == 'online');
     final profileMap = _asMap(json['profile']);
+    final visibilityMap = _asMap(json['visibility']);
+    final passportLocation = _normalizedLocationMap(
+      visibilityMap?['passportLocation'] ??
+          visibilityMap?['passport_location'] ??
+          json['passportLocation'] ??
+          json['passport_location'],
+    );
+    final realLocation = _normalizedLocationMap(
+      visibilityMap?['realLocation'] ??
+          visibilityMap?['real_location'] ??
+          json['realLocation'] ??
+          json['real_location'],
+    );
+    final isGhostModeEnabled = _safeBool(
+      json['isGhostModeEnabled'] ??
+          json['is_ghost_mode_enabled'] ??
+          json['isInvisible'] ??
+          json['is_invisible'] ??
+          visibilityMap?['isGhostModeEnabled'] ??
+          visibilityMap?['is_ghost_mode_enabled'] ??
+          visibilityMap?['isInvisible'] ??
+          visibilityMap?['is_invisible'],
+    );
+    final isPassportActive = _safeBool(
+      json['isPassportActive'] ??
+          json['is_passport_active'] ??
+          visibilityMap?['isPassportActive'] ??
+          visibilityMap?['is_passport_active'],
+      passportLocation != null,
+    );
+    final canViewAllPhotos = _safeBool(
+      json['canViewAllPhotos'] ??
+          json['can_view_all_photos'] ??
+          visibilityMap?['canViewAllPhotos'] ??
+          visibilityMap?['can_view_all_photos'],
+      true,
+    );
     final mediaMap = _asMap(json['media']);
     final mainPhotoMap = _asMap(json['mainPhoto']);
     final avatarMap = _asMap(json['avatar']);
@@ -301,22 +499,60 @@ class UserModel {
       assign('latitude', [json['latitude'], locationMap?['latitude']]);
       assign('longitude', [json['longitude'], locationMap?['longitude']]);
       assign('religiousLevel', [json['religiousLevel'], json['religious_level']]);
+      assign('sect', [json['sect']]);
       assign('prayerFrequency', [json['prayerFrequency'], json['prayer_frequency']]);
-      assign('marriageIntention', [json['marriageIntention'], json['marriage_intention']]);
+      assign('marriageIntention', [
+        json['marriageIntention'],
+        json['marriage_intention'],
+        json['marriageTimeline'],
+        json['marriage_timeline'],
+        json['timeFrame'],
+        json['time_frame'],
+      ]);
       assign('intentMode', [json['intentMode'], json['intent_mode']]);
+      assign('ethnicity', [json['ethnicity']]);
+      assign('maritalStatus', [json['maritalStatus'], json['marital_status']]);
       assign('education', [json['education']]);
       assign('educationDetails', [json['educationDetails'], json['education_details']]);
       assign('jobTitle', [json['jobTitle'], json['job_title'], json['profession']]);
       assign('company', [json['company']]);
       assign('height', [json['height']]);
       assign('weight', [json['weight']]);
+      assign('skinComplexion', [json['skinComplexion'], json['skin_complexion']]);
+      assign('build', [json['build']]);
       assign('livingSituation', [json['livingSituation'], json['living_situation']]);
+      assign('communicationStyle', [
+        json['communicationStyle'],
+        json['communication_style'],
+      ]);
+      assign('dietary', [json['dietary']]);
+      assign('alcohol', [json['alcohol']]);
+      assign('hijabStatus', [json['hijabStatus'], json['hijab_status']]);
+      assign('workoutFrequency', [
+        json['workoutFrequency'],
+        json['workout_frequency'],
+      ]);
+      assign('sleepSchedule', [json['sleepSchedule'], json['sleep_schedule']]);
+      assign('socialMediaUsage', [
+        json['socialMediaUsage'],
+        json['social_media_usage'],
+      ]);
       assign('familyPlans', [json['familyPlans'], json['family_plans']]);
       assign('familyValues', [json['familyValues'], json['family_values']]);
+      assign('willingToRelocate', [
+        json['willingToRelocate'],
+        json['willing_to_relocate'],
+      ]);
       assign('nationality', [json['nationality']]);
       assign('nationalities', [json['nationalities']]);
       assign('interests', [json['interests']]);
       assign('languages', [json['languages']]);
+      assign('preferredDistanceKm', [
+        json['preferredDistanceKm'],
+        json['preferred_distance_km'],
+        json['maxDistance'],
+        json['max_distance'],
+      ]);
       assign('aboutPartner', [json['aboutPartner'], json['about_partner']]);
       assign('showAge', [json['showAge']]);
       assign('showDistance', [json['showDistance']]);
@@ -328,10 +564,6 @@ class UserModel {
       }
       return synthetic;
     }();
-    final trustSafety =
-        json['trustSafety'] is Map ? (json['trustSafety'] as Map) : null;
-    final verification =
-        json['verification'] is Map ? (json['verification'] as Map) : null;
     final selfieStatus = _firstNonEmptyString([
       json['selfieStatus'],
       json['selfie_status'],
@@ -356,12 +588,16 @@ class UserModel {
       selfieStatus == 'selfie-verified';
 
     return UserModel(
+      // CRITICAL: Prefer the backend's explicit `userId` field FIRST.
+      // Discovery/search responses include `userId` as the canonical users.id.
+      // Never use nested `profile.id` (that is the profiles row id, not user id).
+      // Using profile.id for swipe causes FK violation on likes.likedId.
       id:
           _firstNonEmptyString([
-            json['id'],
-            json['_id'],
             json['userId'],
             json['user_id'],
+            json['id'],
+            json['_id'],
             json['participantId'],
             json['participant_id'],
             json['memberId'],
@@ -372,12 +608,28 @@ class UserModel {
           '',
       username: _firstNonEmptyString([json['username'], json['userName']]),
       email: _safeString(json['email']),
-      firstName: _firstNonEmptyString([json['firstName'], json['first_name']]),
-      lastName: _firstNonEmptyString([json['lastName'], json['last_name']]),
+      firstName: _capitalizeNameValue(
+        _firstNonEmptyString([json['firstName'], json['first_name']]),
+      ),
+      lastName: _capitalizeNameValue(
+        _firstNonEmptyString([json['lastName'], json['last_name']]),
+      ),
       phone: _firstNonEmptyString([json['phone'], json['phoneNumber']]),
       role: _safeString(json['role'], 'user'),
-      status: explicitOnline ? 'online' : _safeString(rawStatus, 'active'),
+      status: _isRestrictedLifecycleStatus(normalizedLifecycleStatus)
+          ? normalizedLifecycleStatus!
+          : explicitOnline
+              ? 'online'
+              : _safeString(
+                  _normalizeLifecycleStatus(rawPresenceStatus) ??
+                      normalizedLifecycleStatus ??
+                  rawPresenceStatus,
+                  'active',
+                ),
       emailVerified: _safeBool(json['emailVerified']),
+      agreedToTerms: _safeBool(json['agreedToTerms']),
+      agreedToPrivacyPolicy: _safeBool(json['agreedToPrivacyPolicy']),
+      oathAccepted: _safeBool(json['oathAccepted']),
       phoneVerified: _safeBool(json['phoneVerified']),
       selfieVerified: _safeBool(
         json['selfieVerified'] ??
@@ -419,24 +671,29 @@ class UserModel {
         json['document_rejection_reason'],
       ]),
       isShadowBanned: _safeBool(json['isShadowBanned']),
+      statusReason: _firstNonEmptyString([json['statusReason'], json['status_reason']]),
+      moderationReasonCode: _firstNonEmptyString([json['moderationReasonCode'], json['moderation_reason_code']]),
+      moderationReasonText: _firstNonEmptyString([json['moderationReasonText'], json['moderation_reason_text']]),
+      actionRequired: _firstNonEmptyString([json['actionRequired'], json['action_required']]),
+      supportMessage: _firstNonEmptyString([json['supportMessage'], json['support_message']]),
+      isUserVisible: json['isUserVisible'] ?? json['is_user_visible'] ?? true,
+      moderationExpiresAt: _safeDate(_firstNonEmptyString([json['moderationExpiresAt'], json['moderation_expires_at'], json['expiresAt']])),
+      internalAdminNote: _firstNonEmptyString([json['internalAdminNote'], json['internal_admin_note']]),
+      updatedByAdminId: _firstNonEmptyString([json['updatedByAdminId'], json['updated_by_admin_id']]),
       trustScore: _safeInt(json['trustScore'], 100),
       backgroundCheckStatus: _firstNonEmptyString([
             json['backgroundCheckStatus'],
             json['background_check_status'],
-            if (json['trustSafety'] is Map)
-              (json['trustSafety'] as Map)['backgroundCheckStatus'],
-            if (json['trustSafety'] is Map)
-              (json['trustSafety'] as Map)['background_check_status'],
+            trustSafety?['backgroundCheckStatus'],
+            trustSafety?['background_check_status'],
           ]) ??
           'not_started',
       backgroundCheckedAt: _safeDate(
         _firstNonEmptyString([
           json['backgroundCheckedAt'],
           json['background_checked_at'],
-          if (json['trustSafety'] is Map)
-            (json['trustSafety'] as Map)['backgroundCheckedAt'],
-          if (json['trustSafety'] is Map)
-            (json['trustSafety'] as Map)['background_checked_at'],
+          trustSafety?['backgroundCheckedAt'],
+          trustSafety?['background_checked_at'],
         ]),
       ),
       flagCount: _safeInt(json['flagCount']),
@@ -454,7 +711,7 @@ class UserModel {
       photos: parsedPhotoList
           ?.whereType<Map>()
           .map((p) => PhotoModel.fromJson(Map<String, dynamic>.from(p)))
-          .where((photo) => photo.url.trim().isNotEmpty)
+          .where((photo) => photo.isLocked || photo.url.trim().isNotEmpty)
           .toList(growable: false),
       fallbackPhotoUrl: _firstNonEmptyString([
         mainPhotoMap?['url'],
@@ -500,11 +757,44 @@ class UserModel {
         if (parsedPhotoList != null && parsedPhotoList.isNotEmpty)
           (parsedPhotoList.first as Map)['url'],
       ]),
+      backendPremium: _safeBool(
+        json['isPremium'] ??
+            json['is_premium'] ??
+            json['premium'] ??
+            json['hasPremium'],
+      ),
+      premiumStartDate: _safeDate(
+        _firstNonEmptyString([
+          json['premiumStartDate'],
+          json['premium_start_date'],
+          json['premiumStartAt'],
+          json['premium_start_at'],
+        ]),
+      ),
+      premiumExpiryDate: _safeDate(
+        _firstNonEmptyString([
+          json['premiumExpiryDate'],
+          json['premium_expiry_date'],
+          json['premiumExpiresAt'],
+          json['premium_expires_at'],
+          json['premiumEndDate'],
+          json['premium_end_date'],
+        ]),
+      ),
       subscription: json['subscription'] is Map
           ? SubscriptionModel.fromJson(
               Map<String, dynamic>.from(json['subscription'] as Map),
             )
           : null,
+      subscriptionPlanId: _firstNonEmptyString([
+        json['subscriptionPlanId'],
+        json['subscription_plan_id'],
+      ]),
+      isGhostModeEnabled: isGhostModeEnabled,
+      isPassportActive: isPassportActive,
+      passportLocation: passportLocation,
+      realLocation: realLocation,
+      canViewAllPhotos: canViewAllPhotos,
       sentComplimentsCount: _safeInt(json['sentComplimentsCount']),
       profileBoostsCount: _safeInt(json['profileBoostsCount']),
     );
@@ -579,6 +869,9 @@ class UserModel {
     'role': role,
     'status': status,
     'emailVerified': emailVerified,
+    'agreedToTerms': agreedToTerms,
+    'agreedToPrivacyPolicy': agreedToPrivacyPolicy,
+    'oathAccepted': oathAccepted,
     'phoneVerified': phoneVerified,
     'selfieVerified': selfieVerified,
     'selfieUrl': selfieUrl,
@@ -588,6 +881,15 @@ class UserModel {
     'documentVerifiedAt': documentVerifiedAt?.toIso8601String(),
     'documentRejectionReason': documentRejectionReason,
     'isShadowBanned': isShadowBanned,
+    'statusReason': statusReason,
+    'moderationReasonCode': moderationReasonCode,
+    'moderationReasonText': moderationReasonText,
+    'actionRequired': actionRequired,
+    'supportMessage': supportMessage,
+    'isUserVisible': isUserVisible,
+    'moderationExpiresAt': moderationExpiresAt?.toIso8601String(),
+    'internalAdminNote': internalAdminNote,
+    'updatedByAdminId': updatedByAdminId,
     'trustScore': trustScore,
     'backgroundCheckStatus': backgroundCheckStatus,
     'backgroundCheckedAt': backgroundCheckedAt?.toIso8601String(),
@@ -601,16 +903,65 @@ class UserModel {
     'profile': profile?.toJson(),
     'photos': photos?.map((p) => p.toJson()).toList(),
     'mainPhotoUrl': fallbackPhotoUrl,
+    'isPremium': backendPremium,
+    'premiumStartDate': premiumStartDate?.toIso8601String(),
+    'premiumExpiryDate': premiumExpiryDate?.toIso8601String(),
     'subscription': subscription?.toJson(),
+    'subscriptionPlanId': subscriptionPlanId,
+    'isGhostModeEnabled': isGhostModeEnabled,
+    'isPassportActive': isPassportActive,
+    'passportLocation': passportLocation,
+    'realLocation': realLocation,
+    'canViewAllPhotos': canViewAllPhotos,
     'sentComplimentsCount': sentComplimentsCount,
     'profileBoostsCount': profileBoostsCount,
   };
 
-  String get fullName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
-  String get displayName => username ?? fullName;
-  String? get mainPhotoUrl => photos?.isNotEmpty == true
-      ? (photos!.firstWhere((p) => p.isMain, orElse: () => photos!.first)).url
-      : fallbackPhotoUrl;
+  String get fullName =>
+      '${_capitalizeNameValue(firstName) ?? ''} ${_capitalizeNameValue(lastName) ?? ''}'
+          .trim();
+  String get displayName {
+    final full = fullName.trim();
+    if (full.isNotEmpty) {
+      return full;
+    }
+    final normalizedUsername = (username ?? '').trim();
+    if (normalizedUsername.isNotEmpty) {
+      return normalizedUsername;
+    }
+    return full;
+  }
+  String get publicDisplayName {
+    final full = fullName.trim();
+    if (full.isNotEmpty) {
+      return full;
+    }
+    final usernameValue = (username ?? '').trim();
+    if (usernameValue.isNotEmpty) {
+      return usernameValue;
+    }
+    return '';
+  }
+  String get publicShortName {
+    final full = publicDisplayName.trim();
+    if (full.isEmpty) return '';
+    return full.split(RegExp(r'\s+')).first.trim();
+  }
+  String? get mainPhotoUrl {
+    final availablePhotos =
+        photos
+            ?.where((p) => !p.isLocked && p.url.trim().isNotEmpty)
+            .toList(growable: false) ??
+        const <PhotoModel>[];
+    if (availablePhotos.isNotEmpty) {
+      return availablePhotos
+          .firstWhere((p) => p.isMain, orElse: () => availablePhotos.first)
+          .url;
+    }
+
+    final fallback = (fallbackPhotoUrl ?? '').trim();
+    return fallback.isNotEmpty ? fallback : null;
+  }
   int get age => profile?.age ?? 0;
   bool get isOnline {
     final normalized = status.toLowerCase();
@@ -618,6 +969,109 @@ class UserModel {
     if (lastLoginAt == null) return false;
     return DateTime.now().difference(lastLoginAt!).inMinutes < 5;
   }
+
+  // ── Moderation status helpers ──────────────────────────────
+  bool get isLimited => status == 'limited';
+  bool get isSuspended => status == 'suspended';
+  bool get isShadowSuspended => status == 'shadow_suspended';
+  bool get isBanned => status == 'banned';
+  bool get isModerationRestricted =>
+      isLimited || isSuspended || isShadowSuspended || isBanned;
+  bool get canLike => !isLimited && !isBanned;
+  bool get canMessage => !isLimited && !isSuspended && !isBanned;
+  bool get canMatch => !isBanned;
+
+  /// Whether the moderation has expired and should auto-revert
+  bool get isModerationExpired {
+    if (moderationExpiresAt == null) return false;
+    return DateTime.now().isAfter(moderationExpiresAt!);
+  }
+
+  /// Whether the user should see any moderation UI
+  bool get shouldShowModerationUI => isUserVisible && isModerationRestricted && !isModerationExpired;
+
+  /// The primary message to show the user (prefers supportMessage > moderationReasonText > statusReason)
+  String get moderationMessage {
+    if (supportMessage != null && supportMessage!.isNotEmpty) return supportMessage!;
+    if (moderationReasonText != null && moderationReasonText!.isNotEmpty) return moderationReasonText!;
+    switch (status) {
+      case 'limited':
+        return statusReason ?? 'Your account is limited. Some features are restricted. Contact support.';
+      case 'suspended':
+        return statusReason ?? 'Your account is suspended. Contact support for more information.';
+      case 'banned':
+        return statusReason ?? 'Your account has been banned. Contact support.';
+      default:
+        return '';
+    }
+  }
+
+  /// The CTA label for the action the user must take
+  String get actionRequiredLabel {
+    switch (_normalizedActionRequired) {
+      case 'REUPLOAD_IDENTITY_DOCUMENT':
+      case 'UPLOAD_IDENTITY_DOCUMENT':
+      case 'IDENTITY_UPLOAD_REQUIRED':
+      case 'REVERIFY_REQUIRED':
+        return 'Open Verification Center';
+      case 'RETAKE_SELFIE':
+      case 'SELFIE_RETAKE_REQUIRED':
+        return 'Retake Selfie';
+      case 'UPLOAD_MARRIAGE_DOCUMENT':
+        return 'Upload Marriage Document';
+      case 'CONTACT_SUPPORT':
+        return 'Contact Support';
+      case 'WAIT_FOR_REVIEW':
+        return 'Wait for Review';
+      case 'VERIFY_PHONE':
+        return 'Verify Phone';
+      case 'VERIFY_EMAIL':
+        return 'Verify Email';
+      case 'NO_ACTION':
+        return '';
+      default:
+        return isVerificationAction
+            ? 'Open Verification Center'
+            : isModerationRestricted
+            ? 'Contact Support'
+            : '';
+    }
+  }
+
+  /// The route to navigate to for the required action
+  String? get actionRequiredRoute {
+    switch (_normalizedActionRequired) {
+      case 'REUPLOAD_IDENTITY_DOCUMENT':
+      case 'UPLOAD_IDENTITY_DOCUMENT':
+      case 'IDENTITY_UPLOAD_REQUIRED':
+      case 'REVERIFY_REQUIRED':
+      case 'RETAKE_SELFIE':
+      case 'SELFIE_RETAKE_REQUIRED':
+      case 'UPLOAD_MARRIAGE_DOCUMENT':
+        return AppRoutes.verificationCenter;
+      case 'VERIFY_PHONE':
+        return AppRoutes.contactSupport;
+      case 'VERIFY_EMAIL':
+        return AppRoutes.signupEmailVerification;
+      case 'CONTACT_SUPPORT':
+        return AppRoutes.contactSupport;
+      default:
+        return null;
+    }
+  }
+
+  /// Whether the required action is a verification-type action
+  bool get isVerificationAction =>
+      _normalizedActionRequired == 'REUPLOAD_IDENTITY_DOCUMENT' ||
+      _normalizedActionRequired == 'UPLOAD_IDENTITY_DOCUMENT' ||
+      _normalizedActionRequired == 'IDENTITY_UPLOAD_REQUIRED' ||
+      _normalizedActionRequired == 'REVERIFY_REQUIRED' ||
+      _normalizedActionRequired == 'RETAKE_SELFIE' ||
+      _normalizedActionRequired == 'SELFIE_RETAKE_REQUIRED' ||
+      _normalizedActionRequired == 'UPLOAD_MARRIAGE_DOCUMENT';
+
+  String get _normalizedActionRequired =>
+      (actionRequired ?? '').trim().toUpperCase().replaceAll('-', '_');
 
   bool get wasLiveInLast24Hours {
     if (isOnline) return true;
@@ -641,11 +1095,25 @@ class UserModel {
   bool get hasProfilePhoto {
     final approvedPhotos =
         photos
-            ?.where((p) => p.url.trim().isNotEmpty)
+            ?.where((p) => !p.isLocked && p.url.trim().isNotEmpty)
             .toList(growable: false) ??
         const <PhotoModel>[];
     if (approvedPhotos.isNotEmpty) return true;
     return (fallbackPhotoUrl ?? '').trim().isNotEmpty;
+  }
+
+  int get lockedPhotoCount =>
+      photos?.where((photo) => photo.isLocked).length ?? 0;
+
+  bool get hasLockedPhotos => lockedPhotoCount > 0;
+
+  String get lockedPhotosCta {
+    for (final photo in photos ?? const <PhotoModel>[]) {
+      if (!photo.isLocked) continue;
+      final cta = (photo.unlockCta ?? '').trim();
+      if (cta.isNotEmpty) return cta;
+    }
+    return 'Verify your selfie to unlock all photos';
   }
 
   int get profileCompletenessScore {
@@ -737,8 +1205,21 @@ class UserModel {
         normalized == 'cleared';
   }
 
+  bool get hasActivePremiumEntitlement {
+    if (!backendPremium) return false;
+    final now = DateTime.now();
+    if (premiumStartDate != null && premiumStartDate!.isAfter(now)) {
+      return false;
+    }
+    if (premiumExpiryDate != null && !premiumExpiryDate!.isAfter(now)) {
+      return false;
+    }
+    return true;
+  }
+
   bool get isPremium =>
-      (subscription != null && subscription!.isPremium) || isTrialActive;
+      hasActivePremiumEntitlement ||
+      (subscription != null && subscription!.isPremium);
 }
 
 class ProfileModel {
@@ -772,6 +1253,8 @@ class ProfileModel {
   // Physical
   final int? height;
   final int? weight;
+  final String? skinComplexion;
+  final String? bodyBuild;
 
   // Lifestyle
   final String? livingSituation;
@@ -808,6 +1291,7 @@ class ProfileModel {
 
   // About Partner
   final String? aboutPartner;
+  final double? preferredDistanceKm;
 
   // Privacy
   final bool showAge;
@@ -845,6 +1329,8 @@ class ProfileModel {
     this.company,
     this.height,
     this.weight,
+    this.skinComplexion,
+    this.bodyBuild,
     this.livingSituation,
     this.communicationStyle,
     this.alcohol,
@@ -871,6 +1357,7 @@ class ProfileModel {
     this.favoriteBooks,
     this.travelPreferences,
     this.aboutPartner,
+    this.preferredDistanceKm,
     this.showAge = true,
     this.showDistance = true,
     this.showOnlineStatus = true,
@@ -900,7 +1387,10 @@ class ProfileModel {
       religiousLevel: json['religiousLevel'],
       sect: json['sect'],
       prayerFrequency: json['prayerFrequency'],
-      marriageIntention: json['marriageIntention'],
+      marriageIntention:
+          json['marriageIntention'] ??
+          json['marriageTimeline'] ??
+          json['timeFrame'],
       maritalStatus: json['maritalStatus'],
       secondWifePreference: json['secondWifePreference'],
       intentMode: json['intentMode'],
@@ -910,6 +1400,8 @@ class ProfileModel {
       company: json['company'],
       height: json['height'] != null ? _safeInt(json['height']) : null,
       weight: json['weight'] != null ? _safeInt(json['weight']) : null,
+      skinComplexion: json['skinComplexion'] ?? json['skin_complexion'],
+      bodyBuild: json['build'],
       livingSituation: json['livingSituation'],
       communicationStyle: json['communicationStyle'],
       alcohol: json['alcohol'],
@@ -932,7 +1424,9 @@ class ProfileModel {
           ? _safeInt(json['numberOfChildren'])
           : null,
       wantsChildren: json['wantsChildren'],
-      willingToRelocate: json['willingToRelocate'],
+      willingToRelocate: _safeBool(
+        json['willingToRelocate'] ?? json['willing_to_relocate'],
+      ),
       interests: json['interests'] != null
           ? List<String>.from(json['interests'])
           : null,
@@ -952,6 +1446,12 @@ class ProfileModel {
           ? List<String>.from(json['travelPreferences'])
           : null,
       aboutPartner: json['aboutPartner'],
+      preferredDistanceKm: _safeDouble(
+        json['preferredDistanceKm'] ??
+            json['preferred_distance_km'] ??
+            json['maxDistance'] ??
+            json['max_distance'],
+      ),
       showAge: json['showAge'] ?? true,
       showDistance: json['showDistance'] ?? true,
       showOnlineStatus: json['showOnlineStatus'] ?? true,
@@ -991,6 +1491,8 @@ class ProfileModel {
       if (company != null) 'company': company,
       if (height != null) 'height': height,
       if (weight != null) 'weight': weight,
+      if (skinComplexion != null) 'skinComplexion': skinComplexion,
+      if (bodyBuild != null) 'build': bodyBuild,
       if (livingSituation != null) 'livingSituation': livingSituation,
       if (communicationStyle != null) 'communicationStyle': communicationStyle,
       if (alcohol != null) 'alcohol': alcohol,
@@ -1017,6 +1519,7 @@ class ProfileModel {
       if (favoriteBooks != null) 'favoriteBooks': favoriteBooks,
       if (travelPreferences != null) 'travelPreferences': travelPreferences,
       if (aboutPartner != null) 'aboutPartner': aboutPartner,
+      if (preferredDistanceKm != null) 'preferredDistanceKm': preferredDistanceKm,
       'showAge': showAge,
       'showDistance': showDistance,
       'showOnlineStatus': showOnlineStatus,
@@ -1035,6 +1538,11 @@ class ProfileModel {
 class PhotoModel {
   final String id;
   final String url;
+  final String? originalUrl;
+  final String? thumbnailUrl;
+  final String? cardUrl;
+  final String? profileUrl;
+  final String? fullscreenUrl;
   final String? publicId;
   final bool isMain;
   final bool isSelfieVerification;
@@ -1042,10 +1550,18 @@ class PhotoModel {
   final String moderationStatus;
   final String? moderationNote;
   final DateTime? createdAt;
+  final bool isLocked;
+  final String? lockReason;
+  final String? unlockCta;
 
   PhotoModel({
     required this.id,
     required this.url,
+    this.originalUrl,
+    this.thumbnailUrl,
+    this.cardUrl,
+    this.profileUrl,
+    this.fullscreenUrl,
     this.publicId,
     this.isMain = false,
     this.isSelfieVerification = false,
@@ -1053,9 +1569,33 @@ class PhotoModel {
     this.moderationStatus = 'approved',
     this.moderationNote,
     this.createdAt,
+    this.isLocked = false,
+    this.lockReason,
+    this.unlockCta,
   });
 
   factory PhotoModel.fromJson(Map<String, dynamic> json) {
+    final rawUrl = _firstNonEmptyString([
+          json['url'],
+          json['secureUrl'],
+          json['secure_url'],
+          json['imageUrl'],
+          json['image_url'],
+          json['photoUrl'],
+          json['photo_url'],
+          json['photo'],
+          json['image'],
+          json['avatar'],
+          json['avatarUrl'],
+          json['avatar_url'],
+          json['file'],
+          json['src'],
+          json['link'],
+          json['location'],
+          json['path'],
+        ]) ??
+        '';
+
     return PhotoModel(
       id: _firstNonEmptyString([
             json['id'],
@@ -1064,26 +1604,34 @@ class PhotoModel {
             json['photo_id'],
           ]) ??
           '',
-      url: _firstNonEmptyString([
-            json['url'],
-            json['secureUrl'],
-            json['secure_url'],
-            json['imageUrl'],
-            json['image_url'],
-            json['photoUrl'],
-            json['photo_url'],
-        json['photo'],
-        json['image'],
-        json['avatar'],
-        json['avatarUrl'],
-        json['avatar_url'],
-        json['file'],
-        json['src'],
-        json['link'],
-        json['location'],
-            json['path'],
-          ]) ??
-          '',
+      url: rawUrl,
+      originalUrl: _firstNonEmptyString([
+        json['originalUrl'],
+        json['original_url'],
+        rawUrl,
+      ]),
+      thumbnailUrl: _firstNonEmptyString([
+        json['thumbnailUrl'],
+        json['thumbnail_url'],
+      ]),
+      cardUrl: _firstNonEmptyString([
+        json['cardUrl'],
+        json['card_url'],
+        json['mediumUrl'],
+        json['medium_url'],
+      ]),
+      profileUrl: _firstNonEmptyString([
+        json['profileUrl'],
+        json['profile_url'],
+        json['largeUrl'],
+        json['large_url'],
+      ]),
+      fullscreenUrl: _firstNonEmptyString([
+        json['fullscreenUrl'],
+        json['fullscreen_url'],
+        json['fullUrl'],
+        json['full_url'],
+      ]),
       publicId: _firstNonEmptyString([json['publicId'], json['public_id']]),
       isMain: _safeBool(json['isMain'] ?? json['main']),
       isSelfieVerification: _safeBool(
@@ -1095,15 +1643,48 @@ class PhotoModel {
       moderationNote:
           _firstNonEmptyString([json['moderationNote'], json['note']]),
       createdAt: _safeDate(json['createdAt'] ?? json['created_at']),
+      isLocked: _safeBool(
+        json['isLocked'] ??
+            json['locked'] ??
+            json['is_locked'] ??
+            json['blurred'],
+      ),
+      lockReason: _firstNonEmptyString([
+        json['lockReason'],
+        json['lock_reason'],
+        json['reason'],
+      ]),
+      unlockCta: _firstNonEmptyString([
+        json['unlockCta'],
+        json['unlock_cta'],
+        json['cta'],
+      ]),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'url': url,
+    'originalUrl': originalUrl,
+    'thumbnailUrl': thumbnailUrl,
+    'cardUrl': cardUrl,
+    'profileUrl': profileUrl,
+    'fullscreenUrl': fullscreenUrl,
     'isMain': isMain,
     'order': order,
+    'isLocked': isLocked,
+    'lockReason': lockReason,
+    'unlockCta': unlockCta,
   };
+
+  String get cardDeliveryUrl =>
+      (cardUrl ?? thumbnailUrl ?? url).trim();
+
+  String get profileDeliveryUrl =>
+      (profileUrl ?? cardUrl ?? url).trim();
+
+  String get fullscreenDeliveryUrl =>
+      (fullscreenUrl ?? profileUrl ?? cardUrl ?? url).trim();
 }
 
 class SubscriptionModel {
@@ -1145,7 +1726,11 @@ class SubscriptionModel {
     'paymentReference': paymentReference,
   };
 
-  bool get isActive => status == 'active';
+  bool get isActive =>
+      status == 'active' ||
+      status == 'pending_cancellation' ||
+      status == 'past_due' ||
+      status == 'trial';
   bool get isExpired => endDate != null && DateTime.now().isAfter(endDate!);
   bool get isPremium => plan != 'free' && isActive && !isExpired;
   bool get isGold => plan == 'gold' && isActive && !isExpired;

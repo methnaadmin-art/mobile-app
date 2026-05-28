@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -6,6 +6,11 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/locale_controller.dart';
 import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/controllers/login_controller.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_shadows.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/utils/validators.dart';
 import 'package:methna_app/core/widgets/login_security_avatar.dart';
@@ -18,8 +23,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const Color _purple = Color(0xFF8A14FF);
-  static const Color _purpleLight = Color(0xFFA93CFF);
+  static const Color _primaryBrand = AppColors.primary;
+  static const Color _primaryLightBrand = AppColors.primaryLight;
 
   final LoginController controller = Get.find<LoginController>();
   final LocaleController _localeController = Get.find<LocaleController>();
@@ -45,15 +50,19 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? const Color(0xFF1E1A28) : const Color(0xFFF7F7FA);
-    final border = isDark ? const Color(0xFF3A3445) : const Color(0xFFEAEAF0);
+    final surface = isDark
+        ? AppColors.surfaceMutedDark
+        : const Color(0xFFFFF5F7);
+    final border = isDark
+        ? AppColors.borderDark
+        : AppColors.primary.withValues(alpha: 0.22);
     final textPrimary = isDark
-        ? const Color(0xFFF0ECF6)
-        : const Color(0xFF222222);
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimaryLight;
     final textSecondary = isDark
-        ? const Color(0xFFA8A0B8)
-        : const Color(0xFF91919A);
-    final bgColor = isDark ? const Color(0xFF14101E) : Colors.white;
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+    final bgColor = isDark ? AppColors.canvasDark : Colors.white;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -61,27 +70,35 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Stack(
           children: [
+            Positioned.fill(child: _LoginAtmosphere(isDark: isDark)),
             Positioned.fill(
               child: GestureDetector(
                 onTap: () => FocusScope.of(context).unfocus(),
                 behavior: HitTestBehavior.opaque,
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeOutCubic,
+                  duration: const Duration(milliseconds: 420),
+                  switchInCurve: Curves.easeOutQuart,
+                  switchOutCurve: Curves.easeInCubic,
                   transitionBuilder: (child, animation) {
                     final curved = CurvedAnimation(
                       parent: animation,
-                      curve: Curves.easeOutCubic,
+                      curve: Curves.easeOutQuart,
                     );
                     final slide = Tween<Offset>(
-                      begin: const Offset(0.08, 0),
+                      begin: const Offset(0.06, 0),
                       end: Offset.zero,
+                    ).animate(curved);
+                    final scale = Tween<double>(
+                      begin: 0.985,
+                      end: 1,
                     ).animate(curved);
 
                     return FadeTransition(
                       opacity: curved,
-                      child: SlideTransition(position: slide, child: child),
+                      child: SlideTransition(
+                        position: slide,
+                        child: ScaleTransition(scale: scale, child: child),
+                      ),
                     );
                   },
                   child: _showEmailForm
@@ -92,8 +109,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: controller,
                             onBack: () =>
                                 setState(() => _showEmailForm = false),
-                            purple: _purple,
-                            purpleLight: _purpleLight,
+                            primaryBrand: _primaryBrand,
+                            primaryLightBrand: _primaryLightBrand,
                             surface: surface,
                             border: border,
                             textPrimary: textPrimary,
@@ -105,8 +122,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: controller,
                           onEmailLogin: () =>
                               setState(() => _showEmailForm = true),
-                          purple: _purple,
-                          purpleLight: _purpleLight,
+                          primaryBrand: _primaryBrand,
+                          primaryLightBrand: _primaryLightBrand,
                           border: border,
                           textPrimary: textPrimary,
                           textSecondary: textSecondary,
@@ -115,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             Positioned(
-              top: 6,
+              top: 10,
               right: 10,
               child: Row(
                 children: [
@@ -174,6 +191,99 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
+class _LoginAtmosphere extends StatelessWidget {
+  const _LoginAtmosphere({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: isDark
+                      ? const [
+                          Color(0xFF100A22),
+                          Color(0xFF1A1238),
+                          Color(0xFF29195A),
+                        ]
+                      : const [
+                          Colors.white,
+                          Color(0xFFFEFEFE),
+                          Color(0xFFFFFAFB),
+                        ],
+                  stops: const [0.0, 0.46, 1.0],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -92,
+            left: -72,
+            child: _BackgroundBlurBlob(
+              size: 260,
+              color: isDark ? const Color(0x80E85D75) : const Color(0x1AE85D75),
+            ),
+          ),
+          Positioned(
+            top: 128,
+            right: -88,
+            child: _BackgroundBlurBlob(
+              size: 290,
+              color: isDark ? const Color(0x70F07A90) : const Color(0x14F07A90),
+            ),
+          ),
+          Positioned(
+            bottom: -104,
+            left: 24,
+            child: _BackgroundBlurBlob(
+              size: 320,
+              color: isDark ? const Color(0x70E85D75) : const Color(0x14E85D75),
+            ),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0x2B100A22)
+                      : const Color(0x00FFFFFF),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BackgroundBlurBlob extends StatelessWidget {
+  const _BackgroundBlurBlob({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      ),
+    );
+  }
+}
+
 class _LoginQuickActionButton extends StatelessWidget {
   const _LoginQuickActionButton({
     required this.icon,
@@ -219,8 +329,8 @@ class _LoginQuickActionButton extends StatelessWidget {
 class _EntryLoginView extends StatelessWidget {
   final LoginController controller;
   final VoidCallback onEmailLogin;
-  final Color purple;
-  final Color purpleLight;
+  final Color primaryBrand;
+  final Color primaryLightBrand;
   final Color border;
   final Color textPrimary;
   final Color textSecondary;
@@ -229,8 +339,8 @@ class _EntryLoginView extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onEmailLogin,
-    required this.purple,
-    required this.purpleLight,
+    required this.primaryBrand,
+    required this.primaryLightBrand,
     required this.border,
     required this.textPrimary,
     required this.textSecondary,
@@ -243,6 +353,8 @@ class _EntryLoginView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxHeight < 760;
+        final showGoogleSignIn = !GetPlatform.isIOS && !GetPlatform.isMacOS;
+        final showAppleSignIn = GetPlatform.isIOS || GetPlatform.isMacOS;
 
         return ListView(
           physics: const ClampingScrollPhysics(),
@@ -260,7 +372,7 @@ class _EntryLoginView extends StatelessWidget {
                 width: 84,
                 height: 84,
                 decoration: BoxDecoration(
-                  color: purple.withValues(alpha: 0.08),
+                  color: primaryBrand.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -278,74 +390,56 @@ class _EntryLoginView extends StatelessWidget {
             Text(
               AppConstants.appName,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                color: textPrimary,
-                letterSpacing: -0.7,
-              ),
+              style: AppTextStyles.displayMedium.copyWith(color: textPrimary),
             ),
             const SizedBox(height: 10),
             Text(
               'app_tagline'.tr,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: textSecondary,
-              ),
+              style: AppTextStyles.bodyMedium.copyWith(color: textSecondary),
             ),
             SizedBox(height: compact ? 22 : 34),
-            Obx(
-              () => _SocialButton(
-                label: 'continue_with_google'.tr,
-                icon: const _BrandIcon.google(),
-                onTap: controller.isGoogleLoading.value
-                    ? null
-                    : controller.signInWithGoogle,
-                isLoading: controller.isGoogleLoading.value,
-                border: border,
-                textPrimary: textPrimary,
+            if (showGoogleSignIn) ...[
+              Obx(
+                () => _SocialButton(
+                  label: 'continue_with_google'.tr,
+                  icon: const _BrandIcon.google(),
+                  onTap: controller.isGoogleLoading.value
+                      ? null
+                      : controller.signInWithGoogle,
+                  isLoading: controller.isGoogleLoading.value,
+                  border: border,
+                  textPrimary: textPrimary,
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            _SocialButton(
-              label: 'continue_with_apple'.tr,
-              icon: const _BrandIcon.apple(),
-              onTap: null,
-              border: border,
-              textPrimary: textPrimary,
-              comingSoon: true,
-            ),
-            const SizedBox(height: 14),
-            _SocialButton(
-              label: 'continue_with_facebook'.tr,
-              icon: const _BrandIcon.facebook(),
-              onTap: null,
-              border: border,
-              textPrimary: textPrimary,
-              comingSoon: true,
-            ),
-            const SizedBox(height: 14),
-            _SocialButton(
-              label: 'continue_with_twitter'.tr,
-              icon: const _BrandIcon.twitter(),
-              onTap: null,
-              border: border,
-              textPrimary: textPrimary,
-              comingSoon: true,
-            ),
+              const SizedBox(height: 14),
+            ],
+            if (showAppleSignIn) ...[
+              Obx(
+                () => _SocialButton(
+                  label: 'continue_with_apple'.tr,
+                  icon: const _BrandIcon.apple(),
+                  onTap: controller.isAppleLoading.value
+                      ? null
+                      : controller.signInWithApple,
+                  isLoading: controller.isAppleLoading.value,
+                  border: border,
+                  textPrimary: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
             SizedBox(height: compact ? 22 : 34),
             _PrimaryAuthButton(
               label: 'login'.tr,
               onTap: onEmailLogin,
-              purple: purple,
-              purpleLight: purpleLight,
+              primaryBrand: primaryBrand,
+              primaryLightBrand: primaryLightBrand,
             ),
             const SizedBox(height: 18),
             _FooterSignupRow(
               textSecondary: textSecondary,
-              purple: purple,
+              primaryBrand: primaryBrand,
               onTap: controller.goToSignUp,
             ),
           ],
@@ -358,8 +452,8 @@ class _EntryLoginView extends StatelessWidget {
 class _EmailLoginView extends StatelessWidget {
   final LoginController controller;
   final VoidCallback onBack;
-  final Color purple;
-  final Color purpleLight;
+  final Color primaryBrand;
+  final Color primaryLightBrand;
   final Color surface;
   final Color border;
   final Color textPrimary;
@@ -369,8 +463,8 @@ class _EmailLoginView extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onBack,
-    required this.purple,
-    required this.purpleLight,
+    required this.primaryBrand,
+    required this.primaryLightBrand,
     required this.surface,
     required this.border,
     required this.textPrimary,
@@ -389,8 +483,8 @@ class _EmailLoginView extends StatelessWidget {
         _EmailLoginContent(
           controller: controller,
           onBack: onBack,
-          purple: purple,
-          purpleLight: purpleLight,
+          primaryBrand: primaryBrand,
+          primaryLightBrand: primaryLightBrand,
           surface: surface,
           border: border,
           textPrimary: textPrimary,
@@ -405,8 +499,8 @@ class _EmailLoginView extends StatelessWidget {
 class _EmailLoginContent extends StatefulWidget {
   final LoginController controller;
   final VoidCallback onBack;
-  final Color purple;
-  final Color purpleLight;
+  final Color primaryBrand;
+  final Color primaryLightBrand;
   final Color surface;
   final Color border;
   final Color textPrimary;
@@ -416,8 +510,8 @@ class _EmailLoginContent extends StatefulWidget {
   const _EmailLoginContent({
     required this.controller,
     required this.onBack,
-    required this.purple,
-    required this.purpleLight,
+    required this.primaryBrand,
+    required this.primaryLightBrand,
     required this.surface,
     required this.border,
     required this.textPrimary,
@@ -496,8 +590,8 @@ class _EmailLoginContentState extends State<_EmailLoginContent>
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final onBack = widget.onBack;
-    final purple = widget.purple;
-    final purpleLight = widget.purpleLight;
+    final primaryBrand = widget.primaryBrand;
+    final primaryLightBrand = widget.primaryLightBrand;
     final surface = widget.surface;
     final border = widget.border;
     final textPrimary = widget.textPrimary;
@@ -525,20 +619,15 @@ class _EmailLoginContentState extends State<_EmailLoginContent>
             children: [
               Text(
                 'welcome_back'.tr,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
+                style: AppTextStyles.displayLarge.copyWith(
                   color: textPrimary,
-                  letterSpacing: -1.0,
                   height: 1.12,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
                 'login_subtitle'.tr,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
+                style: AppTextStyles.bodyMedium.copyWith(
                   color: textSecondary,
                   height: 1.35,
                 ),
@@ -560,8 +649,8 @@ class _EmailLoginContentState extends State<_EmailLoginContent>
                     .isNotEmpty,
                 isIdentifierFocused: _identifierFocusNode.hasFocus,
                 size: keyboardVisible ? 96 : 114,
-                accent: purple,
-                accentLight: purpleLight,
+                accent: primaryBrand,
+                accentLight: primaryLightBrand,
                 faceColor: surface,
                 strokeColor: border,
               ),
@@ -654,7 +743,7 @@ class _EmailLoginContentState extends State<_EmailLoginContent>
               final rememberMeWidget = Obx(
                 () => InkWell(
                   onTap: controller.rememberMe.toggle,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
@@ -666,10 +755,10 @@ class _EmailLoginContentState extends State<_EmailLoginContent>
                           height: 17,
                           decoration: BoxDecoration(
                             color: controller.rememberMe.value
-                                ? purple
+                                ? primaryBrand
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: purple, width: 1.4),
+                            border: Border.all(color: primaryBrand, width: 1.4),
                           ),
                           child: controller.rememberMe.value
                               ? const Icon(
@@ -701,7 +790,7 @@ class _EmailLoginContentState extends State<_EmailLoginContent>
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: purple,
+                    color: primaryBrand,
                   ),
                 ),
               );
@@ -736,15 +825,15 @@ class _EmailLoginContentState extends State<_EmailLoginContent>
                 () => _PrimaryAuthButton(
                   label: 'login'.tr,
                   onTap: controller.isLoading.value ? null : controller.login,
-                  purple: purple,
-                  purpleLight: purpleLight,
+                  primaryBrand: primaryBrand,
+                  primaryLightBrand: primaryLightBrand,
                   isLoading: controller.isLoading.value,
                 ),
               ),
               const SizedBox(height: 18),
               _FooterSignupRow(
                 textSecondary: textSecondary,
-                purple: purple,
+                primaryBrand: primaryBrand,
                 onTap: controller.goToSignUp,
               ),
               const SizedBox(height: 12),
@@ -763,7 +852,6 @@ class _SocialButton extends StatelessWidget {
   final bool isLoading;
   final Color border;
   final Color textPrimary;
-  final bool comingSoon;
 
   const _SocialButton({
     required this.label,
@@ -772,7 +860,6 @@ class _SocialButton extends StatelessWidget {
     required this.border,
     required this.textPrimary,
     this.isLoading = false,
-    this.comingSoon = false,
   });
 
   @override
@@ -792,11 +879,7 @@ class _SocialButton extends StatelessWidget {
                 : Text(
                     label,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimary,
-                    ),
+                    style: AppTextStyles.button.copyWith(color: textPrimary),
                   ),
           ),
         ),
@@ -806,17 +889,17 @@ class _SocialButton extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(AppRadii.lg),
       child: InkWell(
         onTap: isLoading ? null : onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
         child: Ink(
-          height: 52,
+          height: AppSpacing.buttonHeight,
           decoration: BoxDecoration(
             color: isDisabled
                 ? border.withValues(alpha: 0.3)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(AppRadii.lg),
             border: Border.all(color: border),
           ),
           child: Stack(
@@ -828,43 +911,11 @@ class _SocialButton extends StatelessWidget {
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 180),
                       opacity: isDisabled ? 0.66 : 1,
-                      child: comingSoon
-                          ? ImageFiltered(
-                              imageFilter: ImageFilter.blur(
-                                sigmaX: 0.9,
-                                sigmaY: 0.9,
-                              ),
-                              child: content,
-                            )
-                          : content,
+                      child: content,
                     ),
                   ),
                 ),
               ),
-              if (comingSoon)
-                Positioned(
-                  right: 10,
-                  top: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: border),
-                    ),
-                    child: Text(
-                      'coming_soon'.tr,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF7E7E88),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -885,30 +936,13 @@ class _BrandIcon extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Color(0xFFEA4335),
+            color: AppColors.primary,
           ),
         ),
       );
 
   const _BrandIcon.apple()
-    : this._(child: const Icon(Icons.apple, size: 20, color: Colors.black));
-
-  const _BrandIcon.facebook()
-    : this._(
-        child: const Icon(Icons.facebook, size: 20, color: Color(0xFF1877F2)),
-      );
-
-  const _BrandIcon.twitter()
-    : this._(
-        child: const Text(
-          'X',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1DA1F2),
-          ),
-        ),
-      );
+    : this._(child: const Icon(Icons.apple, size: 22, color: Colors.black));
 
   @override
   Widget build(BuildContext context) => child;
@@ -918,14 +952,14 @@ class _PrimaryAuthButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   final bool isLoading;
-  final Color purple;
-  final Color purpleLight;
+  final Color primaryBrand;
+  final Color primaryLightBrand;
 
   const _PrimaryAuthButton({
     required this.label,
     required this.onTap,
-    required this.purple,
-    required this.purpleLight,
+    required this.primaryBrand,
+    required this.primaryLightBrand,
     this.isLoading = false,
   });
 
@@ -936,14 +970,15 @@ class _PrimaryAuthButton extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [purple, purpleLight],
+          colors: [primaryBrand, primaryLightBrand],
         ),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
         boxShadow: [
+          ...AppShadows.buttonGlow(primaryBrand),
           BoxShadow(
-            color: purple.withValues(alpha: 0.24),
+            color: primaryBrand.withValues(alpha: 0.28),
             blurRadius: 18,
-            offset: const Offset(0, 8),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -951,9 +986,9 @@ class _PrimaryAuthButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: isLoading ? null : onTap,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(AppRadii.lg),
           child: SizedBox(
-            height: 54,
+            height: AppSpacing.buttonHeight,
             child: Center(
               child: isLoading
                   ? const SizedBox(
@@ -966,11 +1001,7 @@ class _PrimaryAuthButton extends StatelessWidget {
                     )
                   : Text(
                       label,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
+                      style: AppTextStyles.button.copyWith(color: Colors.white),
                     ),
             ),
           ),
@@ -982,12 +1013,12 @@ class _PrimaryAuthButton extends StatelessWidget {
 
 class _FooterSignupRow extends StatelessWidget {
   final Color textSecondary;
-  final Color purple;
+  final Color primaryBrand;
   final VoidCallback onTap;
 
   const _FooterSignupRow({
     required this.textSecondary,
-    required this.purple,
+    required this.primaryBrand,
     required this.onTap,
   });
 
@@ -1012,7 +1043,7 @@ class _FooterSignupRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: purple,
+                color: primaryBrand,
               ),
             ),
           ),
@@ -1084,22 +1115,17 @@ class _ExactInputField extends StatelessWidget {
       textInputAction: textInputAction,
       focusNode: focusNode,
       onChanged: onChanged,
-      cursorColor: _LoginScreenState._purple,
+      cursorColor: _LoginScreenState._primaryBrand,
       autocorrect: false,
       enableSuggestions: !obscureText,
       scrollPadding: const EdgeInsets.only(bottom: 160),
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
+      style: AppTextStyles.bodyLarge.copyWith(
+        fontWeight: FontWeight.w400,
         color: textPrimary,
       ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-          color: textSecondary,
-        ),
+        hintStyle: AppTextStyles.bodyMedium.copyWith(color: textSecondary),
         filled: true,
         fillColor: fillColor,
         prefixIcon: prefix == null
@@ -1119,28 +1145,29 @@ class _ExactInputField extends StatelessWidget {
         ),
         suffixIcon: suffix,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.lg),
           borderSide: BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.lg),
           borderSide: const BorderSide(
-            color: _LoginScreenState._purple,
+            color: _LoginScreenState._primaryBrand,
             width: 1.2,
           ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.redAccent),
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          borderSide: const BorderSide(color: const Color(0xFF4F26D9)),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.redAccent),
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          borderSide: const BorderSide(color: const Color(0xFF4F26D9)),
         ),
+        errorStyle: AppTextStyles.error.copyWith(color: const Color(0xFF4F26D9)),
       ),
     );
   }

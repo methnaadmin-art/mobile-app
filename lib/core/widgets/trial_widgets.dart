@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/trial_manager.dart';
@@ -32,19 +32,21 @@ class TrialGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      // Combined premium check: trial OR purchased (local) OR backend plan
-      bool canAccess = trialManager.isEffectivePremium;
-      if (!canAccess) {
-        try {
-          canAccess = Get.find<MonetizationService>().isPremium;
-        } catch (_) {
-          // MonetizationService not registered yet — rely on trial only
-        }
-      }
+      // Canonical premium check: backend/service entitlement first.
+      bool canAccess = false;
+      try {
+        canAccess = Get.find<MonetizationService>().isPremium;
+      } catch (_) {}
+
       if (!canAccess) {
         try {
           canAccess = Get.find<AuthService>().currentUser.value?.isPremium ?? false;
         } catch (_) {}
+      }
+
+      // Trial can still unlock premium UI while active.
+      if (!canAccess) {
+        canAccess = trialManager.isTrialActive;
       }
       
       if (canAccess) {
@@ -96,7 +98,7 @@ class TrialGate extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(LucideIcons.crown, size: 16, color: Colors.amber.shade700),
+              Icon(LucideIcons.crown, size: 16, color: const Color(0xFF4F26D9)),
               const SizedBox(width: 8),
               Text(
                 'premium_feature'.tr,
@@ -140,8 +142,19 @@ class TrialBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      // Premium purchased - show premium badge
-      if (trialManager.isPremiumPurchased) {
+      bool hasActivePremium = false;
+      try {
+        hasActivePremium = Get.find<MonetizationService>().isPremium;
+      } catch (_) {}
+      if (!hasActivePremium) {
+        try {
+          hasActivePremium =
+              Get.find<AuthService>().currentUser.value?.isPremium ?? false;
+        } catch (_) {}
+      }
+
+      // Active premium entitlement - show premium badge
+      if (hasActivePremium) {
         return _buildPremiumBadge();
       }
       
@@ -165,12 +178,12 @@ class TrialBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFD4AF37), Color(0xFFFFD700)],
+          colors: [Color(0xFF6E3DFB), Color(0xFFA78BFA)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
+            color: const Color(0xFF6E3DFB).withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -203,10 +216,10 @@ class TrialBanner extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isUrgent ? Colors.red.shade50 : Colors.amber.shade50,
+          color: isUrgent ? const Color(0xFFF4F0FF) : const Color(0xFFF4F0FF),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isUrgent ? Colors.red.shade200 : Colors.amber.shade200,
+            color: isUrgent ? const Color(0xFFA78BFA) : const Color(0xFFA78BFA),
           ),
         ),
         child: Row(
@@ -215,13 +228,13 @@ class TrialBanner extends StatelessWidget {
             Icon(
               LucideIcons.timer,
               size: 14,
-              color: isUrgent ? Colors.red.shade600 : Colors.amber.shade700,
+              color: isUrgent ? const Color(0xFF4F26D9) : const Color(0xFF4F26D9),
             ),
             const SizedBox(width: 6),
             Text(
               '${trialManager.formattedTimeRemaining} ${'remaining'.tr}',
               style: TextStyle(
-                color: isUrgent ? Colors.red.shade700 : Colors.amber.shade800,
+                color: isUrgent ? const Color(0xFF4F26D9) : const Color(0xFF4F26D9),
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -297,7 +310,7 @@ class _TrialExpiredSheet extends StatelessWidget {
               height: 80,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFD4AF37), Color(0xFFFFD700)],
+                  colors: [Color(0xFF6E3DFB), Color(0xFFA78BFA)],
                 ),
                 borderRadius: BorderRadius.circular(40),
               ),
@@ -351,7 +364,7 @@ class _TrialExpiredSheet extends StatelessWidget {
                   Get.toNamed(AppRoutes.subscription);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
+                  backgroundColor: const Color(0xFF6E3DFB),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -394,10 +407,10 @@ class _TrialExpiredSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFD4AF37).withValues(alpha: 0.1),
+              color: const Color(0xFF6E3DFB).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 16, color: const Color(0xFFD4AF37)),
+            child: Icon(icon, size: 16, color: const Color(0xFF6E3DFB)),
           ),
           const SizedBox(width: 12),
           Text(
@@ -411,7 +424,7 @@ class _TrialExpiredSheet extends StatelessWidget {
           const Icon(
             LucideIcons.check,
             size: 16,
-            color: Color(0xFFD4AF37),
+            color: Color(0xFF6E3DFB),
           ),
         ],
       ),
@@ -438,12 +451,12 @@ class TrialWelcomeDialog extends StatelessWidget {
               height: 100,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFD4AF37), Color(0xFFFFD700)],
+                  colors: [Color(0xFF6E3DFB), Color(0xFFA78BFA)],
                 ),
                 borderRadius: BorderRadius.circular(50),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFD4AF37).withValues(alpha: 0.4),
+                    color: const Color(0xFF6E3DFB).withValues(alpha: 0.4),
                     blurRadius: 20,
                     spreadRadius: 5,
                   ),
@@ -495,7 +508,7 @@ class TrialWelcomeDialog extends StatelessWidget {
                   Get.back();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
+                  backgroundColor: const Color(0xFF6E3DFB),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -521,7 +534,7 @@ class TrialWelcomeDialog extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: const Color(0xFFD4AF37)),
+          Icon(icon, size: 20, color: const Color(0xFF6E3DFB)),
           const SizedBox(width: 12),
           Text(
             text,

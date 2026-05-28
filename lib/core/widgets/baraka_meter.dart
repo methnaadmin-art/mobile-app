@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// Baraka Meter — Islamic-values compatibility indicator.
@@ -21,15 +21,15 @@ class BarakaMeter extends StatelessWidget {
   });
 
   Color get _color {
-    if (score >= 75) return const Color(0xFF2E7D32); // deep green
+    if (score >= 75) return const Color(0xFF8B5CF6); // deep green
     if (score >= 45) return const Color(0xFFF9A825); // warm amber
-    return const Color(0xFFB71C1C); // muted red
+    return const Color(0xFF4F26D9); // muted red
   }
 
   Color get _bgColor {
-    if (score >= 75) return const Color(0xFF2E7D32).withValues(alpha: 0.15);
+    if (score >= 75) return const Color(0xFF8B5CF6).withValues(alpha: 0.15);
     if (score >= 45) return const Color(0xFFF9A825).withValues(alpha: 0.15);
-    return const Color(0xFFB71C1C).withValues(alpha: 0.15);
+    return const Color(0xFF4F26D9).withValues(alpha: 0.15);
   }
 
   String get _levelLabel {

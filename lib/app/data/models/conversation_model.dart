@@ -53,6 +53,8 @@ class ConversationModel {
   final int user1UnreadCount;
   final int user2UnreadCount;
   final bool isActive;
+  final bool isLocked;
+  final String? lockReason;
   final DateTime createdAt;
   final UserModel? otherUser;
 
@@ -67,6 +69,8 @@ class ConversationModel {
     this.user1UnreadCount = 0,
     this.user2UnreadCount = 0,
     this.isActive = true,
+    this.isLocked = false,
+    this.lockReason,
     required this.createdAt,
     this.otherUser,
   });
@@ -291,6 +295,8 @@ class ConversationModel {
       user1UnreadCount: unread1,
       user2UnreadCount: unread2,
       isActive: raw['isActive'] == null ? true : raw['isActive'] == true,
+      isLocked: raw['isLocked'] == true,
+      lockReason: _firstNonEmpty([raw['lockReason'], raw['lock_reason']]),
       createdAt:
           _parseDate(raw['createdAt']) ??
           _parseDate(raw['created_at']) ??
@@ -317,6 +323,8 @@ class ConversationModel {
     int? user1UnreadCount,
     int? user2UnreadCount,
     bool? isActive,
+    bool? isLocked,
+    String? lockReason,
     DateTime? createdAt,
     UserModel? otherUser,
   }) {
@@ -342,6 +350,8 @@ class ConversationModel {
       user1UnreadCount: nextUser1Unread,
       user2UnreadCount: nextUser2Unread,
       isActive: isActive ?? this.isActive,
+      isLocked: isLocked ?? this.isLocked,
+      lockReason: lockReason ?? this.lockReason,
       createdAt: createdAt ?? this.createdAt,
       otherUser: otherUser ?? this.otherUser,
     );

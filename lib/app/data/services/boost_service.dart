@@ -45,7 +45,17 @@ class BoostService extends GetxService {
     try {
       isLoading.value = true;
       final response = await _api.get(ApiConstants.boostStatus);
-      status.value = BoostStatus.fromJson(response.data);
+      final raw = response.data;
+      if (raw is Map) {
+        final root = Map<String, dynamic>.from(raw);
+        final boost = raw['boost'] is Map
+            ? Map<String, dynamic>.from(raw['boost'] as Map)
+            : <String, dynamic>{};
+        status.value = BoostStatus.fromJson({
+          ...boost,
+          'isActive': root['isActive'] ?? boost['isActive'] ?? false,
+        });
+      }
     } catch (_) {
       // Keep current status on error
     } finally {
@@ -57,8 +67,11 @@ class BoostService extends GetxService {
   Future<bool> activateBoost() async {
     try {
       isLoading.value = true;
-      final response = await _api.post(ApiConstants.boostActivate);
-      status.value = BoostStatus.fromJson(response.data);
+      await _api.post(
+        ApiConstants.boostActivate,
+        data: const {'durationMinutes': 30},
+      );
+      await fetchStatus();
       return true;
     } catch (_) {
       return false;
@@ -72,9 +85,13 @@ class BoostService extends GetxService {
     try {
       final response = await _api.post(
         ApiConstants.boostPurchase,
-        data: {'packageId': packageId},
+        data: {'packageId': packageId, 'durationMinutes': 30},
       );
-      return response.data;
+      await fetchStatus();
+      if (response.data is Map) {
+        return Map<String, dynamic>.from(response.data as Map);
+      }
+      return <String, dynamic>{'success': true};
     } catch (_) {
       return null;
     }

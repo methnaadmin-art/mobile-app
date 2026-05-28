@@ -280,7 +280,7 @@ class AnimatedCheckIcon extends StatefulWidget {
   const AnimatedCheckIcon({
     super.key,
     this.size = 120,
-    this.color = const Color(0xFF4CAF50),
+    this.color = AppColors.primary,
     this.repeat = false,
   });
 
@@ -340,7 +340,7 @@ class AnimatedSparkleIcon extends StatefulWidget {
   const AnimatedSparkleIcon({
     super.key,
     this.size = 120,
-    this.color = const Color(0xFFFFD700),
+    this.color = AppColors.primaryLight,
   });
 
   @override
@@ -451,7 +451,7 @@ class AnimatedErrorIcon extends StatefulWidget {
   const AnimatedErrorIcon({
     super.key,
     this.size = 120,
-    this.color = const Color(0xFFFF5252),
+    this.color = AppColors.primaryDark,
   });
 
   @override

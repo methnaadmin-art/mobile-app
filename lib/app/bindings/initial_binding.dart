@@ -1,6 +1,9 @@
 import 'package:get/get.dart';
+import 'package:methna_app/app/data/services/apple_billing_service.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
+import 'package:methna_app/app/data/services/app_update_service.dart';
 import 'package:methna_app/app/data/services/monetization_service.dart';
+import 'package:methna_app/app/data/services/play_billing_service.dart';
 import 'package:methna_app/app/data/services/verification_service.dart';
 import 'package:methna_app/app/data/services/subscription_service.dart';
 import 'package:methna_app/app/data/services/biometric_service.dart';
@@ -17,6 +20,19 @@ class InitialBinding extends Bindings {
     // objects are instantiated.
     Get.lazyPut<CacheService>(() => CacheService(), fenix: true);
     Get.lazyPut<AuthService>(() => AuthService(), fenix: true);
+    if (!Get.isRegistered<AppUpdateService>()) {
+      Get.lazyPut<AppUpdateService>(() => AppUpdateService(), fenix: true);
+    }
+    Get.lazyPut<PlayBillingService>(() {
+      final service = PlayBillingService();
+      service.init();
+      return service;
+    }, fenix: true);
+    Get.lazyPut<AppleBillingService>(() {
+      final service = AppleBillingService();
+      service.init();
+      return service;
+    }, fenix: true);
     Get.lazyPut<MonetizationService>(() => MonetizationService(), fenix: true);
     Get.lazyPut<VerificationService>(() => VerificationService(), fenix: true);
     Get.lazyPut<SubscriptionService>(() => SubscriptionService(), fenix: true);

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -313,12 +313,12 @@ class _SearchScreenState extends State<SearchScreen> {
               end: Alignment.bottomRight,
               colors: isDark
                   ? [
-                      const Color(0x338E2CFF),
+                      const Color(0x33E85D75),
                       const Color(0x1A171821),
                     ]
                   : [
-                      const Color(0x22A020F9),
-                      const Color(0xFFFDF9FF),
+                      const Color(0x22E85D75),
+                      const Color(0xFFF4F0FF),
                     ],
             ),
             border: Border.all(

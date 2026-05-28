@@ -1,3 +1,4 @@
+import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -18,15 +19,18 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
 
     return SettingsSimplePageScaffold(
       title: 'discovery_preferences'.tr,
-      footer: CustomButton(
-        text: 'apply_preferences'.tr,
-        icon: LucideIcons.check,
-        onPressed: () {
-          controller.saveFilters();
-          controller.fetchDiscoverUsers();
-          Get.back();
-        },
-      ),
+      footer: Obx(() {
+        final isApplying = controller.isApplyingFilters.value;
+
+        return CustomButton(
+          text: 'apply_preferences'.tr,
+          icon: LucideIcons.check,
+          isLoading: isApplying,
+          onPressed: isApplying
+              ? null
+              : () => controller.applyFiltersAndRefresh(),
+        );
+      }),
       body: Obx(
         () => ListView(
           padding: const EdgeInsets.fromLTRB(
@@ -50,12 +54,10 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
                   title: 'go_global'.tr,
                   subtitle: 'go_global_desc'.tr,
                   value: controller.goGlobalFilter.value,
-                  onChanged: (value) => controller.goGlobalFilter.value = value,
-                ),
-                SettingsPlainTile(
-                  title: 'show_me'.tr,
-                  value: _genderLabel(controller.genderFilter.value),
-                  onTap: () => _showGenderSheet(context, controller),
+                  onChanged: (value) {
+                    controller.goGlobalFilter.value = value;
+                    controller.scheduleLiveFilterRefresh();
+                  },
                 ),
                 SettingsPlainTile(
                   title: 'show_distance_in'.tr,
@@ -72,13 +74,16 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
               slider: Slider(
                 value: controller.maxDistance.value,
                 min: 1,
-                max: 200,
-                divisions: 199,
+                max: 400,
+                divisions: 399,
                 activeColor: AppColors.primary,
                 inactiveColor: AppColors.primary.withValues(alpha: 0.14),
                 onChanged: controller.goGlobalFilter.value
                     ? null
                     : (value) => controller.maxDistance.value = value,
+                onChangeEnd: controller.goGlobalFilter.value
+                    ? null
+                    : (_) => controller.scheduleLiveFilterRefresh(),
               ),
               helper: controller.goGlobalFilter.value
                   ? 'distance_ignored_global'.tr
@@ -94,16 +99,68 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
                   controller.maxAge.value.toDouble(),
                 ),
                 min: 18,
-                max: 70,
-                divisions: 52,
+                max: 90,
+                divisions: 72,
                 activeColor: AppColors.primary,
                 inactiveColor: AppColors.primary.withValues(alpha: 0.14),
                 onChanged: (values) {
                   controller.minAge.value = values.start.round();
                   controller.maxAge.value = values.end.round();
                 },
+                onChangeEnd: (_) => controller.scheduleLiveFilterRefresh(),
               ),
               helper: 'age_range_helper'.tr,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SettingsPlainListCard(
+              children: [
+                SettingsPlainTile(
+                  title: 'country'.tr,
+                  subtitle: controller.countryFilter.value.isEmpty
+                      ? 'country_filter_all'.tr
+                      : controller.countryFilter.value,
+                  value: controller.countryFilter.value.isEmpty
+                      ? 'all'.tr
+                      : controller.countryFilter.value,
+                  onTap: () => _showCountryPicker(context, controller),
+                  trailing: controller.countryFilter.value.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            LucideIcons.x,
+                            size: 16,
+                            color: AppColors.textSecondaryLight,
+                          ),
+                          onPressed: () {
+                            controller.clearCountryFilter();
+                            controller.scheduleLiveFilterRefresh();
+                          },
+                        )
+                      : null,
+                ),
+                SettingsPlainTile(
+                  title: 'city'.tr,
+                  subtitle: controller.cityFilter.value.isEmpty
+                      ? 'city_filter_all'.tr
+                      : controller.cityFilter.value,
+                  value: controller.cityFilter.value.isEmpty
+                      ? 'all'.tr
+                      : controller.cityFilter.value,
+                  onTap: () => _showCityInput(context, controller),
+                  trailing: controller.cityFilter.value.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            LucideIcons.x,
+                            size: 16,
+                            color: AppColors.textSecondaryLight,
+                          ),
+                          onPressed: () {
+                            controller.cityFilter.value = '';
+                            controller.scheduleLiveFilterRefresh();
+                          },
+                        )
+                      : null,
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             SettingsPlainListCard(
@@ -112,8 +169,10 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
                   title: 'verified_only'.tr,
                   subtitle: 'verified_only_desc'.tr,
                   value: controller.verifiedOnlyFilter.value,
-                  onChanged: (value) =>
-                      controller.verifiedOnlyFilter.value = value,
+                  onChanged: (value) {
+                    controller.verifiedOnlyFilter.value = value;
+                    controller.scheduleLiveFilterRefresh();
+                  },
                 ),
               ],
             ),
@@ -121,37 +180,6 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _showGenderSheet(
-    BuildContext context,
-    HomeController controller,
-  ) async {
-    final selection = await showSettingsChoiceSheet<String>(
-      context: context,
-      title: 'show_me'.tr,
-      options: [
-        SettingsSheetOption(
-          value: 'all',
-          title: 'everyone'.tr,
-          selected: controller.genderFilter.value == 'all',
-        ),
-        SettingsSheetOption(
-          value: 'male',
-          title: 'men'.tr,
-          selected: controller.genderFilter.value == 'male',
-        ),
-        SettingsSheetOption(
-          value: 'female',
-          title: 'women'.tr,
-          selected: controller.genderFilter.value == 'female',
-        ),
-      ],
-    );
-
-    if (selection != null) {
-      controller.genderFilter.value = selection;
-    }
   }
 
   Future<void> _showDistanceUnitSheet(
@@ -180,14 +208,56 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
     }
   }
 
-  String _genderLabel(String value) {
-    switch (value) {
-      case 'male':
-        return 'men'.tr;
-      case 'female':
-        return 'women'.tr;
-      default:
-        return 'everyone'.tr;
+  void _showCountryPicker(BuildContext context, HomeController controller) {
+    showCountryPicker(
+      context: context,
+      showPhoneCode: false,
+      onSelect: (Country country) {
+        controller.setCountryFilter(
+          country.name,
+          countryCode: country.countryCode,
+          isUserAction: true,
+        );
+        controller.scheduleLiveFilterRefresh();
+      },
+    );
+  }
+
+  Future<void> _showCityInput(
+    BuildContext context,
+    HomeController controller,
+  ) async {
+    final controllerTec = TextEditingController(
+      text: controller.cityFilter.value,
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('enter_city'.tr),
+        content: TextField(
+          controller: controllerTec,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            hintText: 'city_filter_hint'.tr,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('cancel'.tr),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controllerTec.text.trim()),
+            child: Text('apply'.tr),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      controller.cityFilter.value = result;
+      controller.scheduleLiveFilterRefresh();
     }
   }
 }

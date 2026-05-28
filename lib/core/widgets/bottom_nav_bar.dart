@@ -6,7 +6,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/chat_controller.dart';
 import 'package:methna_app/app/controllers/navigation_controller.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/core/utils/google_fonts_stub.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
 
 class AppBottomNavBar extends GetView<NavigationController> {
   const AppBottomNavBar({super.key});
@@ -30,87 +31,112 @@ class AppBottomNavBar extends GetView<NavigationController> {
           : null;
       final activeColor = AppColors.primary;
       final inactiveColor = isDark
-          ? Colors.white.withValues(alpha: 0.74)
-          : const Color(0xFF5E596A);
+          ? Colors.white.withValues(alpha: 0.55)
+          : const Color(0xFF8E8A96);
+
+        // Frosted capsule with layered highlights to match the requested style.
       final glassColor = isDark
-          ? const Color(0x7A121319)
-          : const Color(0x8AFFFFFF);
+          ? Colors.black.withValues(alpha: 0.24)
+          : Colors.white.withValues(alpha: 0.62);
       final glassBorder = isDark
-          ? Colors.white.withValues(alpha: 0.12)
-          : Colors.black.withValues(alpha: 0.07);
+          ? Colors.white.withValues(alpha: 0.14)
+          : Colors.white.withValues(alpha: 0.86);
+        final glassShadow = isDark
+          ? Colors.black.withValues(alpha: 0.36)
+          : const Color(0x332A1D16);
+        final innerHighlight = isDark
+          ? Colors.white.withValues(alpha: 0.08)
+          : Colors.white.withValues(alpha: 0.58);
       final badgeBorderColor = isDark
           ? const Color(0xCC12131A)
           : Colors.white.withValues(alpha: 0.94);
 
       return Padding(
         padding: EdgeInsets.fromLTRB(
-          14,
+          AppSpacing.md,
           0,
-          14,
-          bottomInset > 0 ? bottomInset + 8 : 10,
+          AppSpacing.md,
+          bottomInset > 0 ? bottomInset + AppSpacing.xs : AppSpacing.sm,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(30),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
             child: Container(
               height: 66,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 color: glassColor,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    innerHighlight,
+                    glassColor,
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: glassBorder),
+                border: Border.all(color: glassBorder, width: 0.9),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.34 : 0.14),
-                    blurRadius: 22,
+                    color: glassShadow,
+                    blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: Row(
-                children: List.generate(_tabs.length, (index) {
-                  final tab = _tabs[index];
-                  final isActive = index == currentIndex;
-                  final hasBadge =
-                      index == 2 && (chatController?.totalUnread ?? 0) > 0;
+              child: Stack(
+                children: [
+                  AnimatedAlign(
+                    alignment: Alignment(
+                      -1 + (2 * currentIndex / (_tabs.length - 1)),
+                      0.88,
+                    ),
+                    duration: const Duration(milliseconds: 320),
+                    curve: Curves.easeOutCubic,
+                    child: Container(
+                      width: 30,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: activeColor,
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: [
+                          BoxShadow(
+                            color: activeColor.withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: List.generate(_tabs.length, (index) {
+                      final tab = _tabs[index];
+                      final isActive = index == currentIndex;
+                      final hasBadge =
+                          index == 2 && (chatController?.totalUnread ?? 0) > 0;
 
-                  return Expanded(
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => controller.changePage(index),
-                        borderRadius: BorderRadius.circular(18),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOutCubic,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          decoration: isActive
-                              ? BoxDecoration(
-                                  color: activeColor.withValues(alpha: 0.16),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: activeColor.withValues(alpha: 0.4),
-                                  ),
-                                )
-                              : null,
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => controller.changePage(index),
+                          behavior: HitTestBehavior.opaque,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               SizedBox(
-                                width: 24,
-                                height: 24,
+                                width: 26,
+                                height: 26,
                                 child: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
                                     Center(
                                       child: AnimatedScale(
-                                        duration: const Duration(milliseconds: 180),
-                                        scale: isActive ? 1.07 : 1.0,
+                                        duration: const Duration(milliseconds: 200),
+                                        scale: isActive ? 1.12 : 1.0,
                                         child: Icon(
                                           tab.icon,
-                                          size: index == 3 ? 18.4 : 18,
+                                          size: 20,
                                           color: isActive
                                               ? activeColor
                                               : inactiveColor,
@@ -119,13 +145,13 @@ class AppBottomNavBar extends GetView<NavigationController> {
                                     ),
                                     if (hasBadge)
                                       Positioned(
-                                        top: 1,
-                                        right: 0,
+                                        top: 0,
+                                        right: -1,
                                         child: Container(
                                           width: 8,
                                           height: 8,
                                           decoration: BoxDecoration(
-                                            color: activeColor,
+                                            color: AppColors.error,
                                             shape: BoxShape.circle,
                                             border: Border.all(
                                               color: badgeBorderColor,
@@ -137,24 +163,36 @@ class AppBottomNavBar extends GetView<NavigationController> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               Text(
                                 tab.labelKey.tr,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 9.2,
-                                  fontWeight:
-                                      isActive ? FontWeight.w600 : FontWeight.w500,
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  fontSize: 10,
+                                  fontWeight: isActive
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
                                   color: isActive ? activeColor : inactiveColor,
                                   height: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 240),
+                                curve: Curves.easeOutCubic,
+                                width: isActive ? 5 : 0,
+                                height: isActive ? 5 : 0,
+                                decoration: BoxDecoration(
+                                  color: activeColor,
+                                  shape: BoxShape.circle,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                }),
+                      );
+                    }),
+                  ),
+                ],
               ),
             ),
           ),

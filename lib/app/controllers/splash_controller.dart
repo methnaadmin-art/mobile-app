@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:methna_app/app/controllers/home_controller.dart';
+import 'package:methna_app/app/data/services/app_update_service.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
@@ -44,6 +46,15 @@ class SplashController extends GetxController {
       _auth.markSessionRestorePending();
     }
     Get.offAllNamed(hasSession ? AppRoutes.main : AppRoutes.login);
+    // Ensure HomeController init overlay clears after safety net navigation
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (Get.isRegistered<HomeController>()) {
+        final home = Get.find<HomeController>();
+        if (home.isInitializing.value) {
+          home.isInitializing.value = false;
+        }
+      }
+    });
   }
 
   Future<void> _startAnimation() async {
@@ -63,27 +74,24 @@ class SplashController extends GetxController {
         routeFuture,
         Future.delayed(const Duration(milliseconds: 450)),
       ]);
-      final route = results.first as String;
+      final target = results.first as PostAuthNavigationTarget;
+      final route = target.route;
       animationProgress.value = 1.0;
       debugPrint('[Splash] Navigating to: $route');
 
       if (route == AppRoutes.main) {
         final biometricEnabled =
-            _storage.getBool('security_biometric') ?? false;
+            _storage.getBool('security_biometric') ??
+            (_storage.getBool('biometric_enabled') ?? false);
         final faceIdEnabled = _storage.getBool('security_face_id') ?? false;
 
         if (biometricEnabled || faceIdEnabled) {
           requiresBiometric.value = true;
-          final authenticated = await _authenticateWithBiometrics().timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              debugPrint(
-                '[Splash] Biometric prompt timed out; bypassing startup lock',
-              );
-              return true;
-            },
-          );
-          if (!authenticated) {
+          final authState = await _authenticateWithBiometrics();
+          if (authState == _BiometricAuthState.unavailable) {
+            await _disableBiometricLockPreference();
+            requiresBiometric.value = false;
+          } else if (authState != _BiometricAuthState.success) {
             biometricFailed.value = true;
             debugPrint('[Splash] Biometric failed, staying on splash');
             return;
@@ -93,6 +101,17 @@ class SplashController extends GetxController {
       }
 
       if (_hasNavigated) return;
+
+      if (Get.isRegistered<AppUpdateService>()) {
+        final hardBlocked = await Get.find<AppUpdateService>().checkForUpdate(
+          force: true,
+        );
+        if (hardBlocked) {
+          _hasNavigated = true;
+          return;
+        }
+      }
+
       _hasNavigated = true;
 
       if (route == AppRoutes.main) {
@@ -100,7 +119,7 @@ class SplashController extends GetxController {
       }
 
       if (Get.currentRoute != route) {
-        Get.offAllNamed(route);
+        Get.offAllNamed(route, arguments: target.arguments);
 
         _queueSessionRestore(route);
       } else {
@@ -118,7 +137,7 @@ class SplashController extends GetxController {
     }
   }
 
-  Future<bool> _authenticateWithBiometrics() async {
+  Future<_BiometricAuthState> _authenticateWithBiometrics() async {
     try {
       final auth = _localAuth ??= LocalAuthentication();
       final canCheck = await auth.canCheckBiometrics;
@@ -126,38 +145,55 @@ class SplashController extends GetxController {
 
       if (!canCheck || !isDeviceSupported) {
         debugPrint('[Splash] Biometric not available on device');
-        return true;
+        return _BiometricAuthState.unavailable;
       }
 
       final availableBiometrics = await auth.getAvailableBiometrics();
       debugPrint('[Splash] Available biometrics: $availableBiometrics');
+      if (availableBiometrics.isEmpty) {
+        return _BiometricAuthState.unavailable;
+      }
 
       final authenticated = await auth.authenticate(
         localizedReason: 'authenticate_to_access'.tr,
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false,
+          biometricOnly: true,
         ),
       );
 
       debugPrint('[Splash] Biometric authentication result: $authenticated');
-      return authenticated;
+      return authenticated
+          ? _BiometricAuthState.success
+          : _BiometricAuthState.failed;
     } on PlatformException catch (e) {
       debugPrint('[Splash] Biometric error: ${e.message}');
-      return true;
+      final code = e.code.toLowerCase();
+      if (code.contains('notavailable') || code.contains('notenrolled')) {
+        return _BiometricAuthState.unavailable;
+      }
+      return _BiometricAuthState.failed;
     }
+  }
+
+  Future<void> _disableBiometricLockPreference() async {
+    await _storage.saveBool('security_biometric', false);
+    await _storage.saveBool('biometric_enabled', false);
+    await _storage.saveBool('security_face_id', false);
   }
 
   Future<void> retryBiometric() async {
     biometricFailed.value = false;
-    final authenticated = await _authenticateWithBiometrics().timeout(
-      const Duration(seconds: 10),
-      onTimeout: () {
-        debugPrint('[Splash] Retry biometric timed out; bypassing startup lock');
-        return true;
-      },
-    );
-    if (authenticated) {
+    final authState = await _authenticateWithBiometrics();
+    if (authState == _BiometricAuthState.unavailable) {
+      await _disableBiometricLockPreference();
+      requiresBiometric.value = false;
+      Get.offAllNamed(AppRoutes.main);
+      _queueSessionRestore(AppRoutes.main);
+      return;
+    }
+
+    if (authState == _BiometricAuthState.success) {
       requiresBiometric.value = false;
       Get.offAllNamed(AppRoutes.main);
       _queueSessionRestore(AppRoutes.main);
@@ -185,7 +221,7 @@ class SplashController extends GetxController {
     });
   }
 
-  Future<String> _resolveDestinationFast() async {
+  Future<PostAuthNavigationTarget> _resolveDestinationFast() async {
     final isFirst = _storage.isFirstLaunch;
     final isOnboardingDone = _storage.isOnboardingDone;
     debugPrint(
@@ -194,25 +230,27 @@ class SplashController extends GetxController {
 
     if (isFirst) {
       debugPrint('[Splash] First launch -> onboarding');
-      return AppRoutes.onboarding;
+      return const PostAuthNavigationTarget(route: AppRoutes.onboarding);
     }
 
     if (!isOnboardingDone) {
       debugPrint('[Splash] Onboarding not complete -> onboarding');
-      return AppRoutes.onboarding;
+      return const PostAuthNavigationTarget(route: AppRoutes.onboarding);
     }
 
     if (!_storage.hasAuthSessionHint) {
-      return AppRoutes.login;
+      return const PostAuthNavigationTarget(route: AppRoutes.login);
     }
 
     final cachedUser = _auth.hydrateCachedSession();
     if (cachedUser != null) {
       final draftRoute = _storage.getSignupDraftRoute();
-      return resolvePostAuthRoute(cachedUser, draftRoute: draftRoute);
+      return resolvePostAuthNavigation(cachedUser, draftRoute: draftRoute);
     }
 
     debugPrint('[Splash] Token found without cached user -> main');
-    return AppRoutes.main;
+    return const PostAuthNavigationTarget(route: AppRoutes.main);
   }
 }
+
+enum _BiometricAuthState { success, failed, unavailable }

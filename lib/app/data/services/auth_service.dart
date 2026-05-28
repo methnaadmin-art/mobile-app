@@ -22,6 +22,7 @@ class AuthService extends GetxService {
 
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
   final RxBool isLoggedIn = false.obs;
+  final RxBool isLoggingOut = false.obs;
   final RxBool sessionRestorePending = false.obs;
   bool _bootstrapScheduled = false;
 
@@ -59,6 +60,73 @@ class AuthService extends GetxService {
     return root;
   }
 
+  String? _firstNonEmptyString(Iterable<dynamic> values) {
+    for (final value in values) {
+      final normalized = value?.toString().trim() ?? '';
+      if (normalized.isNotEmpty && normalized.toLowerCase() != 'null') {
+        return normalized;
+      }
+    }
+    return null;
+  }
+
+  String? _extractAccessToken(dynamic raw) {
+    final root = _asMap(raw);
+    final data = _asMap(root['data']);
+    final result = _asMap(root['result']);
+    final tokens = _asMap(root['tokens']);
+    final dataTokens = _asMap(data['tokens']);
+    final resultTokens = _asMap(result['tokens']);
+
+    return _firstNonEmptyString([
+      root['accessToken'],
+      root['access_token'],
+      root['authToken'],
+      root['token'],
+      data['accessToken'],
+      data['access_token'],
+      data['authToken'],
+      data['token'],
+      result['accessToken'],
+      result['access_token'],
+      result['authToken'],
+      result['token'],
+      tokens['accessToken'],
+      tokens['access_token'],
+      tokens['token'],
+      dataTokens['accessToken'],
+      dataTokens['access_token'],
+      dataTokens['token'],
+      resultTokens['accessToken'],
+      resultTokens['access_token'],
+      resultTokens['token'],
+    ]);
+  }
+
+  String? _extractRefreshToken(dynamic raw) {
+    final root = _asMap(raw);
+    final data = _asMap(root['data']);
+    final result = _asMap(root['result']);
+    final tokens = _asMap(root['tokens']);
+    final dataTokens = _asMap(data['tokens']);
+    final resultTokens = _asMap(result['tokens']);
+
+    return _firstNonEmptyString([
+      root['refreshToken'],
+      root['refresh_token'],
+      data['refreshToken'],
+      data['refresh_token'],
+      result['refreshToken'],
+      result['refresh_token'],
+      tokens['refreshToken'],
+      tokens['refresh_token'],
+      dataTokens['refreshToken'],
+      dataTokens['refresh_token'],
+      resultTokens['refreshToken'],
+      resultTokens['refresh_token'],
+    ]);
+  }
+
   void markSessionRestorePending() {
     sessionRestorePending.value = true;
   }
@@ -84,17 +152,15 @@ class AuthService extends GetxService {
     // Let DioExceptions propagate naturally for proper error display
     final response = await _api.post(
       ApiConstants.login,
-      data: {
-        'identifier': email,
-        'email': email,
-        'password': password,
-      },
+      data: {'identifier': email, 'email': email, 'password': password},
     );
 
     try {
       final data = response.data;
-      debugPrint('[AuthService] Login response type: ${data.runtimeType}');
-      debugPrint('[AuthService] Login response data: $data');
+      if (kDebugMode) {
+        debugPrint('[AuthService] Login response type: ${data.runtimeType}');
+        debugPrint('[AuthService] Login response data: $data');
+      }
 
       if (data == null) {
         throw Exception('Login response is null');
@@ -131,6 +197,11 @@ class AuthService extends GetxService {
       isLoggedIn.value = true;
       sessionRestorePending.value = false;
 
+      // Immediately apply authoritative subscription state from server so
+      // premium status is correct before any UI renders. This prevents stale
+      // premium state leaking between accounts on the same device.
+      _applySubscriptionFromResponse(data);
+
       // Hydrate user data to ensure all nested fields are synced
       try {
         await fetchMe();
@@ -148,61 +219,176 @@ class AuthService extends GetxService {
 
   // ─── Google Sign-In ─────────────────────────────────────────
   Future<UserModel> googleSignIn({
-    required String idToken,
+    String? idToken,
+    String? accessToken,
+    String? serverAuthCode,
     required String email,
     String? displayName,
     String? photoUrl,
   }) async {
+    final normalizedIdToken = idToken?.trim();
+    final normalizedAccessToken = accessToken?.trim();
+    final normalizedAuthCode = serverAuthCode?.trim();
+
+    if ((normalizedIdToken == null || normalizedIdToken.isEmpty) &&
+        (normalizedAuthCode == null || normalizedAuthCode.isEmpty)) {
+      throw Exception('Google credentials missing (idToken/auth code).');
+    }
+
     final response = await _api.post(
       ApiConstants.googleSignIn,
       data: {
-        'idToken': idToken,
+        if (normalizedIdToken != null && normalizedIdToken.isNotEmpty)
+          'idToken': normalizedIdToken,
+        if (normalizedAccessToken != null && normalizedAccessToken.isNotEmpty)
+          'accessToken': normalizedAccessToken,
+        if (normalizedAuthCode != null && normalizedAuthCode.isNotEmpty)
+          'serverAuthCode': normalizedAuthCode,
+        if (normalizedAuthCode != null && normalizedAuthCode.isNotEmpty)
+          'authCode': normalizedAuthCode,
         'email': email,
         'displayName': displayName,
         'photoUrl': photoUrl,
       },
     );
 
-    final data = response.data;
-    debugPrint('[AuthService] Google sign-in response data: $data');
+    final rawData = response.data;
+    if (kDebugMode) debugPrint('[AuthService] Google sign-in response data: $rawData');
 
-    if (data == null) {
+    if (rawData == null) {
       throw Exception('Google sign-in response is null');
     }
 
-    final accessToken = data['accessToken'];
-    final refreshToken = data['refreshToken'];
-    final userData = data['user'];
+    final accessTokenValue = _extractAccessToken(rawData);
+    final refreshTokenValue = _extractRefreshToken(rawData);
+    final userData = _extractUserPayload(rawData);
 
-    if (accessToken == null) {
+    if (accessTokenValue == null || accessTokenValue.isEmpty) {
       throw Exception('No access token in Google sign-in response');
     }
 
-    await _storage.saveToken(accessToken);
-    if (refreshToken != null) {
-      await _storage.saveRefreshToken(refreshToken);
+    await _storage.saveToken(accessTokenValue);
+    if (refreshTokenValue != null && refreshTokenValue.isNotEmpty) {
+      await _storage.saveRefreshToken(refreshTokenValue);
     }
     await _storage.saveAuthProvider('google');
 
-    if (userData == null) {
-      throw Exception('No user data in Google sign-in response');
+    UserModel? user;
+    if (userData.isNotEmpty) {
+      try {
+        user = UserModel.fromJson(userData);
+        currentUser.value = user;
+        await _storage.saveUser(userData);
+      } catch (e) {
+        debugPrint('[AuthService] Google user parse fallback to fetchMe: $e');
+      }
     }
 
-    final user = UserModel.fromJson(userData);
-    currentUser.value = user;
-    await _storage.saveUser(userData);
     isLoggedIn.value = true;
     sessionRestorePending.value = false;
 
+    // Immediately apply authoritative subscription state from server
+    _applySubscriptionFromResponse(rawData);
+
     // Hydrate user data to ensure all nested fields are synced
     try {
-      await fetchMe();
+      user = await fetchMe();
     } catch (e) {
       debugPrint('[AuthService] Google sign-in hydration failed: $e');
     }
 
+    final resolvedUser = user ?? currentUser.value;
+    if (resolvedUser == null) {
+      throw Exception('Google sign-in succeeded but user profile is missing.');
+    }
+
     scheduleAuthenticatedServicesBootstrap(force: true);
-    return currentUser.value!;
+    return resolvedUser;
+  }
+
+  Future<UserModel> appleSignIn({
+    required String identityToken,
+    required String authorizationCode,
+    String? userIdentifier,
+    String? email,
+    String? firstName,
+    String? lastName,
+    String? displayName,
+  }) async {
+    final normalizedIdentityToken = identityToken.trim();
+    final normalizedAuthorizationCode = authorizationCode.trim();
+
+    if (normalizedIdentityToken.isEmpty ||
+        normalizedAuthorizationCode.isEmpty) {
+      throw Exception('Apple credentials missing.');
+    }
+
+    final response = await _api.post(
+      ApiConstants.appleSignIn,
+      data: {
+        'identityToken': normalizedIdentityToken,
+        'authorizationCode': normalizedAuthorizationCode,
+        if (userIdentifier != null && userIdentifier.trim().isNotEmpty)
+          'userIdentifier': userIdentifier.trim(),
+        if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+        if (firstName != null && firstName.trim().isNotEmpty)
+          'firstName': firstName.trim(),
+        if (lastName != null && lastName.trim().isNotEmpty)
+          'lastName': lastName.trim(),
+        if (displayName != null && displayName.trim().isNotEmpty)
+          'displayName': displayName.trim(),
+      },
+    );
+
+    final rawData = response.data;
+    if (kDebugMode) debugPrint('[AuthService] Apple sign-in response data: $rawData');
+
+    if (rawData == null) {
+      throw Exception('Apple sign-in response is null');
+    }
+
+    final accessTokenValue = _extractAccessToken(rawData);
+    final refreshTokenValue = _extractRefreshToken(rawData);
+    final userData = _extractUserPayload(rawData);
+
+    if (accessTokenValue == null || accessTokenValue.isEmpty) {
+      throw Exception('No access token in Apple sign-in response');
+    }
+
+    await _storage.saveToken(accessTokenValue);
+    if (refreshTokenValue != null && refreshTokenValue.isNotEmpty) {
+      await _storage.saveRefreshToken(refreshTokenValue);
+    }
+    await _storage.saveAuthProvider('apple');
+
+    UserModel? user;
+    if (userData.isNotEmpty) {
+      try {
+        user = UserModel.fromJson(userData);
+        currentUser.value = user;
+        await _storage.saveUser(userData);
+      } catch (e) {
+        debugPrint('[AuthService] Apple user parse fallback to fetchMe: $e');
+      }
+    }
+
+    isLoggedIn.value = true;
+    sessionRestorePending.value = false;
+    _applySubscriptionFromResponse(rawData);
+
+    try {
+      user = await fetchMe();
+    } catch (e) {
+      debugPrint('[AuthService] Apple sign-in hydration failed: $e');
+    }
+
+    final resolvedUser = user ?? currentUser.value;
+    if (resolvedUser == null) {
+      throw Exception('Apple sign-in succeeded but user profile is missing.');
+    }
+
+    scheduleAuthenticatedServicesBootstrap(force: true);
+    return resolvedUser;
   }
 
   // ─── Register ──────────────────────────────────────────────
@@ -212,6 +398,9 @@ class AuthService extends GetxService {
     required String confirmPassword,
     required String firstName,
     required String lastName,
+    required bool agreeToTerms,
+    required bool agreeToPrivacyPolicy,
+    required bool oathAccepted,
     String? username,
     String? phone,
   }) async {
@@ -221,6 +410,9 @@ class AuthService extends GetxService {
       'confirmPassword': confirmPassword,
       'firstName': firstName,
       'lastName': lastName,
+      'agreeToTerms': agreeToTerms,
+      'agreeToPrivacyPolicy': agreeToPrivacyPolicy,
+      'oathAccepted': oathAccepted,
     };
     if (username != null && username.isNotEmpty) body['username'] = username;
     if (phone != null && phone.isNotEmpty) body['phone'] = phone;
@@ -256,15 +448,6 @@ class AuthService extends GetxService {
         await _storage.saveUser(data['user']);
         isLoggedIn.value = true;
         sessionRestorePending.value = false;
-
-        // Start 3-day free trial for new users
-        try {
-          final trialManager = Get.find<TrialManager>();
-          trialManager.startTrial();
-          debugPrint('[AuthService] Trial started for new user');
-        } catch (e) {
-          debugPrint('[AuthService] Failed to start trial: $e');
-        }
 
         // Hydrate user data to ensure all nested fields are synced
         try {
@@ -309,9 +492,19 @@ class AuthService extends GetxService {
   Future<UserModel> fetchMe() async {
     final response = await _api.get(ApiConstants.usersMe);
     final payload = _extractUserPayload(response.data);
+    final previousUser = currentUser.value;
     final user = UserModel.fromJson(payload);
+    final selfieVerificationChanged =
+        previousUser?.id == user.id &&
+        previousUser?.selfieVerified != user.selfieVerified;
     currentUser.value = user;
     await _storage.saveUser(payload);
+    if (selfieVerificationChanged) {
+      debugPrint(
+        '[AuthService] Viewer selfie verification changed; clearing cached discovery deck.',
+      );
+      await _storage.clearDiscoverCache();
+    }
     return user;
   }
 
@@ -328,19 +521,92 @@ class AuthService extends GetxService {
     }
   }
 
+  // ─── Apply subscription state from login response ────────
+  void _applySubscriptionFromResponse(dynamic responseData) {
+    try {
+      final root = _asMap(responseData);
+      final sub = _asMap(root['subscription']);
+      if (sub.isEmpty) {
+        debugPrint(
+          '[AuthService] No subscription in login response — skipping',
+        );
+        return;
+      }
+
+      // Reset both services first so no stale state remains from a previous
+      // account on the same device.
+      if (Get.isRegistered<MonetizationService>()) {
+        Get.find<MonetizationService>().resetForLogout();
+      }
+      if (Get.isRegistered<SubscriptionService>()) {
+        final subscriptionService = Get.find<SubscriptionService>();
+        subscriptionService.resetForLogout();
+        subscriptionService.applyFromLoginResponse(sub);
+      }
+
+      if (kDebugMode) {
+        debugPrint(
+          '[AuthService] Applied subscription from login response: $sub',
+        );
+      }
+    } catch (e) {
+      debugPrint('[AuthService] _applySubscriptionFromResponse error: $e');
+    }
+  }
+
   // ─── Logout ────────────────────────────────────────────────
   Future<void> logout() async {
-    try {
-      Get.find<SocketService>().disconnect();
-    } catch (_) {}
-    try {
-      await _api.post(ApiConstants.logout);
-    } catch (_) {}
-    currentUser.value = null;
+    if (isLoggingOut.value) return;
+
+    isLoggingOut.value = true;
     isLoggedIn.value = false;
     sessionRestorePending.value = false;
     _bootstrapScheduled = false;
-    await _storage.clearAll();
+
+    try {
+      Get.find<SocketService>().disconnect();
+    } catch (_) {}
+
+    try {
+      await _api.post(ApiConstants.logout);
+    } catch (_) {}
+
+    try {
+      // Reset all premium/subscription state BEFORE clearing storage so the
+      // in-memory reactive flags (isPremium, hasActiveEntitlement, currentPlan
+      // etc.) can never survive a logout. Otherwise a re-login as a different
+      // user would still show premium features from the previous session.
+      try {
+        if (Get.isRegistered<MonetizationService>()) {
+          await Get.find<MonetizationService>().resetForLogout();
+        }
+      } catch (e) {
+        debugPrint(
+          '[AuthService] MonetizationService.resetForLogout failed: $e',
+        );
+      }
+      try {
+        if (Get.isRegistered<SubscriptionService>()) {
+          Get.find<SubscriptionService>().resetForLogout();
+        }
+      } catch (e) {
+        debugPrint(
+          '[AuthService] SubscriptionService.resetForLogout failed: $e',
+        );
+      }
+      try {
+        if (Get.isRegistered<TrialManager>()) {
+          Get.find<TrialManager>().resetForLogout();
+        }
+      } catch (e) {
+        debugPrint('[AuthService] TrialManager.resetForLogout failed: $e');
+      }
+
+      currentUser.value = null;
+      await _storage.clearAll();
+    } finally {
+      isLoggingOut.value = false;
+    }
   }
 
   // ─── Restore Session ──────────────────────────────────────
@@ -386,22 +652,31 @@ class AuthService extends GetxService {
   }
 
   Future<void> restoreSessionAfterLaunch() async {
-    final restored = await tryRestoreSession();
+    try {
+      final restored = await tryRestoreSession();
 
-    if (!restored) {
-      if (Get.currentRoute != AppRoutes.login) {
+      if (!restored) {
+        if (Get.currentRoute != AppRoutes.login &&
+            Get.currentRoute != AppRoutes.onboarding) {
+          Get.offAllNamed(AppRoutes.login);
+        }
+        return;
+      }
+
+      final user = currentUser.value;
+      if (user == null) return;
+
+      final draftRoute = _storage.getSignupDraftRoute();
+      final target = resolvePostAuthNavigation(user, draftRoute: draftRoute);
+      if (Get.currentRoute != target.route) {
+        Get.offAllNamed(target.route, arguments: target.arguments);
+      }
+    } catch (e) {
+      debugPrint('[AuthService] restoreSessionAfterLaunch error: $e');
+      // Don't leave user stuck — fallback to login
+      if (Get.currentRoute == AppRoutes.splash || Get.currentRoute.isEmpty) {
         Get.offAllNamed(AppRoutes.login);
       }
-      return;
-    }
-
-    final user = currentUser.value;
-    if (user == null) return;
-
-    final draftRoute = _storage.getSignupDraftRoute();
-    final resolvedRoute = resolvePostAuthRoute(user, draftRoute: draftRoute);
-    if (Get.currentRoute != resolvedRoute) {
-      Get.offAllNamed(resolvedRoute);
     }
   }
 
@@ -410,7 +685,9 @@ class AuthService extends GetxService {
     _bootstrapScheduled = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 700), () async {
+      // Shortened from 700ms so subscription state is restored ASAP on
+      // app restart (fixes premium-disappears-after-restart flicker).
+      Future.delayed(const Duration(milliseconds: 100), () async {
         try {
           await bootstrapAuthenticatedServices(force: force);
         } finally {
@@ -443,6 +720,23 @@ class AuthService extends GetxService {
       await messageQueueService.init();
       await connectivityService.init();
 
+      // CRITICAL: Restore subscription/premium state IMMEDIATELY (no delay).
+      // Previously this was inside Future.delayed(1200ms) + unawaited, which
+      // caused a visible window where currentPlan='free' and isPremium=false
+      // on app restart — making premium UI flicker to the free state. The
+      // subscription fetch MUST win the race against any first render that
+      // checks isPremium.
+      unawaited(
+        Future.wait([
+          monetizationService.fetchStatus(),
+          monetizationService.fetchEntitlements(),
+          subscriptionService.fetchMySubscription(),
+        ]).catchError((e) {
+          debugPrint('[AuthService] subscription restore error: $e');
+          return <dynamic>[];
+        }),
+      );
+
       Future.delayed(const Duration(milliseconds: 250), () {
         socketService.connect();
       });
@@ -450,20 +744,23 @@ class AuthService extends GetxService {
       unawaited(
         Future.delayed(const Duration(milliseconds: 900), () async {
           await notificationService.init();
+          await notificationService.ensurePushTokenSynced(force: true);
           notificationService.fetchNotifications();
           notificationService.fetchUnreadCount();
+          notificationService.processPendingLaunchNavigation();
         }),
       );
 
+      // Non-critical background refreshes follow. Premium state has already
+      // been restored above, so these can be deferred without causing the
+      // subscription-disappearance bug.
       unawaited(
         Future.delayed(const Duration(milliseconds: 1200), () async {
           await trialManager.init();
           await Future.wait([
-            monetizationService.fetchStatus(),
             monetizationService.fetchAllLimits(),
             monetizationService.fetchFeatures(),
             monetizationService.fetchActivePlans(),
-            subscriptionService.fetchMySubscription(),
           ]);
         }),
       );

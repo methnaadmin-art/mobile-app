@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:methna_app/app/controllers/profile_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
-import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 /// About Tab with detailed profile information
@@ -205,7 +205,7 @@ class ProfileAboutTab extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => Get.toNamed(AppRoutes.editProfile),
+              onPressed: () => Get.find<ProfileController>().openEditProfile(),
               icon: const Icon(LucideIcons.edit, size: 18),
               label: Text('edit_profile'.tr),
               style: ElevatedButton.styleFrom(

@@ -3,6 +3,7 @@ import 'app_colors.dart';
 import 'app_radii.dart';
 import 'app_shadows.dart';
 import 'app_spacing.dart';
+import 'app_text_styles.dart';
 
 class AppDecorations {
   AppDecorations._();
@@ -43,9 +44,8 @@ class AppDecorations {
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(
+      hintStyle: AppTextStyles.bodyMedium.copyWith(
         color: isDark ? AppColors.textHintDark : AppColors.textHintLight,
-        fontSize: 14,
       ),
       prefixIcon: prefixIcon != null
           ? Icon(
@@ -60,8 +60,8 @@ class AppDecorations {
           ? AppColors.surfaceMutedDark
           : AppColors.surfaceMutedLight,
       contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.lg),

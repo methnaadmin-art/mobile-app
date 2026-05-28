@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:methna_app/app/controllers/chat_controller.dart';
+import 'package:methna_app/app/controllers/users_controller.dart';
 import 'package:methna_app/app/data/models/message_model.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
@@ -12,7 +13,6 @@ import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/chat_flow.dart';
-import 'package:methna_app/core/widgets/datify_shell.dart';
 import 'package:methna_app/core/widgets/ice_breaker_suggestions.dart';
 
 class ChatDetailScreen extends GetView<ChatController> {
@@ -30,77 +30,139 @@ class ChatDetailScreen extends GetView<ChatController> {
       child: Scaffold(
         backgroundColor: isDark
             ? AppColors.backgroundDark
-            : AppColors.backgroundLight,
-        body: DatifyBackground(
-          compact: true,
-          child: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    AppSpacing.sm,
-                    AppSpacing.lg,
-                    AppSpacing.md,
-                  ),
-                  child: Obx(() {
-                    final other =
-                        controller.activeConversation.value?.otherUser;
-                    final displayName =
-                        other?.firstName?.trim().isNotEmpty == true
-                        ? other!.firstName!
-                        : (other?.displayName.isNotEmpty == true
-                              ? other!.displayName
-                          : 'chats'.tr);
+            : Colors.white,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                ),
+                child: Obx(() {
+                  final other =
+                      controller.activeConversation.value?.otherUser;
+                  final displayName =
+                      other?.publicDisplayName.trim().isNotEmpty == true
+                      ? other!.publicDisplayName
+                      : 'chats'.tr;
 
-                    return Row(
-                      children: [
-                        _TopIconButton(
-                          icon: LucideIcons.chevronLeft,
-                          onTap: () {
-                            controller.leaveActiveChat();
-                            Get.back();
-                          },
-                        ),
-                        Expanded(
-                          child: Column(
-                            children: [
-                              Text(
-                                displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.titleLarge.copyWith(
-                                  fontWeight: FontWeight.w800,
+                  final avatarUrl = other?.mainPhotoUrl ??
+                      other?.fallbackPhotoUrl ??
+                      (() {
+                        for (final photo in other?.photos ?? const []) {
+                          final url = photo.url.trim();
+                          if (photo.isLocked || url.isEmpty) continue;
+                          return url;
+                        }
+                        return null;
+                      })();
+                  final initials = Helpers.getInitials(
+                    other?.firstName,
+                    other?.lastName,
+                  );
+
+                  void openProfile() {
+                    if (other == null) return;
+                    if (Get.isRegistered<UsersController>()) {
+                      Get.find<UsersController>().openUserDetail(other);
+                      return;
+                    }
+                    Get.toNamed(
+                      AppRoutes.userDetail,
+                      arguments: {'user': other},
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      _TopIconButton(
+                        icon: LucideIcons.chevronLeft,
+                        onTap: () {
+                          controller.leaveActiveChat();
+                          Get.back();
+                        },
+                      ),
+                      Expanded(
+                        child: InkWell(
+                          onTap: openProfile,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Row(
+                              children: [
+                                ChatAvatar(
+                                  imageUrl: avatarUrl,
+                                  fallback: initials.isEmpty
+                                      ? displayName.characters.take(1).toString()
+                                      : initials,
+                                  size: 42,
+                                  online: other?.isOnline ?? false,
+                                  showGradientRing: true,
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                controller.isTyping.value
-                                    ? 'typing'.tr
-                                    : (other?.isOnline ?? false)
-                                    ? 'online'.tr
-                                    : 'conversation'.tr,
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  color: controller.isTyping.value
-                                      ? AppColors.primary
-                                      : (isDark
-                                            ? AppColors.textSecondaryDark
-                                            : AppColors.textSecondaryLight),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              displayName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: AppTextStyles.titleLarge.copyWith(
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ),
+                                          if (other?.isPremium ?? false)
+                                            const Padding(
+                                              padding: EdgeInsets.only(left: 6),
+                                              child: Icon(
+                                                LucideIcons.crown,
+                                                size: 14,
+                                                color: Color(0xFFA78BFA),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        controller.isTyping.value
+                                            ? 'typing'.tr
+                                            : (other?.isOnline ?? false)
+                                            ? 'online'.tr
+                                            : 'conversation'.tr,
+                                        style: AppTextStyles.labelSmall.copyWith(
+                                          color: controller.isTyping.value
+                                              ? AppColors.primary
+                                              : (isDark
+                                                    ? AppColors.textSecondaryDark
+                                                    : AppColors.textSecondaryLight),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                        _TopIconButton(
-                          icon: LucideIcons.moreHorizontal,
-                          onTap: () => Get.toNamed(AppRoutes.messageSettings),
-                        ),
-                      ],
-                    );
-                  }),
-                ),
-                Expanded(
-                  child: Obx(() {
+                      ),
+                      _TopIconButton(
+                        icon: LucideIcons.moreHorizontal,
+                        onTap: () => Get.toNamed(AppRoutes.messageSettings),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+              Expanded(
+                child: Obx(() {
                     if (controller.messagesLoading.value &&
                         controller.activeMessages.isEmpty) {
                       return const Center(
@@ -110,67 +172,83 @@ class ChatDetailScreen extends GetView<ChatController> {
                       );
                     }
 
-                    if (controller.activeMessages.isEmpty) {
+                    final isLocked = controller.activeConversation.value?.isLocked ?? false;
+                    final lockReason = controller.activeConversation.value?.lockReason;
+
+                    if (controller.activeMessages.isEmpty && !isLocked) {
                       return _EmptyConversation(
                         suggestions: controller.iceBreakers.toList(),
                         onSuggestionTap: controller.sendIceBreaker,
                       );
                     }
 
-                    return ListView.builder(
-                      reverse: true,
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.lg,
-                        AppSpacing.sm,
-                        AppSpacing.lg,
-                        AppSpacing.md,
-                      ),
-                      itemCount: controller.activeMessages.length,
-                      itemBuilder: (context, index) {
-                        final message = controller.activeMessages[index];
-                        final isMine = message.isMine(currentUserId);
-                        final status = isMine
-                          ? controller.getMessageStatus(message.id)
-                          : null;
-                        final read = isMine &&
-                          (message.isRead ||
-                            controller.isMessageRead(message.id) ||
-                            status == MessageStatus.read);
-                        final showDate =
-                            index == controller.activeMessages.length - 1 ||
-                            !_sameDay(
-                              message.createdAt,
-                              controller.activeMessages[index + 1].createdAt,
-                            );
+                    return Column(
+                      children: [
+                        if (isLocked)
+                          _LockedBanner(reason: lockReason),
+                        Expanded(
+                          child: controller.activeMessages.isEmpty
+                              ? const SizedBox.shrink()
+                              : ListView.builder(
+                                  reverse: true,
+                                  physics: const BouncingScrollPhysics(),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    AppSpacing.lg,
+                                    AppSpacing.sm,
+                                    AppSpacing.lg,
+                                    AppSpacing.md,
+                                  ),
+                                  itemCount: controller.activeMessages.length,
+                                  itemBuilder: (context, index) {
+                                    final message = controller.activeMessages[index];
+                                    final isMine = message.isMine(currentUserId);
+                                    final status = isMine
+                                      ? controller.getMessageStatus(message.id)
+                                      : null;
+                                    final read = isMine &&
+                                      (message.isRead ||
+                                        controller.isMessageRead(message.id) ||
+                                        status == MessageStatus.read);
+                                    final showDate =
+                                        index == controller.activeMessages.length - 1 ||
+                                        !_sameDay(
+                                          message.createdAt,
+                                          controller.activeMessages[index + 1].createdAt,
+                                        );
 
-                        return Column(
-                          children: [
-                            if (showDate)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: AppSpacing.md,
+                                    return Column(
+                                      children: [
+                                        if (showDate)
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: AppSpacing.md,
+                                            ),
+                                            child: ChatDateBadge(
+                                              label: Helpers.formatDate(message.createdAt),
+                                            ),
+                                          ),
+                                        _MessageBubble(
+                                          message: message,
+                                          isMine: isMine,
+                                          status: status,
+                                          isRead: read,
+                                          onRetry: status == MessageStatus.failed
+                                              ? () => controller.retryMessage(message.id)
+                                              : null,
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
-                                child: ChatDateBadge(
-                                  label: Helpers.formatDate(message.createdAt),
-                                ),
-                              ),
-                            _MessageBubble(
-                              message: message,
-                              isMine: isMine,
-                              status: status,
-                              isRead: read,
-                              onRetry: status == MessageStatus.failed
-                                  ? () => controller.retryMessage(message.id)
-                                  : null,
-                            ),
-                          ],
-                        );
-                      },
+                        ),
+                      ],
                     );
                   }),
-                ),
-                Padding(
+              ),
+              Obx(() {
+                final isLocked = controller.activeConversation.value?.isLocked ?? false;
+                if (isLocked) return const SizedBox.shrink();
+                return Padding(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.lg,
                     AppSpacing.xs,
@@ -178,9 +256,9 @@ class ChatDetailScreen extends GetView<ChatController> {
                     AppSpacing.lg,
                   ),
                   child: _ComposerBar(controller: controller),
-                ),
-              ],
-            ),
+                );
+              }),
+            ],
           ),
         ),
       ),
@@ -212,7 +290,7 @@ class _TopIconButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: isDark
                 ? AppColors.cardDark.withValues(alpha: 0.82)
-                : Colors.white.withValues(alpha: 0.94),
+                : Colors.white.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isDark ? AppColors.borderDark : AppColors.borderLight,
@@ -458,7 +536,7 @@ class _ComposerBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark
             ? AppColors.cardDark.withValues(alpha: 0.96)
-            : Colors.white.withValues(alpha: 0.96),
+            : Colors.white.withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(AppRadii.xxl),
         border: Border.all(
           color: isDark ? AppColors.borderDark : AppColors.borderLight,
@@ -467,14 +545,6 @@ class _ComposerBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            LucideIcons.plus,
-            size: 18,
-            color: isDark
-                ? AppColors.textSecondaryDark
-                : AppColors.textSecondaryLight,
-          ),
-          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: TextField(
               controller: controller.messageTextController,
@@ -517,6 +587,55 @@ class _ComposerBar extends StatelessWidget {
                   size: 16,
                   color: Colors.white,
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LockedBanner extends StatelessWidget {
+  final String? reason;
+  const _LockedBanner({this.reason});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.error.withValues(alpha: 0.15)
+            : AppColors.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(
+          color: AppColors.error.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            LucideIcons.lock,
+            size: 18,
+            color: AppColors.error,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              reason ?? 'This conversation is no longer available.'.tr,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

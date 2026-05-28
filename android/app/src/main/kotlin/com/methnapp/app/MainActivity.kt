@@ -1,4 +1,4 @@
-package com.methna.app
+package com.methnapp.app
 
 import android.os.Bundle
 import com.google.android.gms.common.ConnectionResult

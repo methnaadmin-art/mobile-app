@@ -1,17 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:methna_app/core/utils/google_fonts_stub.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
+import 'package:methna_app/app/theme/app_spacing.dart';
+import 'package:methna_app/app/theme/app_text_styles.dart';
+import 'package:methna_app/core/widgets/backend_wait_overlay.dart';
+import 'package:methna_app/core/widgets/backend_wait_dots.dart';
 
-const Color exactSignupBg = Color(0xFFFBF8FF);
+const Color exactSignupBg = Color(0xFFFFFFFF);
 const Color exactSignupBgDark = Color(0xFF1A1625);
-const Color exactSignupPurple = Color(0xFF8E2CFF);
-const Color exactSignupPurpleEnd = Color(0xFFB454FF);
-const Color exactSignupText = Color(0xFF28242F);
+const Color exactSignupPrimary = Color(0xFF6E3DFB);
+const Color exactSignupPrimaryEnd = Color(0xFFA78BFA);
+const Color exactSignupText = Color(0xFF2E281F);
 const Color exactSignupTextDark = Color(0xFFF0ECF6);
-const Color exactSignupMuted = Color(0xFF8B8497);
+const Color exactSignupMuted = Color(0xFF8E806B);
 const Color exactSignupMutedDark = Color(0xFFA8A0B8);
 const Color exactSignupSurface = Color(0xFFFFFFFF);
 const Color exactSignupSurfaceDark = Color(0xFF252030);
-const Color exactSignupBorder = Color(0xFFF0EDF5);
+const Color exactSignupBorder = Color(0xFFE9E7EF);
 const Color exactSignupBorderDark = Color(0xFF3A3445);
 const Color exactSignupField = Color(0xFFFFFFFF);
 const Color exactSignupFieldDark = Color(0xFF2B2540);
@@ -50,36 +55,30 @@ class ExactSignupScaffold extends StatelessWidget {
     return Scaffold(
       backgroundColor: signupBg(isDark),
       resizeToAvoidBottomInset: true,
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? [const Color(0xFF1E1830), exactSignupBgDark]
-                : [const Color(0xFFFFFCFF), exactSignupBg],
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.xs,
+            AppSpacing.lg,
+            AppSpacing.md,
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
-            child: Column(
-              children: [
-                ExactSignupHeader(progress: progress, onBack: onBack),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.only(bottom: bottomInset > 0 ? 14 : 0),
-                    child: child,
-                  ),
+          child: Column(
+            children: [
+              ExactSignupHeader(progress: progress, onBack: onBack),
+              const SizedBox(height: AppSpacing.lg),
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.only(bottom: bottomInset > 0 ? 14 : 0),
+                  child: child,
                 ),
-                const SizedBox(height: 14),
-                footer,
-              ],
-            ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              footer,
+            ],
           ),
         ),
       ),
@@ -105,16 +104,14 @@ class ExactSignupHeader extends StatelessWidget {
     return Row(
       children: [
         Material(
-          color: isDark ? exactSignupSurfaceDark : Colors.white,
-          shape: const CircleBorder(),
-          elevation: 1.5,
-          shadowColor: const Color(0x14000000),
+          color: isDark ? exactSignupSurfaceDark : exactSignupSurface,
+          borderRadius: BorderRadius.circular(16),
           child: InkWell(
             onTap: onBack,
-            customBorder: const CircleBorder(),
+            borderRadius: BorderRadius.circular(16),
             child: SizedBox(
-              width: 46,
-              height: 46,
+              width: 44,
+              height: 44,
               child: Icon(
                 Icons.arrow_back_ios_new_rounded,
                 size: 18,
@@ -123,7 +120,7 @@ class ExactSignupHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(999),
@@ -135,7 +132,7 @@ class ExactSignupHeader extends StatelessWidget {
                     ? const Color(0xFF3A3445)
                     : const Color(0xFFE9E5F0),
                 valueColor: const AlwaysStoppedAnimation<Color>(
-                  exactSignupPurple,
+                  exactSignupPrimary,
                 ),
               ),
             ),
@@ -166,17 +163,17 @@ class ExactSignupHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [exactSignupPurple, exactSignupPurpleEnd],
+          colors: [exactSignupPrimary, exactSignupPrimaryEnd],
         ),
-        borderRadius: BorderRadius.circular(34),
+        borderRadius: BorderRadius.circular(AppRadii.hero),
         boxShadow: [
           BoxShadow(
-            color: exactSignupPurple.withValues(alpha: 0.28),
+            color: exactSignupPrimary.withValues(alpha: 0.28),
             blurRadius: 24,
             offset: const Offset(0, 16),
           ),
@@ -189,18 +186,16 @@ class ExactSignupHeroCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(AppRadii.lg),
                 ),
                 child: Text(
                   badge,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                  style: AppTextStyles.labelLarge.copyWith(
                     color: exactSignupText,
                   ),
                 ),
@@ -217,29 +212,21 @@ class ExactSignupHeroCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 26),
+          const SizedBox(height: AppSpacing.lg),
           Text(
             title,
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              height: 1.3,
-              color: Colors.white,
-            ),
+            style: AppTextStyles.titleLarge.copyWith(color: Colors.white),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             description,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              height: 1.6,
+            style: AppTextStyles.bodyMedium.copyWith(
               color: Colors.white.withValues(alpha: 0.82),
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: AppSpacing.lg),
           preview,
         ],
       ),
@@ -261,10 +248,10 @@ class ExactSignupSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: signupSurface(Theme.of(context).brightness == Brightness.dark),
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(AppRadii.xl),
         border: Border.all(
           color: signupBorder(Theme.of(context).brightness == Brightness.dark),
         ),
@@ -281,14 +268,13 @@ class ExactSignupSectionCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
+            style: AppTextStyles.labelMedium.copyWith(
               fontWeight: FontWeight.w700,
-              letterSpacing: 1.1,
+              letterSpacing: 0,
               color: exactSignupMuted,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.md),
           child,
         ],
       ),
@@ -313,22 +299,22 @@ class ExactSignupPrimaryButton extends StatelessWidget {
     final enabled = onTap != null && !isLoading;
     return SizedBox(
       width: double.infinity,
-      height: 58,
+      height: AppSpacing.buttonHeight,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(AppRadii.lg),
           gradient: enabled
               ? const LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [exactSignupPurple, exactSignupPurpleEnd],
+                  colors: [exactSignupPrimary, exactSignupPrimaryEnd],
                 )
               : null,
           color: enabled ? null : const Color(0xFFDEDCE4),
           boxShadow: enabled
               ? [
                   BoxShadow(
-                    color: exactSignupPurple.withValues(alpha: 0.24),
+                    color: exactSignupPrimary.withValues(alpha: 0.24),
                     blurRadius: 18,
                     offset: const Offset(0, 10),
                   ),
@@ -339,24 +325,20 @@ class ExactSignupPrimaryButton extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: enabled ? onTap : null,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(AppRadii.lg),
             child: Center(
               child: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.3,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ? SizedBox(
+                      width: 28,
+                      child: BackendWaitDots(
+                        color: Colors.white,
+                        size: 6,
+                        spacing: 4,
                       ),
                     )
                   : Text(
                       label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+                      style: AppTextStyles.button.copyWith(color: Colors.white),
                     ),
             ),
           ),
@@ -379,6 +361,8 @@ class ExactSignupTextField extends StatelessWidget {
     this.suffix,
     this.prefix,
     this.textAlign = TextAlign.start,
+    this.inputFormatters,
+    this.onChanged,
   });
 
   final TextEditingController? controller;
@@ -391,30 +375,21 @@ class ExactSignupTextField extends StatelessWidget {
   final Widget? suffix;
   final Widget? prefix;
   final TextAlign textAlign;
-
-  String _compactHint(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return value;
-    return trimmed.split(RegExp(r'\s+')).first;
-  }
+  final List<TextInputFormatter>? inputFormatters;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hintText = _compactHint(hint);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (label != null) ...[
           Text(
             label!,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: signupText(isDark),
-            ),
+            style: AppTextStyles.inputLabel.copyWith(color: signupText(isDark)),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.xs),
         ],
         TextFormField(
           controller: controller,
@@ -422,21 +397,20 @@ class ExactSignupTextField extends StatelessWidget {
           keyboardType: keyboardType,
           obscureText: obscureText,
           textInputAction: textInputAction,
+          inputFormatters: inputFormatters,
           autocorrect: false,
           enableSuggestions: !obscureText,
           scrollPadding: const EdgeInsets.only(bottom: 180),
           textAlign: textAlign,
           textAlignVertical: TextAlignVertical.center,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+          onChanged: onChanged,
+          style: AppTextStyles.bodyLarge.copyWith(
+            fontWeight: FontWeight.w400,
             color: signupText(isDark),
           ),
           decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
+            hintText: hint,
+            hintStyle: AppTextStyles.bodyMedium.copyWith(
               color: isDark ? const Color(0xFF706A80) : const Color(0xFFB2AFC0),
             ),
             filled: true,
@@ -458,28 +432,29 @@ class ExactSignupTextField extends StatelessWidget {
             ),
             suffixIcon: suffix,
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(AppRadii.lg),
               borderSide: BorderSide(color: signupBorder(isDark)),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(AppRadii.lg),
               borderSide: const BorderSide(
-                color: exactSignupPurple,
+                color: exactSignupPrimary,
                 width: 1.3,
               ),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: const BorderSide(color: Colors.redAccent),
+              borderRadius: BorderRadius.circular(AppRadii.lg),
+              borderSide: const BorderSide(color: const Color(0xFF4F26D9)),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: const BorderSide(color: Colors.redAccent),
+              borderRadius: BorderRadius.circular(AppRadii.lg),
+              borderSide: const BorderSide(color: const Color(0xFF4F26D9)),
             ),
+            errorStyle: AppTextStyles.error.copyWith(color: const Color(0xFF4F26D9)),
           ),
         ),
       ],

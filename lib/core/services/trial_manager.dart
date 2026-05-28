@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:methna_app/core/constants/app_constants.dart';
 
 /// TrialManager - Manages 3-day free trial for new users
 /// - Tracks trial start time persistently
@@ -59,8 +57,9 @@ class TrialManager extends GetxService {
   /// Has user purchased premium (ending trial early)
   bool get isPremiumPurchased => _isPremiumPurchased.value;
 
-  /// Is user effectively premium (trial OR purchased)
-  bool get isEffectivePremium => isTrialActive || isPremiumPurchased;
+  /// Trial manager should only grant access during active trial.
+  /// Paid entitlement is determined by backend subscription state.
+  bool get isEffectivePremium => isTrialActive;
 
   /// Trial expiration date
   DateTime? get trialExpirationDate {
@@ -138,57 +137,14 @@ class TrialManager extends GetxService {
   }
 
   Future<void> _loadTrialState() async {
-    // Check if premium was purchased
+    // Only trust persisted paid entitlement. Trial is disabled unless
+    // explicitly started by product logic.
     _isPremiumPurchased.value =
         _storage.read<bool>(_premiumPurchasedKey) ?? false;
 
-    // Check trial state
-    final startDate = _getTrialStartDate();
-    if (startDate != null) {
-      final elapsed = DateTime.now().difference(startDate);
-      final remaining = trialDuration - elapsed;
-
-      _isTrialActive.value =
-          remaining.isNegative == false && !isPremiumPurchased;
-      _trialTimeRemaining.value = remaining.isNegative
-          ? Duration.zero
-          : remaining;
-      _hasTrialBeenShown.value = _storage.read<bool>(_trialShownKey) ?? false;
-
-      debugPrint(
-        '[TrialManager] Loaded trial state: active=$_isTrialActive, remaining=${_trialTimeRemaining.value}',
-      );
-    } else {
-      // No trial started yet - check if user exists in auth
-      _checkAndStartTrialForExistingUser();
-    }
-  }
-
-  void _checkAndStartTrialForExistingUser() {
-    final rawUser = _storage.read<String>(AppConstants.userKey);
-    if (rawUser == null || rawUser.isEmpty || _getTrialStartDate() != null) {
-      return;
-    }
-
-    try {
-      final parsed = jsonDecode(rawUser);
-      if (parsed is! Map<String, dynamic>) return;
-      final createdAtRaw = parsed['createdAt']?.toString();
-      if (createdAtRaw == null || createdAtRaw.isEmpty) return;
-
-      final userCreatedAt = DateTime.tryParse(createdAtRaw);
-      if (userCreatedAt == null) return;
-
-      final elapsed = DateTime.now().difference(userCreatedAt);
-      if (elapsed < trialDuration) {
-        _storage.write(_trialStartKey, userCreatedAt.toIso8601String());
-        _isTrialActive.value = true;
-        _trialTimeRemaining.value = trialDuration - elapsed;
-        debugPrint('[TrialManager] Auto-started trial from cached user data');
-      }
-    } catch (_) {
-      // Ignore malformed cached user payloads.
-    }
+    _isTrialActive.value = false;
+    _trialTimeRemaining.value = Duration.zero;
+    _hasTrialBeenShown.value = _storage.read<bool>(_trialShownKey) ?? false;
   }
 
   void _startCountdownTimer() {
@@ -244,6 +200,19 @@ class TrialManager extends GetxService {
     'trial_expired': isTrialExpired,
     'premium_purchased': isPremiumPurchased,
   };
+
+  /// Clears trial + premium-purchased flags on logout so a different user
+  /// re-logging on the same device does not inherit the previous session.
+  void resetForLogout() {
+    _storage.remove(_trialStartKey);
+    _storage.remove(_trialShownKey);
+    _storage.remove(_premiumPurchasedKey);
+    _isTrialActive.value = false;
+    _trialTimeRemaining.value = Duration.zero;
+    _hasTrialBeenShown.value = false;
+    _isPremiumPurchased.value = false;
+    _countdownTimer?.cancel();
+  }
 
   /// Reset trial (for testing only)
   @visibleForTesting

@@ -113,14 +113,11 @@ workflows:
       - name: Build iOS IPA
         script: |
           set -e
-          # --no-tree-shake-icons is required: the project uses lucide_icons
-          # + Material icons together and tree-shaking has produced broken
-          # icon glyphs in past builds.
           BUILD_NAME=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//')
-          xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --flutter-build-args=" --no-tree-shake-icons --build-name=$BUILD_NAME --build-number=${FLUTTER_BUILD_NUMBER:-$BUILD_NUMBER}"
+          flutter build ipa --release \
+            --no-tree-shake-icons \
+            --build-name="$BUILD_NAME" \
+            --build-number="${FLUTTER_BUILD_NUMBER:-$BUILD_NUMBER}"
 
     artifacts:
       - build/ios/ipa/*.ipa

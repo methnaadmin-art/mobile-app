@@ -14,7 +14,7 @@
 #         - Upload an iOS Distribution certificate (.p12) for distribution_type
 #           "app_store". Or rely on automatic fetch via App Store Connect API.
 #         - Upload a matching App Store provisioning profile for bundle id
-#           com.methna.app.
+#           com.methnapp.app.
 #
 # Android
 #   1. Codemagic.yaml settings -> Environment variables -> create a group named
@@ -48,9 +48,9 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.methna.app
+        bundle_identifier: com.methnapp.app
       vars:
-        BUNDLE_ID: "com.methna.app"
+        BUNDLE_ID: "com.methnapp.app"
         XCODE_WORKSPACE: "Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
         # Replace with the numeric Apple ID from App Store Connect after the
@@ -107,22 +107,14 @@ workflows:
       - name: Build iOS IPA
         script: |
           set -e
-          # --no-tree-shake-icons is required because the project uses
-          # lucide_icons + Material icons together; tree-shaking has produced
-          # broken icon glyphs in past builds.
-          flutter build ipa --release \
-            --no-tree-shake-icons \
-            --build-name=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//') \
-            --build-number=${FLUTTER_BUILD_NUMBER:-$BUILD_NUMBER} \
-            --export-options-plist=/Users/builder/export_options.plist || true
-
-          # Fallback path: if --export-options-plist isn't generated yet, use
-          # xcode-project to package the IPA from the .xcarchive.
-          if [ ! -f build/ios/ipa/*.ipa ]; then
-            xcode-project build-ipa \
-              --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
-              --scheme "$XCODE_SCHEME"
-          fi
+          # --no-tree-shake-icons is required: the project uses lucide_icons
+          # + Material icons together and tree-shaking has produced broken
+          # icon glyphs in past builds.
+          BUILD_NAME=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//')
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --flutter-build-args=" --no-tree-shake-icons --build-name=$BUILD_NAME --build-number=${FLUTTER_BUILD_NUMBER:-$BUILD_NUMBER}"
 
     artifacts:
       - build/ios/ipa/*.ipa
@@ -134,15 +126,14 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        # External tester groups – remove or rename to match your App Store
-        # Connect setup. Internal-only testers don't need a group here.
-        beta_groups:
-          - Internal Testers
+        # External tester groups are optional. Leave empty for internal-only
+        # TestFlight distribution; uncomment + replace with a real App Store
+        # Connect group name once you've created one.
+        # beta_groups:
+        #   - Internal Testers
         # Set to true once the listing is fully prepared in App Store Connect
         # and you want every tag-triggered build to go to App Store Review.
         submit_to_app_store: false
-        cancel_previous_submissions: true
-        release_type: MANUAL
       email:
         recipients:
           - methnasupport@gmail.com
@@ -169,7 +160,7 @@ workflows:
       events:
         - tag
       tag_patterns:
-        - pattern: 'v*'
+        - pattern: 'android-v*'
           include: true
 
     scripts:

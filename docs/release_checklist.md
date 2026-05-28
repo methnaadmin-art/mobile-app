@@ -35,7 +35,7 @@ flutter build appbundle --release --dart-define-from-file=env/release.json
 
 - Open `ios/Runner.xcworkspace` in Xcode.
 - Set Team and Signing for Release configuration.
-- Confirm Bundle Identifier is correct (`com.methna.app`).
+- Confirm Bundle Identifier is correct (`com.methnapp.app`).
 - Confirm iOS deployment target is 13.0+.
 - Build command:
 

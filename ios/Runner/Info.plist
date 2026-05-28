@@ -76,7 +76,7 @@
 				<key>CFBundleTypeRole</key>
 				<string>Editor</string>
 				<key>CFBundleURLName</key>
-				<string>com.methna.app</string>
+				<string>com.methnapp.app</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
 					<string>methna</string>

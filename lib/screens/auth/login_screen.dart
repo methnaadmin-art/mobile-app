@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/controllers/locale_controller.dart';
 import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/controllers/login_controller.dart';

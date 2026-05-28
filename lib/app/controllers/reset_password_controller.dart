@@ -4,7 +4,7 @@ import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/utils/helpers.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 class ResetPasswordController extends GetxController {
   final AuthService _auth = Get.find<AuthService>();

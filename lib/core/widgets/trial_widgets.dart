@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import '../services/trial_manager.dart';
 import '../../app/data/services/monetization_service.dart';
 import '../../app/data/services/auth_service.dart';

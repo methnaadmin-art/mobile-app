@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/controllers/home_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/core/constants/api_constants.dart';

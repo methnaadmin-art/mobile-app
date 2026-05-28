@@ -2,7 +2,7 @@
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../../app/controllers/users_controller.dart';
 import '../../../app/data/models/user_model.dart';
 import '../../../core/theme/premium_theme.dart';

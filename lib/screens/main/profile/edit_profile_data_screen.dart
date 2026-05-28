@@ -4,7 +4,7 @@ import 'package:methna_app/app/controllers/profile_controller.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/datify_shell.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 /// Modern Edit Profile Screen with Enhanced UX
 /// Features: Section-based editing, real-time validation, modern UI

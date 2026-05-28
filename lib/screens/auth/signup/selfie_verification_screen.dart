@@ -13,7 +13,7 @@ import 'package:methna_app/app/theme/app_shadows.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/widgets/datify_shell.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class SelfieVerificationScreen extends StatefulWidget {

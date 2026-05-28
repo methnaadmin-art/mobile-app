@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart' as intl;
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/widgets/animated_icons.dart';
 import 'package:methna_app/core/widgets/login_success_animation.dart';

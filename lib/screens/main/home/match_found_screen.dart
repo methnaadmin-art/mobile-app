@@ -3,7 +3,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/controllers/chat_controller.dart';
 import 'package:methna_app/app/controllers/navigation_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide FormData, MultipartFile, Response;
 import 'package:get_storage/get_storage.dart';
 import 'package:http_parser/http_parser.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';

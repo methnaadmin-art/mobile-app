@@ -10,7 +10,7 @@ import 'package:methna_app/app/data/services/message_queue_service.dart';
 import 'package:methna_app/app/data/models/notification_model.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/utils/notification_route_resolver.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 class SocketService extends GetxService with WidgetsBindingObserver {
   io.Socket? _chatSocket;

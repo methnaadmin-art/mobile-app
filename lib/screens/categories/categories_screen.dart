@@ -7,7 +7,7 @@ import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/utils/icon_helper.dart';
 import 'package:methna_app/core/widgets/animated_empty_state.dart';
 import 'package:methna_app/core/widgets/datify_shell.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});

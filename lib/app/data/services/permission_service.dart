@@ -2,7 +2,7 @@
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 /// Centralized permission handling service.
 /// Handles camera, gallery, microphone with proper UX flow.

@@ -5,7 +5,7 @@ import 'package:methna_app/app/controllers/profile_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 /// Photos Tab with photo grid, upload, and management
 class ProfilePhotosTab extends GetView<ProfileController> {

@@ -6,7 +6,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/widgets/datify_shell.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 /// ML Kit Selfie Verification Screen
 /// Compares face features between uploaded photos and selfie

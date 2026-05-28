@@ -2,7 +2,7 @@
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/core/widgets/datify_shell.dart';
 import '../../../app/controllers/chat_controller.dart';
 import '../../../app/data/services/auth_service.dart';

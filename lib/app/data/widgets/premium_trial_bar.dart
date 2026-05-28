@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 class PremiumTrialBar extends StatelessWidget {
   const PremiumTrialBar({super.key});

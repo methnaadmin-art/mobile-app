@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/data/services/monetization_service.dart';
 import 'package:methna_app/app/data/services/subscription_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';

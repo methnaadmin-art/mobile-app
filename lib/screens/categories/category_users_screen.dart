@@ -9,7 +9,7 @@ import 'package:methna_app/core/utils/cloudinary_url.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/animated_empty_state.dart';
 import 'package:methna_app/core/widgets/datify_shell.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 class CategoryUsersScreen extends StatefulWidget {
   const CategoryUsersScreen({super.key});

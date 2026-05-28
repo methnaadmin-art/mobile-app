@@ -9,7 +9,7 @@
 #
 # iOS
 #   1. Team integrations -> Developer Portal -> add an App Store Connect API key
-#      under the integration name "AppStoreConnect_Methna".
+#      under the integration name "Codemagic Methna".
 #   2. Codemagic.yaml settings -> Code signing identities:
 #         - Upload an iOS Distribution certificate (.p12) for distribution_type
 #           "app_store". Or rely on automatic fetch via App Store Connect API.
@@ -43,7 +43,7 @@ workflows:
     instance_type: mac_mini_m2
 
     integrations:
-      app_store_connect: AppStoreConnect_Methna
+      app_store_connect: Codemagic Methna
 
     environment:
       vars:

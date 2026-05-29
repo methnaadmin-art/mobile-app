@@ -87,6 +87,9 @@ workflows:
         script: |
           set -e
           flutter --version
+          flutter config --no-enable-swift-package-manager
+          rm -rf ios/.swiftpm ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+          flutter clean
           flutter precache --ios
           flutter pub get
 

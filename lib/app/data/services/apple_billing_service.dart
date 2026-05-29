@@ -64,6 +64,23 @@ class AppleBillingService extends GetxService {
   Completer<AppleBillingPurchaseOutcome>? _purchaseCompleter;
   String? _expectedPurchaseProductId;
 
+  static const String _premiumProductId = String.fromEnvironment(
+    'APPLE_BILLING_PREMIUM',
+    defaultValue: 'com.methnapp.app.premium_monthly',
+  );
+  static const String _premiumMonthlyProductId = String.fromEnvironment(
+    'APPLE_BILLING_PREMIUM_MONTHLY',
+    defaultValue: 'com.methnapp.app.premium_monthly',
+  );
+  static const String _premiumYearlyProductId = String.fromEnvironment(
+    'APPLE_BILLING_PREMIUM_YEARLY',
+    defaultValue: 'com.methnapp.app.premium_yearly',
+  );
+  static const String _premiumWeeklyProductId = String.fromEnvironment(
+    'APPLE_BILLING_PREMIUM_WEEKLY',
+    defaultValue: '',
+  );
+
   bool get supportsPlatform =>
       !kIsWeb && (GetPlatform.isIOS || GetPlatform.isMacOS);
 
@@ -128,16 +145,21 @@ class AppleBillingService extends GetxService {
     Map<String, dynamic>? planMetadata,
   }) {
     final metadata = planMetadata ?? const <String, dynamic>{};
-    return _readString(metadata, const [
+    final appleProductId = _readString(metadata, const [
       'iosProductId',
       'appleProductId',
       'ios_product_id',
       'apple_product_id',
       'appStoreProductId',
       'app_store_product_id',
-      'googleProductId',
-      'google_product_id',
     ]);
+    if (appleProductId != null) return appleProductId;
+
+    return _fallbackProductIdForPlan(
+      planCode: planCode,
+      durationDays: durationDays,
+      planMetadata: metadata,
+    );
   }
 
   ProductDetails? productForPlan({
@@ -486,6 +508,72 @@ class AppleBillingService extends GetxService {
     final value = plan['durationDays'] ?? plan['duration_days'] ?? 30;
     if (value is num) return value.toInt();
     return int.tryParse(value.toString()) ?? 30;
+  }
+
+  static String? _fallbackProductIdForPlan({
+    required String planCode,
+    required int durationDays,
+    required Map<String, dynamic> planMetadata,
+  }) {
+    final cycle =
+        _readString(planMetadata, const [
+          'billingCycle',
+          'billing_cycle',
+          'cycle',
+          'interval',
+        ])?.toLowerCase() ??
+        '';
+    final normalizedPlan = _normalizeToken(
+      [
+        planCode,
+        planMetadata['code'],
+        planMetadata['planCode'],
+        planMetadata['slug'],
+        planMetadata['name'],
+      ].map((value) => value?.toString() ?? '').join(' '),
+    );
+
+    if (cycle.contains('week') || durationDays >= 6 && durationDays <= 10) {
+      return _emptyToNull(_premiumWeeklyProductId);
+    }
+
+    if (cycle.contains('year') ||
+        cycle.contains('annual') ||
+        durationDays >= 300 ||
+        normalizedPlan.contains('year')) {
+      return _firstNonEmpty([_premiumYearlyProductId, _premiumProductId]);
+    }
+
+    if (cycle.contains('month') ||
+        durationDays >= 25 && durationDays <= 35 ||
+        normalizedPlan.contains('month') ||
+        normalizedPlan.contains('premium')) {
+      return _firstNonEmpty([_premiumMonthlyProductId, _premiumProductId]);
+    }
+
+    return _emptyToNull(_premiumProductId);
+  }
+
+  static String _normalizeToken(String raw) {
+    return raw
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+  }
+
+  static String? _firstNonEmpty(Iterable<String> values) {
+    for (final value in values) {
+      final normalized = _emptyToNull(value);
+      if (normalized != null) return normalized;
+    }
+    return null;
+  }
+
+  static String? _emptyToNull(String value) {
+    final normalized = value.trim();
+    return normalized.isEmpty ? null : normalized;
   }
 
   static String? _readString(Map<String, dynamic> data, Iterable<String> keys) {

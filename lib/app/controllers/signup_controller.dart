@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
+import 'package:methna_app/app/data/services/storage_service.dart';
 import 'package:methna_app/app/data/services/verification_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/data/services/location_service.dart';
@@ -134,10 +135,17 @@ class SignupController extends GetxController {
       SignupData.countryCities[selectedCountry.value] ?? [];
   List<String> get arabicCountries => SignupData.arabicCountries;
   int get formChangeTick => _draftTrigger.value;
+  bool get shouldSkipAppleAccountDetailsStep => _authProvider == 'apple';
   String? get primaryNationality =>
       selectedNationalities.isNotEmpty ? selectedNationalities.first : null;
   String? get secondaryNationality =>
       selectedNationalities.length > 1 ? selectedNationalities[1] : null;
+
+  String get _authProvider {
+    if (!Get.isRegistered<StorageService>()) return '';
+    return Get.find<StorageService>().getAuthProvider()?.trim().toLowerCase() ??
+        '';
+  }
 
   // ─── Loading states ────────────────────────────────────────
   final RxBool obscurePassword = true.obs;
@@ -870,7 +878,11 @@ class SignupController extends GetxController {
         await _runBlockingStepSync(currentIdx);
       }
 
-      final nextIdx = currentIdx + 1;
+      var nextIdx = currentIdx + 1;
+      if (nextIdx == _routeToStep[AppRoutes.signupProfileDetails] &&
+          shouldSkipAppleAccountDetailsStep) {
+        nextIdx = _routeToStep[AppRoutes.signupBirthday] ?? nextIdx;
+      }
       final nextRoute = nextIdx < totalSteps ? stepRoutes[nextIdx] : null;
 
       debugPrint(

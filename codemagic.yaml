@@ -120,7 +120,8 @@ workflows:
           flutter build ipa --release \
             --no-tree-shake-icons \
             --build-name="$BUILD_NAME" \
-            --build-number="${FLUTTER_BUILD_NUMBER:-$BUILD_NUMBER}"
+            --build-number="${FLUTTER_BUILD_NUMBER:-$BUILD_NUMBER}" \
+            --export-options-plist=ios/ExportOptions.plist
 
     artifacts:
       - build/ios/ipa/*.ipa

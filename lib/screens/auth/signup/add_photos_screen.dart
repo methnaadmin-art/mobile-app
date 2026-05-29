@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
+import 'package:methna_app/app/data/services/permission_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/theme/app_radii.dart';
@@ -50,6 +51,13 @@ class _AddPhotosScreenState extends State<AddPhotosScreen> {
     }
 
     if (Platform.isIOS) {
+      if (Get.isRegistered<PermissionService>()) {
+        return Get.find<PermissionService>().requestPhotos();
+      }
+
+      final currentStatus = await Permission.photos.status;
+      if (currentStatus.isGranted || currentStatus.isLimited) return true;
+
       final status = await Permission.photos.request();
       if (status.isGranted || status.isLimited) return true;
       Helpers.showSnackbar(
@@ -373,8 +381,6 @@ class _EmptyPhotoState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

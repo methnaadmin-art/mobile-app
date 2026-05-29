@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
@@ -6,7 +6,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 
 /// Centralized permission handling service.
 /// Handles camera, gallery, microphone with proper UX flow.
-class PermissionService extends GetxService {
+class PermissionService extends GetxService with WidgetsBindingObserver {
   // Permission states
   final Rx<PermissionStatus> cameraStatus = PermissionStatus.denied.obs;
   final Rx<PermissionStatus> photosStatus = PermissionStatus.denied.obs;
@@ -16,6 +16,26 @@ class PermissionService extends GetxService {
   Future<PermissionService> init() async {
     await _checkAllPermissions();
     return this;
+  }
+
+  @override
+  void onInit() {
+    super.onInit();
+    WidgetsBinding.instance.addObserver(this);
+    _checkAllPermissions();
+  }
+
+  @override
+  void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.onClose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      refreshStatuses();
+    }
   }
 
   /// Check all permission statuses without requesting
@@ -57,7 +77,8 @@ class PermissionService extends GetxService {
   }
 
   /// Check if photos is available
-  bool get hasPhotosPermission => photosStatus.value.isGranted;
+  bool get hasPhotosPermission =>
+      _isPermissionAllowed(Permission.photos, photosStatus.value);
 
   // ─── Microphone Permission ─────────────────────────────────
 
@@ -114,7 +135,7 @@ class PermissionService extends GetxService {
     statusRx.value = status;
 
     // 2. Already granted
-    if (status.isGranted) {
+    if (_isPermissionAllowed(permission, status)) {
       return true;
     }
 
@@ -127,7 +148,7 @@ class PermissionService extends GetxService {
         await Future.delayed(const Duration(milliseconds: 500));
         status = await permission.status;
         statusRx.value = status;
-        return status.isGranted;
+        return _isPermissionAllowed(permission, status);
       }
       return false;
     }
@@ -143,7 +164,7 @@ class PermissionService extends GetxService {
     statusRx.value = status;
 
     // 6. Handle result
-    if (status.isGranted) {
+    if (_isPermissionAllowed(permission, status)) {
       return true;
     } else if (status.isPermanentlyDenied) {
       final openSettings = await _showPermanentlyDeniedDialog(title, reason, icon);
@@ -152,7 +173,7 @@ class PermissionService extends GetxService {
         await Future.delayed(const Duration(milliseconds: 500));
         status = await permission.status;
         statusRx.value = status;
-        return status.isGranted;
+        return _isPermissionAllowed(permission, status);
       }
     }
 
@@ -321,7 +342,14 @@ class PermissionService extends GetxService {
     await _checkAllPermissions();
   }
 
+  bool _isPermissionAllowed(Permission permission, PermissionStatus status) {
+    if (permission == Permission.photos) {
+      return status.isGranted || status.isLimited;
+    }
+    return status.isGranted;
+  }
+
   /// Check if all essential permissions are granted
   bool get hasEssentialPermissions =>
-      cameraStatus.value.isGranted && photosStatus.value.isGranted;
+      cameraStatus.value.isGranted && hasPhotosPermission;
 }

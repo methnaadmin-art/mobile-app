@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:country_picker/country_picker.dart';
@@ -11,6 +11,7 @@ import 'package:methna_app/app/controllers/profile_controller.dart';
 import 'package:methna_app/app/controllers/users_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/monetization_service.dart';
+import 'package:methna_app/app/data/services/permission_service.dart';
 import 'package:methna_app/app/data/services/verification_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
@@ -87,6 +88,9 @@ class ProfileScreen extends GetView<ProfileController> {
     required ImageSource source,
   }) async {
     try {
+      final hasPermission = await _requestImageSourcePermission(source);
+      if (!hasPermission) return;
+
       final picked = await _imagePicker.pickImage(
         source: source,
         maxWidth: 2560,
@@ -109,6 +113,16 @@ class ProfileScreen extends GetView<ProfileController> {
     } catch (e) {
       Helpers.showSnackbar(message: 'Failed to upload photo', isError: true);
     }
+  }
+
+  static Future<bool> _requestImageSourcePermission(ImageSource source) async {
+    if (!Get.isRegistered<PermissionService>()) return true;
+
+    final permissionService = Get.find<PermissionService>();
+    if (source == ImageSource.camera) {
+      return permissionService.requestCamera();
+    }
+    return permissionService.requestPhotos();
   }
 
   @override

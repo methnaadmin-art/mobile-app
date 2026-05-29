@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/controllers/profile_controller.dart';
 import 'package:methna_app/app/data/models/user_model.dart';
+import 'package:methna_app/app/data/services/permission_service.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/theme/app_gradients.dart';
 import 'package:methna_app/app/theme/app_radii.dart';
@@ -311,6 +312,12 @@ class _EditProfilePhotosScreenState extends State<EditProfilePhotosScreen> {
     }
 
     try {
+      if (Get.isRegistered<PermissionService>()) {
+        final hasPhotosPermission = await Get.find<PermissionService>()
+            .requestPhotos();
+        if (!hasPhotosPermission) return;
+      }
+
       final picked = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 2560,

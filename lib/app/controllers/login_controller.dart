@@ -130,23 +130,23 @@ class LoginController extends GetxController {
     }
   }
 
-  /// Google users skip ONLY username and email-verification steps
-  /// (Google already provides email and we auto-generate a username).
+  /// Federated users skip ONLY username and email-verification steps
+  /// (the provider already verifies identity and we auto-generate a username).
   /// They must still complete gender, marital status, profile details,
   /// birthday, etc. — otherwise the backend detects incomplete profile
   /// and restoreSessionAfterLaunch keeps re-routing, causing a loop
   /// that makes the app appear stuck/loading.
-  String _getGoogleDestinationRoute(UserModel user) {
+  String _getFederatedDestinationRoute(UserModel user) {
     final resolved = _getDestinationRoute(user);
     if (resolved == AppRoutes.main) return resolved;
 
-    // Only skip these two — Google already provides email + identity
-    const googleSkippableRoutes = {
+    // Only skip these two — the provider already provides email + identity.
+    const federatedSkippableRoutes = {
       AppRoutes.signupUsername,
       AppRoutes.signupEmailVerification,
     };
 
-    if (googleSkippableRoutes.contains(resolved)) {
+    if (federatedSkippableRoutes.contains(resolved)) {
       return AppRoutes.signupGender;
     }
 
@@ -267,7 +267,7 @@ class LoginController extends GetxController {
 
       final routedUser = await _resolveFreshUser(user);
 
-      final destinationRoute = _getGoogleDestinationRoute(routedUser);
+      final destinationRoute = _getFederatedDestinationRoute(routedUser);
       final isSignupIncomplete = destinationRoute != AppRoutes.main;
 
       isGoogleLoading.value = false;
@@ -362,7 +362,7 @@ class LoginController extends GetxController {
       debugPrint('[Login] Apple sign-in SUCCESS');
 
       final routedUser = await _resolveFreshUser(user);
-      final destinationRoute = _getGoogleDestinationRoute(routedUser);
+      final destinationRoute = _getFederatedDestinationRoute(routedUser);
       final isSignupIncomplete = destinationRoute != AppRoutes.main;
 
       Helpers.showLoginSuccessDialog(

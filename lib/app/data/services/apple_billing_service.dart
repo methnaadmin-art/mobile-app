@@ -134,6 +134,9 @@ class AppleBillingService extends GetxService {
       'ios_product_id',
       'apple_product_id',
       'appStoreProductId',
+      'app_store_product_id',
+      'googleProductId',
+      'google_product_id',
     ]);
   }
 

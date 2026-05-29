@@ -36,7 +36,7 @@ class FilterScreen extends GetView<HomeController> {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: CustomButton(
-                text: isApplying ? 'Applying...' : 'apply'.tr,
+                text: isApplying ? 'applying'.tr : 'apply'.tr,
                 icon: isApplying ? null : LucideIcons.check,
                 onPressed: isApplying
                     ? null
@@ -107,13 +107,14 @@ class FilterScreen extends GetView<HomeController> {
                   ),
                 ),
                 SettingsPlainTile(
-                  title: 'Ethnicity',
-                  value: controller.ethnicityFilter.value.trim().isEmpty
-                      ? 'all'.tr
-                      : controller.ethnicityFilter.value,
+                  title: 'ethnicity'.tr,
+                  value: _AdvancedFilters.labelize(
+                    controller.ethnicityFilter.value,
+                    fallback: 'all',
+                  ),
                   onTap: () => _AdvancedFilters.pickSingle(
                     context,
-                    title: 'Ethnicity',
+                    title: 'ethnicity'.tr,
                     current: controller.ethnicityFilter.value,
                     values: <String>['', ...SignupData.ethnicities],
                     onSelected: (value) {
@@ -576,7 +577,7 @@ class _AdvancedFilters extends StatelessWidget {
           .map(
             (entry) => SettingsSheetOption(
               value: entry.key,
-              title: entry.key.trim().isEmpty ? 'all'.tr : entry.value,
+              title: labelizeMapped(entry.key, labels, fallback: 'all'),
               selected: current == entry.key,
             ),
           )
@@ -614,8 +615,15 @@ class _AdvancedFilters extends StatelessWidget {
     String fallback = 'all',
   }) {
     if (value.trim().isEmpty) return fallback.tr;
-    final direct = labels[value.trim()];
+    final key = value.trim();
+    final direct = labels[key];
     if (direct != null && direct.trim().isNotEmpty) {
+      if (Get.locale?.languageCode == 'ar') {
+        final translatedKey = key.tr;
+        if (translatedKey != key) return translatedKey;
+        final translatedDirect = direct.tr;
+        if (translatedDirect != direct) return translatedDirect;
+      }
       return direct;
     }
     return labelize(value, fallback: fallback);

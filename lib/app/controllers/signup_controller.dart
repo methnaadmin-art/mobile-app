@@ -611,8 +611,8 @@ class SignupController extends GetxController {
           bioController.text = draft['bio'];
         }
         if (draft['describeIdealSpouse'] != null) {
-          describeIdealSpouseController.text =
-              draft['describeIdealSpouse'].toString();
+          describeIdealSpouseController.text = draft['describeIdealSpouse']
+              .toString();
         }
         if (draft['country'] != null) {
           selectedCountry.value = draft['country'];
@@ -875,7 +875,20 @@ class SignupController extends GetxController {
       if (_requiresBlockingSync(currentIdx, stepIsComplete)) {
         _showStepTransitionLoader();
         transitionLoaderShown = true;
-        await _runBlockingStepSync(currentIdx);
+        try {
+          await _runBlockingStepSync(currentIdx);
+        } catch (e) {
+          if (transitionLoaderShown && (Get.isDialogOpen ?? false)) {
+            Get.back();
+            transitionLoaderShown = false;
+          }
+          _logBlockingStepSyncError(currentIdx, e);
+          if (currentIdx == 6 || currentIdx == 8) {
+            _handleError(e, _syncErrorMessageForStep(currentIdx));
+            return;
+          }
+          rethrow;
+        }
       }
 
       var nextIdx = currentIdx + 1;
@@ -905,7 +918,9 @@ class SignupController extends GetxController {
 
       _triggerSave();
     } catch (e) {
-      debugPrint('[Signup] goToNextStep unexpected error: $e');
+      debugPrint(
+        '[Signup] goToNextStep unexpected error type=${e.runtimeType}',
+      );
     } finally {
       if (transitionLoaderShown && (Get.isDialogOpen ?? false)) {
         Get.back();
@@ -921,14 +936,17 @@ class SignupController extends GetxController {
 
   bool _requiresBlockingSync(int currentIdx, bool stepIsComplete) {
     if (!stepIsComplete) return false;
-    return currentIdx == 6 || currentIdx == 8 || currentIdx == 9 || currentIdx == 10;
+    return currentIdx == 6 ||
+        currentIdx == 8 ||
+        currentIdx == 9 ||
+        currentIdx == 10;
   }
 
   Future<void> _runBlockingStepSync(int currentIdx) async {
     switch (currentIdx) {
       case 6:
       case 8:
-        await updateProfile(setLoading: false);
+        await updateProfile(setLoading: false, showError: false);
         return;
       case 9:
         await uploadPhotos();
@@ -947,9 +965,7 @@ class SignupController extends GetxController {
     Get.dialog(
       PopScope(
         canPop: false,
-        child: Center(
-          child: BackendWaitPanel(message: 'loading'.tr),
-        ),
+        child: Center(child: BackendWaitPanel(message: 'loading'.tr)),
       ),
       barrierDismissible: false,
       useSafeArea: false,
@@ -988,12 +1004,58 @@ class SignupController extends GetxController {
             selectedSkinComplexion.value.isNotEmpty ||
             selectedBodyBuild.value.isNotEmpty ||
             hasChildrenValue != null ||
-          willingToRelocate.value != null ||
+            willingToRelocate.value != null ||
             selectedFamilyValues.isNotEmpty ||
             selectedMarriageTimeline.value.isNotEmpty;
       default:
         return true;
     }
+  }
+
+  String? _validateOptionalIntField(
+    String rawValue, {
+    required String label,
+    required int min,
+    required int max,
+    required String unit,
+  }) {
+    final value = rawValue.trim();
+    if (value.isEmpty) return null;
+
+    final parsed = int.tryParse(_normalizeDigits(value));
+    if (parsed == null || parsed < min || parsed > max) {
+      return '$label must be a whole number between $min and $max $unit.';
+    }
+
+    return null;
+  }
+
+  int? _parseOptionalIntField(String rawValue) {
+    final value = rawValue.trim();
+    if (value.isEmpty) return null;
+    return int.tryParse(_normalizeDigits(value));
+  }
+
+  String _syncErrorMessageForStep(int step) {
+    if (step == 8) {
+      return 'Unable to save Profession & Personal details. Please check your entries and try again.';
+    }
+    return 'Unable to save this step. Please try again.';
+  }
+
+  void _logBlockingStepSyncError(int step, Object error) {
+    if (error is DioException) {
+      debugPrint(
+        '[Signup] Step sync failed step=$step route=${Get.currentRoute} '
+        'type=${error.type} status=${error.response?.statusCode}',
+      );
+      return;
+    }
+
+    debugPrint(
+      '[Signup] Step sync failed step=$step route=${Get.currentRoute} '
+      'errorType=${error.runtimeType}',
+    );
   }
 
   Future<void> skipCurrentOptionalStep() async {
@@ -1105,6 +1167,28 @@ class SignupController extends GetxController {
           _handleError(null, 'marriage_timeline_required'.tr);
           return false;
         }
+        final heightError = _validateOptionalIntField(
+          heightController.text,
+          label: 'Height',
+          min: 100,
+          max: 250,
+          unit: 'cm',
+        );
+        if (heightError != null) {
+          _handleError(null, heightError);
+          return false;
+        }
+        final weightError = _validateOptionalIntField(
+          weightController.text,
+          label: 'Weight',
+          min: 30,
+          max: 300,
+          unit: 'kg',
+        );
+        if (weightError != null) {
+          _handleError(null, weightError);
+          return false;
+        }
         if ((hasChildren.value ?? false) && _parseChildrenCount() == null) {
           _handleError(
             null,
@@ -1209,10 +1293,11 @@ class SignupController extends GetxController {
   }
 
   String _normalizeTimelineKey(String timelineKey) {
-    return timelineKey.trim().toUpperCase().replaceAll('-', '_').replaceAll(
-      ' ',
-      '_',
-    );
+    return timelineKey
+        .trim()
+        .toUpperCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
   }
 
   String _normalizeStoredMarriageTimeline(String value) {
@@ -1336,7 +1421,10 @@ class SignupController extends GetxController {
         (hasCoreProfile || profileMarkedComplete);
   }
 
-  Future<void> updateProfile({bool setLoading = true}) async {
+  Future<void> updateProfile({
+    bool setLoading = true,
+    bool showError = true,
+  }) async {
     if (setLoading) {
       isLoading.value = true;
     }
@@ -1352,6 +1440,8 @@ class SignupController extends GetxController {
       final resolvedIntentMode = _intentModeFromTimeline(
         selectedMarriageTimeline.value,
       );
+      final height = _parseOptionalIntField(heightController.text);
+      final weight = _parseOptionalIntField(weightController.text);
 
       final profileData = {
         'gender': selectedGender.value.toLowerCase(),
@@ -1387,9 +1477,6 @@ class SignupController extends GetxController {
           'build': selectedBodyBuild.value,
         if (selectedFamilyValues.isNotEmpty)
           'familyValues': selectedFamilyValues.map(_toEnumValue).toList(),
-        if (resolvedMarriageIntention != null)
-          'marriageIntention': resolvedMarriageIntention,
-        if (resolvedIntentMode != null) 'intentMode': resolvedIntentMode,
         if (hasChildren.value != null) 'hasChildren': hasChildren.value,
         if (willingToRelocate.value != null)
           'willingToRelocate': willingToRelocate.value,
@@ -1399,21 +1486,33 @@ class SignupController extends GetxController {
           'jobTitle': jobTitleController.text.trim(),
         if (companyController.text.isNotEmpty)
           'company': companyController.text.trim(),
-        if (heightController.text.isNotEmpty)
-          'height': int.tryParse(heightController.text),
-        if (weightController.text.isNotEmpty)
-          'weight': int.tryParse(weightController.text),
         if (bioController.text.isNotEmpty) 'bio': bioController.text.trim(),
         if (describeIdealSpouseController.text.trim().isNotEmpty)
           'aboutPartner': describeIdealSpouseController.text.trim(),
         'country': selectedCountry.value,
         if (selectedCity.value.isNotEmpty) 'city': selectedCity.value,
       };
+      if (height != null) {
+        profileData['height'] = height;
+      }
+      if (weight != null) {
+        profileData['weight'] = weight;
+      }
+      if (resolvedMarriageIntention != null) {
+        profileData['marriageIntention'] = resolvedMarriageIntention;
+      }
+      if (resolvedIntentMode != null) {
+        profileData['intentMode'] = resolvedIntentMode;
+      }
 
-      debugPrint('[SignupController] Updating profile with data: $profileData');
+      debugPrint(
+        '[SignupController] Updating profile fields: ${profileData.keys.toList()}',
+      );
       await _api.post(ApiConstants.createOrUpdateProfile, data: profileData);
     } catch (e) {
-      _handleError(e, 'profile_update_failed'.tr);
+      if (showError) {
+        _handleError(e, 'profile_update_failed'.tr);
+      }
       rethrow; // Rethrow so completeSignup knows it failed
     } finally {
       if (setLoading) {

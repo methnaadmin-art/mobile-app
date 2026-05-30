@@ -53,7 +53,7 @@ workflows:
         BUNDLE_ID: "com.methnapp.app"
         XCODE_WORKSPACE: "Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
-        IOS_BUILD_NUMBER: "33"
+        IOS_BUILD_NUMBER: "34"
         # Replace with the numeric Apple ID from App Store Connect after the
         # first manual upload. Used to auto-increment the build number.
         APP_STORE_APPLE_ID: 0000000000
@@ -73,7 +73,7 @@ workflows:
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-          MIN_IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-33}"
+          MIN_IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-34}"
           if [ "$APP_STORE_APPLE_ID" != "0000000000" ]; then
             LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" || echo 0)
             echo "Latest App Store build number: $LATEST_BUILD_NUMBER"
@@ -126,7 +126,7 @@ workflows:
           flutter build ipa --release \
             --no-tree-shake-icons \
             --build-name="$BUILD_NAME" \
-            --build-number="${FLUTTER_BUILD_NUMBER:-33}" \
+            --build-number="${FLUTTER_BUILD_NUMBER:-34}" \
             --export-options-plist=ios/ExportOptions.plist
 
     artifacts:

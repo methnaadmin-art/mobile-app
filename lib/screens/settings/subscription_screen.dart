@@ -1158,11 +1158,42 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
                     onPressed: _buying ? null : _handleCancel,
                   );
                 }
-                return _BrandButton(
-                  label: _buying ? 'Processing...' : 'Buy It Now',
-                  icon: _buying ? null : LucideIcons.shoppingBag,
-                  loading: _buying,
-                  onPressed: _buying ? null : _handleBuy,
+                final needsStoreProduct =
+                    widget.monetization.isAppleStorePurchasePlatform;
+                final storeProductReady =
+                    !needsStoreProduct ||
+                    widget.monetization.isStoreProductReadyForPlan(widget.plan);
+                final buyLabel = _buying
+                    ? 'Processing...'
+                    : storeProductReady
+                    ? 'Buy It Now'
+                    : 'Loading App Store...';
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _BrandButton(
+                      label: buyLabel,
+                      icon: _buying ? null : LucideIcons.shoppingBag,
+                      loading: _buying,
+                      onPressed: _buying || !storeProductReady
+                          ? null
+                          : _handleBuy,
+                    ),
+                    if (needsStoreProduct && !storeProductReady) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Waiting for the App Store product to load for this plan.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.white54
+                              : const Color(0xFF8A84A3),
+                        ),
+                      ),
+                    ],
+                  ],
                 );
               }),
               const SizedBox(height: 10),
@@ -1210,6 +1241,15 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
       return;
     }
 
+    if (widget.monetization.isAppleStorePurchasePlatform &&
+        !widget.monetization.isStoreProductReadyForPlan(widget.plan)) {
+      Helpers.showSnackbar(
+        message: 'This App Store subscription is still loading. Pull to refresh.',
+        isError: true,
+      );
+      return;
+    }
+
     setState(() => _buying = true);
     try {
       final days = _durationDays(widget.plan);
@@ -1223,7 +1263,9 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
 
       if (!ok) {
         Helpers.showSnackbar(
-          message: 'Purchase failed. Please try again.',
+          message:
+              widget.monetization.currentPurchaseFailureMessage ??
+              'Purchase failed. Please try again.',
           isError: true,
         );
         return;

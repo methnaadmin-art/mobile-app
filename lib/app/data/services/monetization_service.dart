@@ -484,6 +484,56 @@ class MonetizationService extends GetxService {
     return price;
   }
 
+  bool get isAppleStorePurchasePlatform =>
+      !kIsWeb && (GetPlatform.isIOS || GetPlatform.isMacOS);
+
+  bool isStoreProductReadyForPlan(Map<String, dynamic> plan) {
+    final planCode = (plan['code'] ?? plan['planCode'] ?? plan['id'] ?? '')
+        .toString()
+        .trim();
+    final durationRaw = plan['durationDays'] ?? plan['duration_days'] ?? 30;
+    final durationDays = durationRaw is num
+        ? durationRaw.toInt()
+        : int.tryParse(durationRaw.toString()) ?? 30;
+
+    if (isAppleStorePurchasePlatform) {
+      final appleBilling = _appleBillingService;
+      if (appleBilling == null) return false;
+      return appleBilling.isStoreProductLoadedForPlan(
+        planCode: planCode,
+        durationDays: durationDays,
+        planMetadata: plan,
+      );
+    }
+
+    if (!kIsWeb && GetPlatform.isAndroid) {
+      final playBilling = _playBillingService;
+      if (playBilling == null) return false;
+      return playBilling.productForPlan(
+            planCode: planCode,
+            durationDays: durationDays,
+            planMetadata: plan,
+          ) !=
+          null;
+    }
+
+    return false;
+  }
+
+  String? get currentPurchaseFailureMessage {
+    if (isAppleStorePurchasePlatform) {
+      final message = _appleBillingService?.purchaseMessage.value.trim() ?? '';
+      return message.isEmpty ? null : message;
+    }
+
+    if (!kIsWeb && GetPlatform.isAndroid) {
+      final message = _playBillingService?.purchaseMessage.value.trim() ?? '';
+      return message.isEmpty ? null : message;
+    }
+
+    return null;
+  }
+
   /// Ensures ProductDetails for the current active plans are
   /// loaded. Safe to call repeatedly — `loadProducts` dedupes internally.
   Future<void> ensureStorePricesLoaded() async {
@@ -547,6 +597,18 @@ class MonetizationService extends GetxService {
     paymentPlanName.value = planCode;
     paymentFlow.value = PaymentFlowState.redirecting;
 
+    final resolvedProductId = appleBilling.resolveProductIdForPlan(
+      planCode: planCode,
+      durationDays: durationDays,
+      planMetadata: planMetadata,
+    );
+    debugPrint(
+      '[Monetization] Apple purchase start planCode=$planCode '
+      'durationDays=$durationDays '
+      'resolvedProductId=${resolvedProductId ?? 'null'} '
+      'storeProductReady=${planMetadata == null ? false : isStoreProductReadyForPlan(planMetadata)}',
+    );
+
     final userId = Get.isRegistered<AuthService>()
         ? Get.find<AuthService>().currentUser.value?.id
         : null;
@@ -555,6 +617,11 @@ class MonetizationService extends GetxService {
       durationDays: durationDays,
       planMetadata: planMetadata,
       accountId: userId,
+    );
+    debugPrint(
+      '[Monetization] Apple purchase outcome type=${outcome.type} '
+      'productId=${outcome.productId ?? resolvedProductId ?? 'null'} '
+      'message=${outcome.message ?? appleBilling.purchaseMessage.value}',
     );
 
     if (outcome.type == AppleBillingPurchaseOutcomeType.cancelled) {

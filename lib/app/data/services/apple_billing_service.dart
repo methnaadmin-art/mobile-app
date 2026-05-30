@@ -100,7 +100,7 @@ class AppleBillingService extends GetxService {
       onError: (error) {
         purchaseState.value = AppleBillingPurchaseState.error;
         purchaseMessage.value = 'Apple purchase stream failed.';
-        debugPrint('[AppleBilling] purchase stream error: $error');
+        _log('purchaseUpdatedStream error: $error');
         _completePurchase(
           const AppleBillingPurchaseOutcome(
             type: AppleBillingPurchaseOutcomeType.error,
@@ -124,6 +124,7 @@ class AppleBillingService extends GetxService {
 
     try {
       storeAvailable.value = await _inAppPurchase.isAvailable();
+      _log('store availability=${storeAvailable.value}');
       if (!storeAvailable.value) {
         purchaseState.value = AppleBillingPurchaseState.unavailable;
         purchaseMessage.value = 'Apple in-app purchases are unavailable.';
@@ -135,7 +136,7 @@ class AppleBillingService extends GetxService {
       storeAvailable.value = false;
       purchaseState.value = AppleBillingPurchaseState.unavailable;
       purchaseMessage.value = 'Apple in-app purchases are unavailable.';
-      debugPrint('[AppleBilling] isAvailable error: $e');
+      _log('isAvailable error: $e');
     }
   }
 
@@ -176,6 +177,19 @@ class AppleBillingService extends GetxService {
     return products[productId];
   }
 
+  bool isStoreProductLoadedForPlan({
+    required String planCode,
+    required int durationDays,
+    Map<String, dynamic>? planMetadata,
+  }) {
+    return productForPlan(
+          planCode: planCode,
+          durationDays: durationDays,
+          planMetadata: planMetadata,
+        ) !=
+        null;
+  }
+
   Future<void> prefetchPlans(Iterable<Map<String, dynamic>> plans) async {
     if (!supportsPlatform) return;
 
@@ -206,21 +220,37 @@ class AppleBillingService extends GetxService {
 
     purchaseState.value = AppleBillingPurchaseState.loadingProducts;
     try {
+      _log('queryProductDetails request productIds=${normalizedIds.join(', ')}');
       final response = await _inAppPurchase.queryProductDetails(normalizedIds);
+      _log(
+        'queryProductDetails response found=${response.productDetails.length} '
+        'notFound=${response.notFoundIDs.length} '
+        'error=${response.error?.message ?? 'none'}',
+      );
       if (response.error != null) {
         purchaseState.value = AppleBillingPurchaseState.error;
         purchaseMessage.value =
             response.error?.message ?? 'Unable to load Apple products.';
+        _log(
+          'queryProductDetails failed message=${purchaseMessage.value} '
+          'requested=${normalizedIds.join(', ')}',
+        );
         return;
       }
 
       products.addAll({
         for (final product in response.productDetails) product.id: product,
       });
+      for (final product in response.productDetails) {
+        _log(
+          'StoreKit product id=${product.id} price=${product.price} '
+          'title="${_summarizeText(product.title, maxLength: 80)}"',
+        );
+      }
 
       if (response.notFoundIDs.isNotEmpty) {
-        debugPrint(
-          '[AppleBilling] products not found: ${response.notFoundIDs.join(', ')}',
+        _log(
+          'StoreKit products not found: ${response.notFoundIDs.join(', ')}',
         );
       }
 
@@ -231,7 +261,7 @@ class AppleBillingService extends GetxService {
     } catch (e) {
       purchaseState.value = AppleBillingPurchaseState.error;
       purchaseMessage.value = 'Unable to load Apple products.';
-      debugPrint('[AppleBilling] loadProducts error: $e');
+      _log('loadProducts error: $e');
     }
   }
 
@@ -260,6 +290,10 @@ class AppleBillingService extends GetxService {
       durationDays: durationDays,
       planMetadata: planMetadata,
     );
+    _log(
+      'purchase request planCode=$planCode durationDays=$durationDays '
+      'resolvedProductId=${productId ?? 'null'} accountId=${accountId ?? 'null'}',
+    );
     if (productId == null) {
       purchaseState.value = AppleBillingPurchaseState.error;
       purchaseMessage.value = 'This plan is not linked to App Store Connect.';
@@ -274,6 +308,10 @@ class AppleBillingService extends GetxService {
     if (product == null) {
       purchaseState.value = AppleBillingPurchaseState.error;
       purchaseMessage.value = 'This plan is not available in the App Store.';
+      _log(
+        'purchase aborted because StoreKit did not return productId=$productId '
+        'loadedProductIds=${products.keys.join(', ')}',
+      );
       return AppleBillingPurchaseOutcome(
         type: AppleBillingPurchaseOutcomeType.productNotFound,
         message: purchaseMessage.value,
@@ -294,12 +332,17 @@ class AppleBillingService extends GetxService {
     purchaseMessage.value = '';
 
     try {
+      _log(
+        'buyNonConsumable request productId=${product.id} '
+        'price=${product.price} title="${_summarizeText(product.title, maxLength: 80)}"',
+      );
       final started = await _inAppPurchase.buyNonConsumable(
         purchaseParam: PurchaseParam(
           productDetails: product,
           applicationUserName: accountId,
         ),
       );
+      _log('buyNonConsumable started=$started productId=$productId');
       if (!started) {
         _expectedPurchaseProductId = null;
         _purchaseCompleter = null;
@@ -316,7 +359,7 @@ class AppleBillingService extends GetxService {
       _purchaseCompleter = null;
       purchaseState.value = AppleBillingPurchaseState.error;
       purchaseMessage.value = 'App Store purchase failed to start.';
-      debugPrint('[AppleBilling] purchaseSubscription error: $e');
+      _log('purchaseSubscription error: $e');
       return AppleBillingPurchaseOutcome(
         type: AppleBillingPurchaseOutcomeType.error,
         message: purchaseMessage.value,
@@ -344,26 +387,42 @@ class AppleBillingService extends GetxService {
     await refreshStoreAvailability();
     if (!storeAvailable.value) return;
     try {
+      _log('restorePurchases requested');
       await _inAppPurchase.restorePurchases();
     } catch (e) {
       purchaseState.value = AppleBillingPurchaseState.error;
       purchaseMessage.value = 'Could not restore App Store purchases.';
-      debugPrint('[AppleBilling] restorePurchases error: $e');
+      _log('restorePurchases error: $e');
     }
   }
 
   Future<void> _handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
+    _log('purchaseUpdatedStream batch size=${purchases.length}');
     for (final purchase in purchases) {
       final expected = _expectedPurchaseProductId;
       final isExpected = expected == null || expected == purchase.productID;
 
+      _log(
+        'purchaseUpdatedStream item productId=${purchase.productID} '
+        'purchaseId=${purchase.purchaseID ?? 'null'} '
+        'status=${purchase.status} '
+        'pendingComplete=${purchase.pendingCompletePurchase} '
+        'transactionDate=${purchase.transactionDate ?? 'null'} '
+        'source=${purchase.verificationData.source}',
+      );
+
       if (!isExpected && purchase.status != PurchaseStatus.restored) {
+        _log(
+          'purchaseUpdatedStream ignoring unexpected productId=${purchase.productID} '
+          'expected=${expected ?? 'any'}',
+        );
         continue;
       }
 
       if (purchase.status == PurchaseStatus.pending) {
         purchaseState.value = AppleBillingPurchaseState.pending;
         purchaseMessage.value = 'Purchase is pending in the App Store.';
+        _log('purchase status pending productId=${purchase.productID}');
         _completePurchase(
           AppleBillingPurchaseOutcome(
             type: AppleBillingPurchaseOutcomeType.pending,
@@ -378,6 +437,7 @@ class AppleBillingService extends GetxService {
       if (purchase.status == PurchaseStatus.canceled) {
         purchaseState.value = AppleBillingPurchaseState.cancelled;
         purchaseMessage.value = '';
+        _log('purchase status cancelled productId=${purchase.productID}');
         await _completePurchaseIfNeeded(purchase);
         _completePurchase(
           AppleBillingPurchaseOutcome(
@@ -392,6 +452,10 @@ class AppleBillingService extends GetxService {
         purchaseState.value = AppleBillingPurchaseState.error;
         purchaseMessage.value =
             purchase.error?.message ?? 'App Store purchase was not completed.';
+        _log(
+          'purchase status error productId=${purchase.productID} '
+          'message=${purchase.error?.message ?? purchaseMessage.value}',
+        );
         await _completePurchaseIfNeeded(purchase);
         _completePurchase(
           AppleBillingPurchaseOutcome(
@@ -405,6 +469,10 @@ class AppleBillingService extends GetxService {
 
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
+        _log(
+          'purchase status ${purchase.status} entering backend verification '
+          'productId=${purchase.productID}',
+        );
         final verified = await _verifyWithBackend(purchase);
         if (verified) {
           await _completePurchaseIfNeeded(purchase);
@@ -413,6 +481,10 @@ class AppleBillingService extends GetxService {
               ? AppleBillingPurchaseState.restored
               : AppleBillingPurchaseState.purchased;
           purchaseMessage.value = '';
+          _log(
+            'backend verification succeeded productId=${purchase.productID} '
+            'status=${purchase.status}',
+          );
           _completePurchase(
             AppleBillingPurchaseOutcome(
               type: restored
@@ -429,6 +501,10 @@ class AppleBillingService extends GetxService {
           purchaseMessage.value =
               'Purchase could not be verified. Your subscription was not changed.';
         }
+        _log(
+          'backend verification failed productId=${purchase.productID} '
+          'message=${purchaseMessage.value}',
+        );
         _completePurchase(
           AppleBillingPurchaseOutcome(
             type: AppleBillingPurchaseOutcomeType.error,
@@ -444,12 +520,23 @@ class AppleBillingService extends GetxService {
     final receiptData = purchase.verificationData.serverVerificationData.trim();
     if (receiptData.isEmpty) {
       purchaseMessage.value = 'The App Store did not return a receipt.';
+      _log('backend verify skipped because receipt data is empty');
       return false;
     }
 
     purchaseState.value = AppleBillingPurchaseState.syncing;
     try {
-      await _api.post(
+      _log(
+        'backend verify request path=${ApiConstants.appleVerifyPurchase} '
+        'productId=${purchase.productID} '
+        'transactionId=${purchase.purchaseID ?? 'null'} '
+        'status=${purchase.status} '
+        'receiptLength=${receiptData.length} '
+        'localVerificationLength=${purchase.verificationData.localVerificationData.length} '
+        'source=${purchase.verificationData.source} '
+        'restored=${purchase.status == PurchaseStatus.restored}',
+      );
+      final response = await _api.post(
         ApiConstants.appleVerifyPurchase,
         data: {
           'platform': 'ios',
@@ -464,6 +551,10 @@ class AppleBillingService extends GetxService {
           'restored': purchase.status == PurchaseStatus.restored,
         },
       );
+      _log(
+        'backend verify response status=${response.statusCode ?? 'unknown'} '
+        'body=${_summarizeValue(response.data, maxLength: 240)}',
+      );
       return true;
     } on DioException catch (e) {
       final message = e.response?.data is Map
@@ -472,11 +563,15 @@ class AppleBillingService extends GetxService {
       purchaseMessage.value = message.isNotEmpty
           ? message
           : 'Apple purchase verification failed.';
-      debugPrint('[AppleBilling] backend verification error: $e');
+      _log(
+        'backend verify error status=${e.response?.statusCode ?? 'unknown'} '
+        'message=${purchaseMessage.value} '
+        'body=${_summarizeValue(e.response?.data, maxLength: 240)}',
+      );
       return false;
     } catch (e) {
       purchaseMessage.value = 'Apple purchase verification failed.';
-      debugPrint('[AppleBilling] backend verification error: $e');
+      _log('backend verify error: $e');
       return false;
     }
   }
@@ -485,8 +580,9 @@ class AppleBillingService extends GetxService {
     if (!purchase.pendingCompletePurchase) return;
     try {
       await _inAppPurchase.completePurchase(purchase);
+      _log('completePurchase finished productId=${purchase.productID}');
     } catch (e) {
-      debugPrint('[AppleBilling] completePurchase warning: $e');
+      _log('completePurchase warning: $e');
     }
   }
 
@@ -502,6 +598,22 @@ class AppleBillingService extends GetxService {
     if (!keepExpected) {
       _expectedPurchaseProductId = null;
     }
+  }
+
+  void _log(String message) {
+    debugPrint('[AppleBilling] $message');
+  }
+
+  static String _summarizeText(String? value, {int maxLength = 160}) {
+    final normalized = (value ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (normalized.isEmpty) return '';
+    if (normalized.length <= maxLength) return normalized;
+    return '${normalized.substring(0, maxLength - 3)}...';
+  }
+
+  static String _summarizeValue(Object? value, {int maxLength = 160}) {
+    if (value == null) return 'null';
+    return _summarizeText(value.toString(), maxLength: maxLength);
   }
 
   static int _readDurationDays(Map<String, dynamic> plan) {

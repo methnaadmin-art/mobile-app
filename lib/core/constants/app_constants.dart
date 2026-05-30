@@ -4,7 +4,7 @@ class AppConstants {
   static const String appName = 'Methna';
   static const String appTagline = 'Muslim matchmaking with intention';
   static const String appLogoAsset = 'assets/images/methna_brand_logo.png';
-  static const String appVersion = '1.2.2';
+  static const String appVersion = '1.2.4';
   static const String androidPackageName = 'com.methnapp.app';
 
   // Replace idYOUR_APP_ID with the real numeric App Store ID once the app is live.

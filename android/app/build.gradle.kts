@@ -48,8 +48,8 @@ android {
         applicationId = "com.methnapp.app"
         minSdk = maxOf(flutter.minSdkVersion, 24)
         targetSdk = 35
-        versionCode = 31
-        versionName = "1.2.2"
+        versionCode = 35
+        versionName = "1.2.4"
 
     }
 

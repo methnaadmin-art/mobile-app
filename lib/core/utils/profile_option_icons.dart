@@ -70,7 +70,7 @@ IconData interestOptionIcon(String label) {
     return Icons.two_wheeler_rounded;
   }
 
-  return Icons.auto_awesome_rounded;
+  return Icons.interests_outlined;
 }
 
 IconData faithOptionIcon(String key) {
@@ -88,7 +88,7 @@ IconData faithOptionIcon(String key) {
     case 'hijab':
       return Icons.checkroom_rounded;
     default:
-      return Icons.auto_awesome_rounded;
+      return Icons.menu_book_rounded;
   }
 }
 

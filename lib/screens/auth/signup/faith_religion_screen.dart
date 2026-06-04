@@ -36,7 +36,7 @@ class FaithReligionScreen extends GetView<SignupController> {
         children: [
           SignupHeroCard(
             badge: '07 / 12',
-            icon: LucideIcons.moonStar,
+            icon: LucideIcons.bookOpen,
             title: 'faith_and_religion'.tr,
             description: '',
           ),
@@ -303,15 +303,30 @@ _FaithVisual _faithVisualForOption(String option, {required IconData fallback}) 
 
   switch (key) {
     case 'sunni':
-      return const _FaithVisual(icon: Icons.shield_outlined, accent: AppColors.primary);
+      return const _FaithVisual(
+        icon: Icons.menu_book_rounded,
+        accent: AppColors.primary,
+      );
     case 'shia':
-      return const _FaithVisual(icon: Icons.nightlight_round, accent: AppColors.secondary);
+      return const _FaithVisual(
+        icon: Icons.mosque_outlined,
+        accent: AppColors.secondary,
+      );
     case 'sufi':
-      return const _FaithVisual(icon: Icons.auto_awesome_rounded, accent: AppColors.primaryLight);
+      return const _FaithVisual(
+        icon: Icons.self_improvement_rounded,
+        accent: AppColors.primaryLight,
+      );
     case 'other':
-      return const _FaithVisual(icon: Icons.more_horiz_rounded, accent: AppColors.primaryDark);
+      return const _FaithVisual(
+        icon: Icons.more_horiz_rounded,
+        accent: AppColors.primaryDark,
+      );
     case 'prefer not to say':
-      return const _FaithVisual(icon: Icons.visibility_off_outlined, accent: AppColors.primaryDark);
+      return const _FaithVisual(
+        icon: Icons.visibility_off_outlined,
+        accent: AppColors.primaryDark,
+      );
     case 'very practicing':
       return const _FaithVisual(icon: Icons.stars_rounded, accent: AppColors.secondary);
     case 'practicing':
@@ -343,13 +358,22 @@ _FaithVisual _faithVisualForOption(String option, {required IconData fallback}) 
   }
 
   if (key.contains('sunni')) {
-    return const _FaithVisual(icon: LucideIcons.shieldCheck, accent: AppColors.primary);
+    return const _FaithVisual(
+      icon: Icons.menu_book_rounded,
+      accent: AppColors.primary,
+    );
   }
   if (key.contains('shia')) {
-    return const _FaithVisual(icon: LucideIcons.moon, accent: AppColors.secondary);
+    return const _FaithVisual(
+      icon: Icons.mosque_outlined,
+      accent: AppColors.secondary,
+    );
   }
   if (key.contains('sufi')) {
-    return const _FaithVisual(icon: LucideIcons.sparkles, accent: AppColors.primaryLight);
+    return const _FaithVisual(
+      icon: Icons.self_improvement_rounded,
+      accent: AppColors.primaryLight,
+    );
   }
   if (key.contains('very')) {
     return const _FaithVisual(icon: LucideIcons.badgeCheck, accent: AppColors.secondary);
@@ -394,5 +418,10 @@ _FaithVisual _faithVisualForOption(String option, {required IconData fallback}) 
     return const _FaithVisual(icon: LucideIcons.circleEllipsis, accent: AppColors.primaryDark);
   }
 
-  return _FaithVisual(icon: fallback, accent: AppColors.primary);
+  return _FaithVisual(
+    icon: fallback == Icons.auto_awesome_rounded
+        ? Icons.menu_book_rounded
+        : fallback,
+    accent: AppColors.primary,
+  );
 }

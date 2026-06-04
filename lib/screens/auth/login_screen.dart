@@ -920,7 +920,13 @@ class _BrandIcon extends StatelessWidget {
       );
 
   const _BrandIcon.apple()
-    : this._(child: const Icon(Icons.apple, size: 24, color: Colors.black87));
+    : this._(
+        child: const Icon(
+          Icons.apple,
+          size: 20,
+          color: Color(0xFF111111),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) => child;
@@ -937,19 +943,38 @@ class _LoginBrandHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tileRadius = BorderRadius.circular(size * 0.30);
+
     return Container(
       width: size,
       height: size,
-      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: primaryBrand.withValues(alpha: 0.08),
-        shape: BoxShape.circle,
-        border: Border.all(color: primaryBrand.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(size * 0.34),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            primaryBrand.withValues(alpha: 0.16),
+            primaryBrand.withValues(alpha: 0.08),
+          ],
+        ),
+        border: Border.all(color: primaryBrand.withValues(alpha: 0.16)),
+        boxShadow: [
+          BoxShadow(
+            color: primaryBrand.withValues(alpha: 0.14),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-      child: ClipOval(
-        child: Image.asset(
-          AppConstants.appIconAsset,
-          fit: BoxFit.cover,
+      child: Padding(
+        padding: const EdgeInsets.all(9),
+        child: ClipRRect(
+          borderRadius: tileRadius,
+          child: Image.asset(
+            AppConstants.appIconAsset,
+            fit: BoxFit.cover,
+          ),
         ),
       ),
     );

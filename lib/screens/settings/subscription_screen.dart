@@ -1701,29 +1701,38 @@ class _BrandButton extends StatelessWidget {
           child: InkWell(
             onTap: onPressed,
             borderRadius: BorderRadius.circular(999),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
                   if (loading)
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
                       ),
                     )
                   else if (icon != null)
-                    Icon(icon, color: Colors.white, size: 18),
-                  if (icon != null || loading) const SizedBox(width: 10),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      letterSpacing: 0.3,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Icon(icon, color: Colors.white, size: 18),
+                    ),
+                  Center(
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                 ],

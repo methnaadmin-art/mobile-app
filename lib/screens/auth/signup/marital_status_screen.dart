@@ -85,14 +85,14 @@ class MaritalStatusScreen extends GetView<SignupController> {
   IconData _iconForStatus(String status) {
     switch (status) {
       case 'Married':
-        return Icons.favorite_rounded;
+        return Icons.verified_user_outlined;
       case 'Divorced':
-        return Icons.change_circle_outlined;
+        return Icons.sync_disabled_outlined;
       case 'Widowed':
-        return Icons.hourglass_bottom_rounded;
+        return Icons.hourglass_empty_rounded;
       case 'Never Married':
       default:
-        return Icons.auto_awesome_rounded;
+        return Icons.favorite_border_rounded;
     }
   }
 }

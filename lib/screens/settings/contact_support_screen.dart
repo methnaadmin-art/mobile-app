@@ -1,6 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/data/services/api_service.dart';
+import 'package:methna_app/app/data/services/monetization_service.dart';
+import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
@@ -203,26 +205,32 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final monetization = Get.find<MonetizationService>();
+
     return SettingsSimplePageScaffold(
       title: 'contact_support'.tr,
       body: Obx(
-        () => ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            0,
-            AppSpacing.lg,
-            AppSpacing.xl,
-          ),
-          children: [
-            SettingsSegmentedControl(
-              labels: ['new_ticket'.tr, 'my_tickets'.tr],
-              selectedIndex: _selectedTab.value,
-              onSelected: (index) => _selectedTab.value = index,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (_selectedTab.value == 0) _buildForm() else _buildTickets(),
-          ],
-        ),
+        () => !monetization.isPremium
+            ? _PremiumSupportLocked(
+                onUpgrade: () => Get.toNamed(AppRoutes.subscription),
+              )
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  0,
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                ),
+                children: [
+                  SettingsSegmentedControl(
+                    labels: ['new_ticket'.tr, 'my_tickets'.tr],
+                    selectedIndex: _selectedTab.value,
+                    onSelected: (index) => _selectedTab.value = index,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  if (_selectedTab.value == 0) _buildForm() else _buildTickets(),
+                ],
+              ),
       ),
     );
   }
@@ -308,6 +316,50 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
             .toList(growable: false),
       );
     });
+  }
+}
+
+class _PremiumSupportLocked extends StatelessWidget {
+  const _PremiumSupportLocked({required this.onUpgrade});
+
+  final VoidCallback onUpgrade;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        0,
+        AppSpacing.lg,
+        AppSpacing.xl,
+      ),
+      children: [
+        SettingsPlainListCard(
+          children: [
+            SettingsPlainTile(title: 'premium_support_only_title'.tr),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
+              child: Text(
+                'premium_support_only_desc'.tr,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondaryLight,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        CustomButton(
+          text: 'upgrade_to_premium'.tr,
+          onPressed: onUpgrade,
+        ),
+      ],
+    );
   }
 }
 

@@ -127,6 +127,15 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                   textInputAction: TextInputAction.newline,
                 ),
                 const SizedBox(height: AppSpacing.lg),
+                SignupInputField(
+                  controller: controller.reasonToUseMethnaController,
+                  label: 'reason_to_use_methna'.tr,
+                  hint: 'reason_to_use_methna_hint'.tr,
+                  icon: LucideIcons.messageCircle,
+                  maxLines: 3,
+                  textInputAction: TextInputAction.newline,
+                ),
+                const SizedBox(height: AppSpacing.lg),
                 Row(
                   children: [
                     Expanded(
@@ -149,15 +158,6 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                SignupInputField(
-                  controller: controller.describeIdealSpouseController,
-                  label: 'describe_ideal_spouse'.tr,
-                  hint: 'describe_ideal_spouse_hint'.tr,
-                  icon: Icons.favorite_border_rounded,
-                  maxLines: 4,
-                  textInputAction: TextInputAction.newline,
                 ),
               ],
             ),
@@ -500,6 +500,15 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                     ],
                   );
                 }),
+                const SizedBox(height: AppSpacing.xl),
+                SignupInputField(
+                  controller: controller.describeIdealSpouseController,
+                  label: 'describe_ideal_spouse'.tr,
+                  hint: 'describe_ideal_spouse_hint'.tr,
+                  icon: Icons.favorite_border_rounded,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.newline,
+                ),
               ],
             ),
           ),

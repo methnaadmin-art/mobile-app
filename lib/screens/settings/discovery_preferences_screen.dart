@@ -1,6 +1,8 @@
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:methna_app/app/data/services/auth_service.dart';
+import 'package:methna_app/app/data/services/location_service.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/controllers/home_controller.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
@@ -12,6 +14,21 @@ import 'package:methna_app/core/widgets/settings_flow.dart';
 
 class DiscoveryPreferencesScreen extends StatelessWidget {
   const DiscoveryPreferencesScreen({super.key});
+
+  String _defaultCountryLabel() {
+    final auth = Get.isRegistered<AuthService>()
+        ? Get.find<AuthService>()
+        : null;
+    final location = Get.isRegistered<LocationService>()
+        ? Get.find<LocationService>()
+        : null;
+    final profileCountry =
+        auth?.currentUser.value?.profile?.country?.trim() ?? '';
+    if (profileCountry.isNotEmpty) return profileCountry;
+    final locationCountry = location?.currentCountry.value.trim() ?? '';
+    if (locationCountry.isNotEmpty) return locationCountry;
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,152 +49,162 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
         );
       }),
       body: Obx(
-        () => ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            0,
-            AppSpacing.lg,
-            AppSpacing.xl,
-          ),
-          children: [
-            SettingsPlainListCard(
-              children: [
-                SettingsPlainTile(
-                  title: 'location'.tr,
-                  subtitle: controller.locationGranted.value
-                      ? 'location_on_desc'.tr
-                      : 'location_off_desc'.tr,
-                  value: controller.locationGranted.value ? 'on'.tr : 'off'.tr,
-                  onTap: controller.requestLocationAndFetch,
-                ),
-                SettingsPlainSwitchTile(
-                  title: 'go_global'.tr,
-                  subtitle: 'go_global_desc'.tr,
-                  value: controller.goGlobalFilter.value,
-                  onChanged: (value) {
-                    controller.goGlobalFilter.value = value;
-                    controller.scheduleLiveFilterRefresh();
-                  },
-                ),
-                SettingsPlainTile(
-                  title: 'show_distance_in'.tr,
-                  value: controller.useKm.value ? 'km'.tr : 'miles'.tr,
-                  onTap: () => _showDistanceUnitSheet(context, controller),
-                ),
-              ],
+        () {
+          final defaultCountry = _defaultCountryLabel();
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.xl,
             ),
-            const SizedBox(height: AppSpacing.md),
-            _SliderCard(
-              title: 'distance_radius'.tr,
-              value:
-                  '${controller.maxDistance.value.round()} ${controller.useKm.value ? 'km' : 'mi'}',
-              slider: Slider(
-                value: controller.maxDistance.value,
-                min: 1,
-                max: 400,
-                divisions: 399,
-                activeColor: AppColors.primary,
-                inactiveColor: AppColors.primary.withValues(alpha: 0.14),
-                onChanged: controller.goGlobalFilter.value
-                    ? null
-                    : (value) => controller.maxDistance.value = value,
-                onChangeEnd: controller.goGlobalFilter.value
-                    ? null
-                    : (_) => controller.scheduleLiveFilterRefresh(),
+            children: [
+              SettingsPlainListCard(
+                children: [
+                  SettingsPlainTile(
+                    title: 'location'.tr,
+                    subtitle: controller.locationGranted.value
+                        ? 'location_on_desc'.tr
+                        : 'location_off_desc'.tr,
+                    value: controller.locationGranted.value
+                        ? 'on'.tr
+                        : 'off'.tr,
+                    onTap: controller.requestLocationAndFetch,
+                  ),
+                  SettingsPlainSwitchTile(
+                    title: 'go_global'.tr,
+                    subtitle: 'go_global_desc'.tr,
+                    value: controller.goGlobalFilter.value,
+                    onChanged: (value) {
+                      controller.goGlobalFilter.value = value;
+                      controller.scheduleLiveFilterRefresh();
+                    },
+                  ),
+                  SettingsPlainTile(
+                    title: 'show_distance_in'.tr,
+                    value: controller.useKm.value ? 'km'.tr : 'miles'.tr,
+                    onTap: () => _showDistanceUnitSheet(context, controller),
+                  ),
+                ],
               ),
-              helper: controller.goGlobalFilter.value
-                  ? 'distance_ignored_global'.tr
-                  : 'distance_helper'.tr,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _SliderCard(
-              title: 'age_range'.tr,
-              value: '${controller.minAge.value} - ${controller.maxAge.value}',
-              slider: RangeSlider(
-                values: RangeValues(
-                  controller.minAge.value.toDouble(),
-                  controller.maxAge.value.toDouble(),
+              const SizedBox(height: AppSpacing.md),
+              _SliderCard(
+                title: 'distance_radius'.tr,
+                value:
+                    '${controller.maxDistance.value.round()} ${controller.useKm.value ? 'km' : 'mi'}',
+                slider: Slider(
+                  value: controller.maxDistance.value,
+                  min: 1,
+                  max: 400,
+                  divisions: 399,
+                  activeColor: AppColors.primary,
+                  inactiveColor: AppColors.primary.withValues(alpha: 0.14),
+                  onChanged: controller.goGlobalFilter.value
+                      ? null
+                      : (value) => controller.maxDistance.value = value,
+                  onChangeEnd: controller.goGlobalFilter.value
+                      ? null
+                      : (_) => controller.scheduleLiveFilterRefresh(),
                 ),
-                min: 18,
-                max: 90,
-                divisions: 72,
-                activeColor: AppColors.primary,
-                inactiveColor: AppColors.primary.withValues(alpha: 0.14),
-                onChanged: (values) {
-                  controller.minAge.value = values.start.round();
-                  controller.maxAge.value = values.end.round();
-                },
-                onChangeEnd: (_) => controller.scheduleLiveFilterRefresh(),
+                helper: controller.goGlobalFilter.value
+                    ? 'distance_ignored_global'.tr
+                    : 'distance_helper'.tr,
               ),
-              helper: 'age_range_helper'.tr,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            SettingsPlainListCard(
-              children: [
-                SettingsPlainTile(
-                  title: 'country'.tr,
-                  subtitle: controller.countryFilter.value.isEmpty
-                      ? 'country_filter_all'.tr
-                      : controller.countryFilter.value,
-                  value: controller.countryFilter.value.isEmpty
-                      ? 'all'.tr
-                      : controller.countryFilter.value,
-                  onTap: () => _showCountryPicker(context, controller),
-                  trailing: controller.countryFilter.value.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(
-                            LucideIcons.x,
-                            size: 16,
-                            color: AppColors.textSecondaryLight,
-                          ),
-                          onPressed: () {
-                            controller.clearCountryFilter();
-                            controller.scheduleLiveFilterRefresh();
-                          },
-                        )
-                      : null,
-                ),
-                SettingsPlainTile(
-                  title: 'city'.tr,
-                  subtitle: controller.cityFilter.value.isEmpty
-                      ? 'city_filter_all'.tr
-                      : controller.cityFilter.value,
-                  value: controller.cityFilter.value.isEmpty
-                      ? 'all'.tr
-                      : controller.cityFilter.value,
-                  onTap: () => _showCityInput(context, controller),
-                  trailing: controller.cityFilter.value.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(
-                            LucideIcons.x,
-                            size: 16,
-                            color: AppColors.textSecondaryLight,
-                          ),
-                          onPressed: () {
-                            controller.cityFilter.value = '';
-                            controller.scheduleLiveFilterRefresh();
-                          },
-                        )
-                      : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            SettingsPlainListCard(
-              children: [
-                SettingsPlainSwitchTile(
-                  title: 'verified_only'.tr,
-                  subtitle: 'verified_only_desc'.tr,
-                  value: controller.verifiedOnlyFilter.value,
-                  onChanged: (value) {
-                    controller.verifiedOnlyFilter.value = value;
-                    controller.scheduleLiveFilterRefresh();
+              const SizedBox(height: AppSpacing.md),
+              _SliderCard(
+                title: 'age_range'.tr,
+                value: '${controller.minAge.value} - ${controller.maxAge.value}',
+                slider: RangeSlider(
+                  values: RangeValues(
+                    controller.minAge.value.toDouble(),
+                    controller.maxAge.value.toDouble(),
+                  ),
+                  min: 18,
+                  max: 90,
+                  divisions: 72,
+                  activeColor: AppColors.primary,
+                  inactiveColor: AppColors.primary.withValues(alpha: 0.14),
+                  onChanged: (values) {
+                    controller.minAge.value = values.start.round();
+                    controller.maxAge.value = values.end.round();
                   },
+                  onChangeEnd: (_) => controller.scheduleLiveFilterRefresh(),
                 ),
-              ],
-            ),
-          ],
-        ),
+                helper: 'age_range_helper'.tr,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SettingsPlainListCard(
+                children: [
+                  SettingsPlainTile(
+                    title: 'country'.tr,
+                    subtitle: controller.countryFilter.value.isEmpty
+                        ? (defaultCountry.isEmpty
+                              ? 'country'.tr
+                              : defaultCountry)
+                        : controller.countryFilter.value,
+                    value: controller.countryFilter.value.isEmpty
+                        ? (defaultCountry.isEmpty
+                              ? 'country'.tr
+                              : defaultCountry)
+                        : controller.countryFilter.value,
+                    onTap: () => _showCountryPicker(context, controller),
+                    trailing: controller.countryFilter.value.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              LucideIcons.x,
+                              size: 16,
+                              color: AppColors.textSecondaryLight,
+                            ),
+                            onPressed: () {
+                              controller.clearCountryFilter();
+                              controller.scheduleLiveFilterRefresh();
+                            },
+                          )
+                        : null,
+                  ),
+                  SettingsPlainTile(
+                    title: 'city'.tr,
+                    subtitle: controller.cityFilter.value.isEmpty
+                        ? 'city_filter_all'.tr
+                        : controller.cityFilter.value,
+                    value: controller.cityFilter.value.isEmpty
+                        ? 'all'.tr
+                        : controller.cityFilter.value,
+                    onTap: () => _showCityInput(context, controller),
+                    trailing: controller.cityFilter.value.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              LucideIcons.x,
+                              size: 16,
+                              color: AppColors.textSecondaryLight,
+                            ),
+                            onPressed: () {
+                              controller.cityFilter.value = '';
+                              controller.scheduleLiveFilterRefresh();
+                            },
+                          )
+                        : null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SettingsPlainListCard(
+                children: [
+                  SettingsPlainSwitchTile(
+                    title: 'verified_only'.tr,
+                    subtitle: 'verified_only_desc'.tr,
+                    value: controller.verifiedOnlyFilter.value,
+                    onChanged: (value) {
+                      controller.verifiedOnlyFilter.value = value;
+                      controller.scheduleLiveFilterRefresh();
+                    },
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -61,6 +61,17 @@ class ProfileDetailsScreen extends GetView<SignupController> {
                         );
                         return;
                       }
+                      if (controller.selectedCity.value.trim().isEmpty) {
+                        Get.snackbar(
+                          '',
+                          'select_city_validation'.tr,
+                          snackPosition: SnackPosition.BOTTOM,
+                          backgroundColor: AppColors.error,
+                          colorText: Colors.white,
+                          margin: const EdgeInsets.all(16),
+                        );
+                        return;
+                      }
                       if (controller.profileFormKey.currentState!.validate()) {
                         controller.registerAccount();
                       }
@@ -227,22 +238,118 @@ class ProfileDetailsScreen extends GetView<SignupController> {
                 ),
                 SizedBox(width: isRtl ? 10 : 12),
                 Expanded(
-                  child: ExactSignupTextField(
-                    controller: controller.cityController,
-                    label: 'city'.tr,
-                    hint: 'city'.tr,
-                    validator: (value) => Validators.required(value, 'city'.tr),
-                    onChanged: (value) {
-                      controller.selectedCity.value = value.trim();
-                    },
+                  child: Obx(
+                    () => _CountryPickerField(
+                      label: 'city'.tr,
+                      value: controller.selectedCity.value,
+                      onTap: () => _showCityPicker(context),
+                    ),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'family_responsibility_notice'.tr,
+              style: AppTextStyles.caption.copyWith(
+                color: signupMuted(isDark),
+                height: 1.45,
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _showCityPicker(BuildContext context) async {
+    final cities = controller.availableCities;
+    if (cities.isEmpty) {
+      Get.snackbar(
+        '',
+        'select_country_first'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.error,
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+      );
+      return;
+    }
+
+    final selectedCity = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('city'.tr, style: AppTextStyles.titleLarge),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: MediaQuery.of(sheetContext).size.height * 0.45,
+                  child: ListView.separated(
+                    itemCount: cities.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppSpacing.xs),
+                    itemBuilder: (_, index) {
+                      final city = cities[index];
+                      final selected = city == controller.selectedCity.value;
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.of(sheetContext).pop(city),
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                          child: Ink(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.md,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(AppRadii.lg),
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.primary
+                                    : AppColors.borderLight,
+                              ),
+                              color: selected
+                                  ? AppColors.primary.withValues(alpha: 0.08)
+                                  : Colors.transparent,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(city)),
+                                if (selected)
+                                  const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedCity == null || selectedCity.trim().isEmpty) return;
+    controller.cityController.text = selectedCity;
+    controller.selectedCity.value = selectedCity;
   }
 }
 

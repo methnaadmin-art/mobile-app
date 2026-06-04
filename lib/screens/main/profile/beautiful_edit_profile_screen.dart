@@ -499,14 +499,8 @@ class _BeautifulEditProfileScreenState
                                   _gender,
                                   placeholder: 'Select',
                                 ),
-                                onTap: () => _showSimpleOptions(
-                                  title: 'Gender',
-                                  options: const ['male', 'female'],
-                                  current: _gender,
-                                  onSelected: (value) {
-                                    setState(() => _gender = value);
-                                  },
-                                ),
+                                onTap: null,
+                                enabled: false,
                               ),
                             ),
                           ],
@@ -1488,7 +1482,6 @@ class _BeautifulEditProfileScreenState
       );
       final profileData = {
         'bio': _bioCtrl.text.trim(),
-        'gender': _gender?.trim().toLowerCase(),
         'dateOfBirth': _dateOfBirth?.toIso8601String().split('T').first,
         'maritalStatus': _maritalStatus,
         'education': _education,

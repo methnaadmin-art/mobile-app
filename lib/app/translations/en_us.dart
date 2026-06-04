@@ -1039,6 +1039,9 @@ const Map<String, String> enUS = {
   // --- Contact Support ---
   'new_ticket': 'New Ticket',
   'my_tickets': 'My Tickets',
+  'premium_support_only_title': 'Premium support only',
+  'premium_support_only_desc':
+      'Support tickets are hidden for free accounts right now. Upgrade to Premium to contact support from the app.',
   'response_time_note': 'We typically respond within 24 hours.',
   'subject_min_chars': 'Subject must be at least 3 characters',
   'message_min_chars': 'Message must be at least 10 characters',
@@ -1718,6 +1721,13 @@ const Map<String, String> enUS = {
       'I swear by Allah that my details are truthful and I will not use this app for haram relationships.',
   'must_agree_registration_oath':
       'You must accept the registration oath before continuing.',
+  'family_responsibility_notice':
+      'By using this app, you acknowledge your responsibilities toward your family as Allah has required.',
+  'reason_to_use_methna': 'Reason for using Methna',
+  'reason_to_use_methna_hint': 'Share your intention briefly.',
+  'select_city_validation': 'Please select your city before continuing.',
+  'location_required_to_finish_signup':
+      'Location access is required to finish signup.',
   'profile_engagement': 'Profile Engagement',
   'likes_sent': 'Likes Sent',
   'likes_received': 'Likes Received',

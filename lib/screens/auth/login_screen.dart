@@ -13,7 +13,6 @@ import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/utils/validators.dart';
-import 'package:methna_app/core/widgets/login_security_avatar.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -368,23 +367,7 @@ class _EntryLoginView extends StatelessWidget {
           children: [
             SizedBox(height: compact ? 4 : 14),
             Center(
-              child: Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                  color: primaryBrand.withValues(alpha: 0.08),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: ClipOval(
-                  child: Image.asset(
-                    AppConstants.appLogoAsset,
-                    width: 52,
-                    height: 52,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
+              child: _LoginBrandHero(primaryBrand: primaryBrand),
             ),
             const SizedBox(height: 22),
             Text(
@@ -640,20 +623,9 @@ class _EmailLoginContentState extends State<_EmailLoginContent>
           begin: 0.12,
           end: 0.5,
           child: Center(
-            child: Obx(
-              () => LoginSecurityAvatar(
-                isPasswordFocused: _passwordFocusNode.hasFocus,
-                isPasswordVisible: !controller.obscurePassword.value,
-                hasPasswordText: controller.passwordController.text
-                    .trim()
-                    .isNotEmpty,
-                isIdentifierFocused: _identifierFocusNode.hasFocus,
-                size: keyboardVisible ? 96 : 114,
-                accent: primaryBrand,
-                accentLight: primaryLightBrand,
-                faceColor: surface,
-                strokeColor: border,
-              ),
+            child: _LoginBrandHero(
+              primaryBrand: primaryBrand,
+              size: keyboardVisible ? 96 : 112,
             ),
           ),
         ),
@@ -865,27 +837,6 @@ class _SocialButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDisabled = onTap == null && !isLoading;
-    final content = Row(
-      children: [
-        SizedBox(width: 22, height: 22, child: Center(child: icon)),
-        Expanded(
-          child: Center(
-            child: isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2.2),
-                  )
-                : Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.button.copyWith(color: textPrimary),
-                  ),
-          ),
-        ),
-        const SizedBox(width: 22),
-      ],
-    );
 
     return Material(
       color: Colors.transparent,
@@ -905,13 +856,40 @@ class _SocialButton extends StatelessWidget {
           child: Stack(
             children: [
               Positioned.fill(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Center(
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 180),
-                      opacity: isDisabled ? 0.66 : 1,
-                      child: content,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 180),
+                  opacity: isDisabled ? 0.66 : 1,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Center(child: icon),
+                          ),
+                        ),
+                        Center(
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                  ),
+                                )
+                              : Text(
+                                  label,
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyles.button.copyWith(
+                                    color: textPrimary,
+                                  ),
+                                ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -942,10 +920,40 @@ class _BrandIcon extends StatelessWidget {
       );
 
   const _BrandIcon.apple()
-    : this._(child: const Icon(Icons.apple, size: 22, color: Colors.black));
+    : this._(child: const Icon(Icons.apple, size: 24, color: Colors.black87));
 
   @override
   Widget build(BuildContext context) => child;
+}
+
+class _LoginBrandHero extends StatelessWidget {
+  const _LoginBrandHero({
+    required this.primaryBrand,
+    this.size = 84,
+  });
+
+  final Color primaryBrand;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: primaryBrand.withValues(alpha: 0.08),
+        shape: BoxShape.circle,
+        border: Border.all(color: primaryBrand.withValues(alpha: 0.12)),
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          AppConstants.appIconAsset,
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
 }
 
 class _PrimaryAuthButton extends StatelessWidget {

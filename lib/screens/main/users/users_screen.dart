@@ -33,7 +33,7 @@ class UsersScreen extends StatefulWidget {
 }
 
 class _UsersScreenState extends State<UsersScreen> {
-  int _selectedTabIndex = 0;
+  int _selectedTabIndex = 3;
   Worker? _requestedTabWorker;
 
   UsersController get controller => Get.find<UsersController>();

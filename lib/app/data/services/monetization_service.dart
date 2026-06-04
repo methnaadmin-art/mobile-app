@@ -415,7 +415,10 @@ class MonetizationService extends GetxService {
         'results',
         'data',
       ]);
-      activePlans.value = List<Map<String, dynamic>>.from(list);
+      final plans = List<Map<String, dynamic>>.from(list);
+      activePlans.value = plans
+          .where(_isPlanPurchasableOnCurrentPlatform)
+          .toList(growable: false);
       final playBilling = _playBillingService;
       if (playBilling != null &&
           GetPlatform.isAndroid &&
@@ -431,6 +434,35 @@ class MonetizationService extends GetxService {
     } catch (e) {
       debugPrint('[Monetization] fetchActivePlans error: $e');
     }
+  }
+
+  bool _isPlanPurchasableOnCurrentPlatform(Map<String, dynamic> plan) {
+    final priceRaw = plan['price'] ?? plan['amount'] ?? plan['cost'];
+    final price = priceRaw is num
+        ? priceRaw.toDouble()
+        : double.tryParse(priceRaw?.toString() ?? '') ?? 0;
+    if (price <= 0) {
+      return true;
+    }
+
+    if (GetPlatform.isIOS || GetPlatform.isMacOS) {
+      final appleProductId =
+          _readFirstString(plan, const ['appleProductId', 'iosProductId']) ??
+          '';
+      return appleProductId.trim().isNotEmpty;
+    }
+
+    if (GetPlatform.isAndroid) {
+      final googleProductId =
+          _readFirstString(plan, const ['googleProductId', 'androidProductId']) ??
+          '';
+      final googleBasePlanId =
+          _readFirstString(plan, const ['googleBasePlanId']) ?? '';
+      return googleProductId.trim().isNotEmpty &&
+          googleBasePlanId.trim().isNotEmpty;
+    }
+
+    return true;
   }
 
   /// Returns the store-localized price string (e.g. "US$4.99",

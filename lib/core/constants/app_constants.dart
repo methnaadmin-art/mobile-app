@@ -4,13 +4,15 @@ class AppConstants {
   static const String appName = 'Methna';
   static const String appTagline = 'Muslim matchmaking with intention';
   static const String appLogoAsset = 'assets/images/methna_brand_logo.png';
+  static const String appIconAsset = 'assets/images/methna_app_icon.jpg';
   static const String appVersion = '1.2.4';
   static const String androidPackageName = 'com.methnapp.app';
+  static const String androidPlayStoreUrl =
+      'https://play.google.com/store/apps/details?id=$androidPackageName';
 
-  // Replace idYOUR_APP_ID with the real numeric App Store ID once the app is live.
   static const String iosAppStoreUrl = String.fromEnvironment(
     'IOS_APP_STORE_URL',
-    defaultValue: 'https://apps.apple.com/app/idYOUR_APP_ID',
+    defaultValue: 'https://apps.apple.com/app/id6774157582',
   );
 
   static const String websiteUrl = String.fromEnvironment(
@@ -48,7 +50,7 @@ class AppConstants {
   static const String swipeTutorialPendingKey = 'swipe_tutorial_pending';
 
   // Signup Steps
-  static const int signupTotalSteps = 11;
+  static const int signupTotalSteps = 12;
 
   // Photo Limits
   static const int maxPhotos = 6; // 1 main + 5 extra

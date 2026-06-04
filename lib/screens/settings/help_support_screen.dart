@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/controllers/settings_controller.dart';
+import 'package:methna_app/app/data/services/monetization_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
@@ -12,6 +13,13 @@ import 'package:methna_app/screens/settings/static_content_screen.dart'
 
 class HelpSupportScreen extends GetView<SettingsController> {
   const HelpSupportScreen({super.key});
+
+  String _rateUsUrl() {
+    if (GetPlatform.isIOS || GetPlatform.isMacOS) {
+      return AppConstants.iosAppStoreUrl;
+    }
+    return AppConstants.androidPlayStoreUrl;
+  }
 
   Future<void> _launchExternal(String url) async {
     final uri = Uri.parse(url);
@@ -33,6 +41,8 @@ class HelpSupportScreen extends GetView<SettingsController> {
 
   @override
   Widget build(BuildContext context) {
+    final monetization = Get.find<MonetizationService>();
+
     return SettingsSimplePageScaffold(
       title: 'help_support'.tr,
       body: ListView(
@@ -49,10 +59,11 @@ class HelpSupportScreen extends GetView<SettingsController> {
                 title: 'faq'.tr,
                 onTap: () => Get.toNamed(AppRoutes.faq),
               ),
-              SettingsPlainTile(
-                title: 'contact_support'.tr,
-                onTap: () => Get.toNamed(AppRoutes.contactSupport),
-              ),
+              if (monetization.isPremium)
+                SettingsPlainTile(
+                  title: 'contact_support'.tr,
+                  onTap: () => Get.toNamed(AppRoutes.contactSupport),
+                ),
               SettingsPlainTile(
                 title: 'report_request'.tr,
                 onTap: () => Get.toNamed(AppRoutes.reportRequest),
@@ -110,9 +121,7 @@ class HelpSupportScreen extends GetView<SettingsController> {
               ),
               SettingsPlainTile(
                 title: 'rate_us'.tr,
-                onTap: () => _launchExternal(
-                  'https://play.google.com/store/apps/details?id=com.methnapp.app',
-                ),
+                onTap: () => _launchExternal(_rateUsUrl()),
               ),
               SettingsPlainTile(
                 title: 'visit_website'.tr,

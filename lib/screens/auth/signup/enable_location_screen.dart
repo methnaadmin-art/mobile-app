@@ -6,6 +6,7 @@ import 'package:methna_app/app/controllers/signup_controller.dart';
 import 'package:methna_app/app/data/services/location_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/core/utils/google_fonts_stub.dart';
+import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/signup_mockup_shell.dart';
 
 class EnableLocationScreen extends StatefulWidget {
@@ -36,27 +37,27 @@ class _EnableLocationScreenState extends State<EnableLocationScreen> {
     try {
       controller.preferredDistanceKm.value = _distanceKm;
       final position = await locationService.requestLocationWithFeedback();
-      controller.locationEnabled.value = position != null;
+      if (position == null) {
+        controller.locationEnabled.value = false;
+        Helpers.showSnackbar(
+          message: 'location_required_to_finish_signup'.tr,
+          isError: true,
+        );
+        return;
+      }
+
+      controller.locationEnabled.value = true;
       unawaited(controller.completeSignup(fastEnterHome: true));
     } catch (_) {
       controller.locationEnabled.value = false;
-      unawaited(controller.completeSignup(fastEnterHome: true));
+      Helpers.showSnackbar(
+        message: 'location_required_to_finish_signup'.tr,
+        isError: true,
+      );
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
       }
-    }
-  }
-
-  Future<void> _handleSkip() async {
-    if (_isProcessing) return;
-
-    setState(() => _isProcessing = true);
-    controller.locationEnabled.value = false;
-    controller.preferredDistanceKm.value = _distanceKm;
-    unawaited(controller.completeSignup(fastEnterHome: true));
-    if (mounted) {
-      setState(() => _isProcessing = false);
     }
   }
 
@@ -137,18 +138,6 @@ class _EnableLocationScreenState extends State<EnableLocationScreen> {
                 label: 'continue'.tr,
                 onTap: busy ? null : _handleEnableLocation,
                 isLoading: busy,
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: busy ? null : _handleSkip,
-                child: Text(
-                  'skip'.tr,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? signupMockMutedDark : signupMockMuted,
-                  ),
-                ),
               ),
             ],
           ),

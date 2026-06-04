@@ -10,6 +10,7 @@ import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/app/utils/auth_navigation_resolver.dart';
+import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/widgets/settings_flow.dart';
 import 'package:methna_app/core/widgets/backend_wait_overlay.dart';
 import 'package:methna_app/core/widgets/backend_wait_dots.dart';
@@ -20,6 +21,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends GetView<SettingsController> {
   const SettingsScreen({super.key});
+
+  String _rateUsUrl() {
+    if (GetPlatform.isIOS || GetPlatform.isMacOS) {
+      return AppConstants.iosAppStoreUrl;
+    }
+    return AppConstants.androidPlayStoreUrl;
+  }
 
   void _openVerificationEntry() {
     final currentUser = Get.find<AuthService>().currentUser.value;
@@ -156,13 +164,11 @@ class SettingsScreen extends GetView<SettingsController> {
               ),
               SettingsPlainTile(
                 title: 'rate_us'.tr,
-                onTap: () => _launchExternal(
-                  'https://play.google.com/store/apps/details?id=com.methnapp.app',
-                ),
+                onTap: () => _launchExternal(_rateUsUrl()),
               ),
               SettingsPlainTile(
                 title: 'visit_website'.tr,
-                onTap: () => _launchExternal('https://methna.com'),
+                onTap: () => _launchExternal(AppConstants.websiteUrl),
               ),
             ],
           ),

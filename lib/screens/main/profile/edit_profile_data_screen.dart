@@ -330,15 +330,12 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
                 onChanged: _calculateCompletion,
               ),
               _buildDateField(),
-              _buildDropdownField(
-                value: _gender,
+              _buildReadOnlyField(
                 label: 'Gender',
-                hint: 'Select gender',
-                items: ['male', 'female'],
-                onChanged: (value) {
-                  setState(() => _gender = value);
-                  _calculateCompletion();
-                },
+                value: _gender == null
+                    ? 'Not set'
+                    : StringExtension(_gender!.replaceAll('_', ' '))
+                          .capitalizeFirst,
               ),
               _buildTextField(
                 controller: _phoneCtrl,
@@ -582,7 +579,6 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
     try {
       final profileData = {
         'bio': _bioCtrl.text.trim(),
-        'gender': _gender,
         'dateOfBirth': _dateOfBirth?.toIso8601String(),
         'maritalStatus': _maritalStatus,
         'education': _education,
@@ -755,6 +751,42 @@ class _ModernEditProfileScreenState extends State<ModernEditProfileScreen>
               ),
               filled: true,
               fillColor: Theme.of(context).inputDecorationTheme.fillColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.titleMedium?.color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).dividerColor),
+              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).inputDecorationTheme.fillColor,
+            ),
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
         ],
@@ -946,4 +978,3 @@ extension StringExtension on String {
     return '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
   }
 }
-

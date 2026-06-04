@@ -100,6 +100,7 @@ class SignupController extends GetxController {
   final heightController = TextEditingController();
   final weightController = TextEditingController();
   final bioController = TextEditingController();
+  final reasonToUseMethnaController = TextEditingController();
   final describeIdealSpouseController = TextEditingController();
   final RxnBool hasChildren = RxnBool();
   final RxnBool willingToRelocate = RxnBool();
@@ -132,7 +133,9 @@ class SignupController extends GetxController {
   final RxString selectedPhoneCountryName = 'Algeria'.obs;
 
   List<String> get availableCities =>
-      SignupData.countryCities[selectedCountry.value] ?? [];
+      (SignupData.countryCities[selectedCountry.value] ?? const <String>[])
+          .map(_sanitizeSignupText)
+          .toList(growable: false);
   List<String> get arabicCountries => SignupData.arabicCountries;
   int get formChangeTick => _draftTrigger.value;
   bool get shouldSkipAppleAccountDetailsStep => _authProvider == 'apple';
@@ -471,6 +474,7 @@ class SignupController extends GetxController {
       weightController,
       numberOfChildrenController,
       bioController,
+      reasonToUseMethnaController,
       describeIdealSpouseController,
     ];
     for (var tc in textControllers) {
@@ -610,6 +614,10 @@ class SignupController extends GetxController {
         if (draft['bio'] != null) {
           bioController.text = draft['bio'];
         }
+        if (draft['reasonToUseMethna'] != null) {
+          reasonToUseMethnaController.text = draft['reasonToUseMethna']
+              .toString();
+        }
         if (draft['describeIdealSpouse'] != null) {
           describeIdealSpouseController.text = draft['describeIdealSpouse']
               .toString();
@@ -618,8 +626,9 @@ class SignupController extends GetxController {
           selectedCountry.value = draft['country'];
         }
         if (draft['city'] != null) {
-          selectedCity.value = draft['city'];
-          cityController.text = draft['city'].toString();
+          final savedCity = _sanitizeSignupText(draft['city'].toString());
+          selectedCity.value = savedCity;
+          cityController.text = savedCity;
         }
         if (draft['phoneDialCode'] != null) {
           selectedPhoneDialCode.value = _normalizeDialCode(
@@ -717,6 +726,7 @@ class SignupController extends GetxController {
           'familyValues': selectedFamilyValues.toList(),
           'marriageTimeline': selectedMarriageTimeline.value,
           'bio': bioController.text,
+          'reasonToUseMethna': reasonToUseMethnaController.text,
           'describeIdealSpouse': describeIdealSpouseController.text,
           'photoPaths': photoPaths,
           'mainPhotoIndex': mainPhotoIndex.value,
@@ -777,6 +787,7 @@ class SignupController extends GetxController {
     cityController.clear();
     selectedCity.value = '';
     weightController.clear();
+    reasonToUseMethnaController.clear();
     describeIdealSpouseController.clear();
     _photosUploaded = false;
     _selfieUploaded = false;
@@ -788,9 +799,26 @@ class SignupController extends GetxController {
 
   void onCountryChanged(String country) {
     selectedCountry.value = country;
-    final city = cityController.text.trim();
-    selectedCity.value = city;
+    final city = _sanitizeSignupText(cityController.text.trim());
+    if (city.isNotEmpty && !availableCities.contains(city)) {
+      cityController.clear();
+      selectedCity.value = '';
+    } else {
+      cityController.text = city;
+      selectedCity.value = city;
+    }
     _triggerSave();
+  }
+
+  String _sanitizeSignupText(String value) {
+    if (value.isEmpty) return value;
+
+    return value
+        .replaceAll('AbbÃ¨s', 'Abbes')
+        .replaceAll('ZahlÃ©', 'Zahle')
+        .replaceAll('BoghÃ©', 'Boghe')
+        .replaceAll('GabÃ¨s', 'Gabes')
+        .trim();
   }
 
   void setPhoneCountry({
@@ -1487,6 +1515,8 @@ class SignupController extends GetxController {
         if (companyController.text.isNotEmpty)
           'company': companyController.text.trim(),
         if (bioController.text.isNotEmpty) 'bio': bioController.text.trim(),
+        if (reasonToUseMethnaController.text.trim().isNotEmpty)
+          'reasonToUseMethna': reasonToUseMethnaController.text.trim(),
         if (describeIdealSpouseController.text.trim().isNotEmpty)
           'aboutPartner': describeIdealSpouseController.text.trim(),
         'country': selectedCountry.value,
@@ -2144,6 +2174,7 @@ class SignupController extends GetxController {
       weightController,
       numberOfChildrenController,
       bioController,
+      reasonToUseMethnaController,
       describeIdealSpouseController,
     ];
 

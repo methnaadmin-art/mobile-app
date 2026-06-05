@@ -1179,6 +1179,7 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
                       label: buyLabel,
                       icon: _buying ? null : LucideIcons.shoppingBag,
                       loading: _buying,
+                      filled: false,
                       onPressed: _buying || !hasStoreMapping
                           ? null
                           : _handleBuy,

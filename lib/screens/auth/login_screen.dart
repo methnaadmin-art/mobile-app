@@ -1,4 +1,4 @@
-﻿import 'dart:ui';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -366,9 +366,7 @@ class _EntryLoginView extends StatelessWidget {
           ),
           children: [
             SizedBox(height: compact ? 4 : 14),
-            Center(
-              child: _LoginBrandHero(primaryBrand: primaryBrand),
-            ),
+            Center(child: _LoginBrandHero(primaryBrand: primaryBrand)),
             const SizedBox(height: 22),
             Text(
               AppConstants.appName,
@@ -401,7 +399,9 @@ class _EntryLoginView extends StatelessWidget {
               Obx(
                 () => _SocialButton(
                   label: 'continue_with_apple'.tr,
-                  icon: const _BrandIcon.apple(),
+                  icon: _BrandIcon.apple(
+                    color: isDark ? Colors.white : const Color(0xFF111111),
+                  ),
                   onTap: controller.isAppleLoading.value
                       ? null
                       : controller.signInWithApple,
@@ -919,24 +919,15 @@ class _BrandIcon extends StatelessWidget {
         ),
       );
 
-  const _BrandIcon.apple()
-    : this._(
-        child: const Icon(
-          Icons.apple,
-          size: 20,
-          color: Color(0xFF111111),
-        ),
-      );
+  _BrandIcon.apple({required Color color})
+    : this._(child: Icon(Icons.apple, size: 20, color: color));
 
   @override
   Widget build(BuildContext context) => child;
 }
 
 class _LoginBrandHero extends StatelessWidget {
-  const _LoginBrandHero({
-    required this.primaryBrand,
-    this.size = 84,
-  });
+  const _LoginBrandHero({required this.primaryBrand, this.size = 84});
 
   final Color primaryBrand;
   final double size;
@@ -971,10 +962,7 @@ class _LoginBrandHero extends StatelessWidget {
         padding: const EdgeInsets.all(9),
         child: ClipRRect(
           borderRadius: tileRadius,
-          child: Image.asset(
-            AppConstants.appIconAsset,
-            fit: BoxFit.cover,
-          ),
+          child: Image.asset(AppConstants.appIconAsset, fit: BoxFit.cover),
         ),
       ),
     );
@@ -1200,7 +1188,9 @@ class _ExactInputField extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadii.lg),
           borderSide: const BorderSide(color: const Color(0xFF4F26D9)),
         ),
-        errorStyle: AppTextStyles.error.copyWith(color: const Color(0xFF4F26D9)),
+        errorStyle: AppTextStyles.error.copyWith(
+          color: const Color(0xFF4F26D9),
+        ),
       ),
     );
   }

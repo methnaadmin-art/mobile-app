@@ -317,6 +317,7 @@ class _PackagesCard extends StatelessWidget {
               label: 'Choose the Subscription',
               icon: Icons.workspace_premium_rounded,
               onPressed: onCreateCustom,
+              filled: false,
             ),
           ],
         ],
@@ -1160,14 +1161,18 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
                 }
                 final needsStoreProduct =
                     widget.monetization.isAppleStorePurchasePlatform;
+                final hasStoreMapping =
+                    !needsStoreProduct || _hasAppleStoreMapping(widget.plan);
                 final storeProductReady =
                     !needsStoreProduct ||
                     widget.monetization.isStoreProductReadyForPlan(widget.plan);
                 final buyLabel = _buying
                     ? 'Processing...'
+                    : !hasStoreMapping
+                    ? 'Unavailable in App Store'
                     : storeProductReady
                     ? 'Buy It Now'
-                    : 'Loading App Store...';
+                    : 'Continue with App Store';
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1176,14 +1181,28 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
                       label: buyLabel,
                       icon: _buying ? null : LucideIcons.shoppingBag,
                       loading: _buying,
-                      onPressed: _buying || !storeProductReady
+                      onPressed: _buying || !hasStoreMapping
                           ? null
                           : _handleBuy,
                     ),
-                    if (needsStoreProduct && !storeProductReady) ...[
+                    if (needsStoreProduct &&
+                        hasStoreMapping &&
+                        !storeProductReady) ...[
                       const SizedBox(height: 10),
                       Text(
-                        'Waiting for the App Store product to load for this plan.',
+                        'We will load the App Store product for this plan as soon as you continue.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.white54
+                              : const Color(0xFF8A84A3),
+                        ),
+                      ),
+                    ] else if (needsStoreProduct && !hasStoreMapping) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'This package is not linked to App Store Connect yet.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
@@ -1241,16 +1260,6 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
       return;
     }
 
-    if (widget.monetization.isAppleStorePurchasePlatform &&
-        !widget.monetization.isStoreProductReadyForPlan(widget.plan)) {
-      Helpers.showSnackbar(
-        message:
-            'This App Store subscription is still loading. Pull to refresh.',
-        isError: true,
-      );
-      return;
-    }
-
     setState(() => _buying = true);
     try {
       final days = _durationDays(widget.plan);
@@ -1294,6 +1303,18 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
         (p['name'] ?? p['displayName'] ?? p['title'] ?? p['code'] ?? 'Plan')
             .toString();
     return raw.trim().isEmpty ? 'Plan' : raw.trim();
+  }
+
+  bool _hasAppleStoreMapping(Map<String, dynamic> plan) {
+    final raw =
+        (plan['appleProductId'] ??
+                plan['iosProductId'] ??
+                plan['apple_product_id'] ??
+                plan['ios_product_id'] ??
+                '')
+            .toString()
+            .trim();
+    return raw.isNotEmpty;
   }
 
   Future<void> _handleCancel() async {
@@ -1667,29 +1688,46 @@ class _BrandButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.loading = false,
+    this.filled = true,
   });
 
   final String label;
   final IconData? icon;
   final VoidCallback? onPressed;
   final bool loading;
+  final bool filled;
 
   @override
   Widget build(BuildContext context) {
     final disabled = onPressed == null;
+    final foreground = filled
+        ? Colors.white
+        : disabled
+        ? const Color(0xFFA78BFA)
+        : AppColors.primary;
+    final borderColor = filled
+        ? Colors.transparent
+        : disabled
+        ? const Color(0xFFD9CCFF)
+        : AppColors.primary.withValues(alpha: 0.34);
+
     return SizedBox(
       height: 54,
       child: Material(
         color: Colors.transparent,
         child: Ink(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: disabled
-                  ? const [Color(0xFFC4B5FD), Color(0xFFA78BFA)]
-                  : const [Color(0xFF6E3DFB), Color(0xFF8B5CF6)],
-            ),
+            color: filled ? null : Colors.transparent,
+            gradient: filled
+                ? LinearGradient(
+                    colors: disabled
+                        ? const [Color(0xFFC4B5FD), Color(0xFFA78BFA)]
+                        : const [Color(0xFF6E3DFB), Color(0xFF8B5CF6)],
+                  )
+                : null,
+            border: Border.all(color: borderColor),
             borderRadius: BorderRadius.circular(999),
-            boxShadow: disabled
+            boxShadow: !filled || disabled
                 ? null
                 : [
                     BoxShadow(
@@ -1708,16 +1746,16 @@ class _BrandButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (loading)
-                    const SizedBox(
+                    SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(foreground),
                       ),
                     )
                   else if (icon != null)
-                    Icon(icon, color: Colors.white, size: 18),
+                    Icon(icon, color: foreground, size: 18),
                   if (loading || icon != null) const SizedBox(width: 10),
                   Flexible(
                     child: Text(
@@ -1725,8 +1763,8 @@ class _BrandButton extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: foreground,
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
                         letterSpacing: 0.3,

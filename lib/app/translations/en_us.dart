@@ -1164,7 +1164,8 @@ const Map<String, String> enUS = {
   'miles': 'Miles',
   'distance_radius': 'Distance Radius',
   'distance_ignored_global': 'Distance is ignored while Go Global is enabled.',
-  'distance_helper': 'Only show profiles within this distance from your location.',
+  'distance_helper':
+      'Only show profiles within this distance from your location.',
   'country_filter_info':
       'Selecting a country refreshes your Home feed to profiles from that country.',
   'age_range_helper': 'Only show profiles inside your preferred age range.',
@@ -1613,6 +1614,9 @@ const Map<String, String> enUS = {
   'harassment': 'Harassment',
   'underage': 'Underage',
   'other': 'Other',
+  'African / Afro-descendant': 'African / Afro-descendant',
+  'Azerbaijani': 'Azerbaijani',
+  'South Asian': 'South Asian',
   'meaningful_connection_opened': 'A meaningful connection just opened',
   'celebrate_connection_start':
       'Celebrate the moment and start your first conversation.',

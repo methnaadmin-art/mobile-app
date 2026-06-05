@@ -315,7 +315,7 @@ class _PackagesCard extends StatelessWidget {
             const SizedBox(height: 22),
             _BrandButton(
               label: 'Choose the Subscription',
-              icon: LucideIcons.arrowRight,
+              icon: Icons.workspace_premium_rounded,
               onPressed: onCreateCustom,
             ),
           ],
@@ -1244,7 +1244,8 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
     if (widget.monetization.isAppleStorePurchasePlatform &&
         !widget.monetization.isStoreProductReadyForPlan(widget.plan)) {
       Helpers.showSnackbar(
-        message: 'This App Store subscription is still loading. Pull to refresh.',
+        message:
+            'This App Store subscription is still loading. Pull to refresh.',
         isError: true,
       );
       return;
@@ -1702,30 +1703,27 @@ class _BrandButton extends StatelessWidget {
             onTap: onPressed,
             borderRadius: BorderRadius.circular(999),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Stack(
-                alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (loading)
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
                   else if (icon != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Icon(icon, color: Colors.white, size: 18),
-                    ),
-                  Center(
+                    Icon(icon, color: Colors.white, size: 18),
+                  if (loading || icon != null) const SizedBox(width: 10),
+                  Flexible(
                     child: Text(
                       label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,

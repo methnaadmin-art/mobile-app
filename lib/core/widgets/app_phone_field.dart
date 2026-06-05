@@ -162,24 +162,37 @@ class _AppPhoneFieldState extends State<AppPhoneField> {
                         borderRadius: BorderRadius.circular(AppRadii.lg),
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(
-                            minWidth: 104,
-                            maxWidth: 122,
+                            minWidth: 118,
+                            maxWidth: 138,
                             minHeight: AppSpacing.inputHeight,
                           ),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.sm,
+                              horizontal: AppSpacing.sm + 2,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  _flagEmoji(widget.countryCode),
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    color: textColor,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(
+                                      alpha: isDark ? 0.16 : 0.08,
+                                    ),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    _flagEmoji(widget.countryCode),
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      color: textColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(width: AppSpacing.xs),
+                                const SizedBox(width: AppSpacing.sm),
                                 Flexible(
                                   child: Text(
                                     _compactDialCode(widget.dialCode),
@@ -191,6 +204,7 @@ class _AppPhoneFieldState extends State<AppPhoneField> {
                                     ),
                                   ),
                                 ),
+                                const SizedBox(width: 2),
                                 Icon(
                                   Icons.keyboard_arrow_down_rounded,
                                   size: 18,

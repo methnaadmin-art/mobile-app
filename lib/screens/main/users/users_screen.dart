@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -33,12 +33,25 @@ class UsersScreen extends StatefulWidget {
 }
 
 class _UsersScreenState extends State<UsersScreen> {
+  static const List<int> _visibleTabOrder = <int>[3, 1, 2, 0];
+
   int _selectedTabIndex = 3;
   Worker? _requestedTabWorker;
 
   UsersController get controller => Get.find<UsersController>();
 
   int _normalizeTabIndex(int index) => index.clamp(0, 3).toInt();
+
+  int _visualIndexForLogical(int logicalIndex) {
+    final normalized = _normalizeTabIndex(logicalIndex);
+    final visualIndex = _visibleTabOrder.indexOf(normalized);
+    return visualIndex >= 0 ? visualIndex : 0;
+  }
+
+  int _logicalIndexForVisual(int visualIndex) {
+    final normalized = visualIndex.clamp(0, _visibleTabOrder.length - 1);
+    return _visibleTabOrder[normalized];
+  }
 
   int? _parseTabIndex(dynamic value) {
     if (value is int) return value;
@@ -106,10 +119,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(
-        controller.ensureUsersTabData(
-          force: true,
-          tabIndex: _selectedTabIndex,
-        ),
+        controller.ensureUsersTabData(force: true, tabIndex: _selectedTabIndex),
       );
     });
   }
@@ -258,21 +268,20 @@ class _UsersScreenState extends State<UsersScreen> {
               ? Get.find<MonetizationService>()
               : null;
           final hasWhoLikedMeAccess = controller.whoLikedMeRequiresPremium.value
-              ? (monetization?.hasWhoLikedMeAccess ??
-                    false)
+              ? (monetization?.hasWhoLikedMeAccess ?? false)
               : true;
 
-          final tabs = [
+          final logicalTabs = [
             _UsersTabItem(
               label: 'person_i_liked'.tr,
               count: likedByMe.length,
-              icon: LucideIcons.heart,
+              icon: Icons.favorite_border_rounded,
               tone: _usersLuxTone,
             ),
             _UsersTabItem(
               label: 'who_liked_me'.tr,
               count: likedMe.length,
-              icon: LucideIcons.badgeCheck,
+              icon: Icons.favorite_rounded,
               tone: _usersLuxTone,
             ),
             _UsersTabItem(
@@ -284,10 +293,13 @@ class _UsersScreenState extends State<UsersScreen> {
             _UsersTabItem(
               label: 'matches'.tr,
               count: matched.length,
-              icon: LucideIcons.sparkles,
+              icon: LucideIcons.heartHandshake,
               tone: _usersLuxTone,
             ),
           ];
+          final visibleTabs = _visibleTabOrder
+              .map((index) => logicalTabs[index])
+              .toList(growable: false);
 
           final isInitialLoading = switch (_selectedTabIndex) {
             1 => controller.isLoadingWhoLikedMe.value && visibleUsers.isEmpty,
@@ -306,10 +318,10 @@ class _UsersScreenState extends State<UsersScreen> {
                 ),
                 child: _UsersOverviewHeader(
                   isDark: isDark,
-                  title: tabs[_selectedTabIndex].label,
+                  title: logicalTabs[_selectedTabIndex].label,
                   count: visibleUsers.length,
-                  icon: tabs[_selectedTabIndex].icon,
-                  tone: tabs[_selectedTabIndex].tone,
+                  icon: logicalTabs[_selectedTabIndex].icon,
+                  tone: logicalTabs[_selectedTabIndex].tone,
                 ),
               ),
               const SizedBox(height: 12),
@@ -321,9 +333,10 @@ class _UsersScreenState extends State<UsersScreen> {
                   0,
                 ),
                 child: _InteractionTabs(
-                  items: tabs,
-                  selectedIndex: _selectedTabIndex,
-                  onChanged: (index) => _applyTabSelection(index),
+                  items: visibleTabs,
+                  selectedIndex: _visualIndexForLogical(_selectedTabIndex),
+                  onChanged: (index) =>
+                      _applyTabSelection(_logicalIndexForVisual(index)),
                 ),
               ),
               const SizedBox(height: 10),
@@ -363,8 +376,7 @@ class _UsersScreenState extends State<UsersScreen> {
                             final isLikedMeTab = _selectedTabIndex == 1;
                             final isPassedTab = _selectedTabIndex == 2;
                             final shouldBlurWhoLikedMeCard =
-                                isLikedMeTab &&
-                                !hasWhoLikedMeAccess;
+                                isLikedMeTab && !hasWhoLikedMeAccess;
 
                             Future<void> Function()? quickAction;
                             String? quickActionLabel;
@@ -401,8 +413,9 @@ class _UsersScreenState extends State<UsersScreen> {
                               quickActionLabel: quickActionLabel,
                               quickActionIcon: quickActionIcon,
                               quickActionTone: quickActionTone,
-                              isQuickActionEnabled:
-                                  !controller.isSwipeInFlight(selectedUser.id),
+                              isQuickActionEnabled: !controller.isSwipeInFlight(
+                                selectedUser.id,
+                              ),
                               onQuickAction: quickAction,
                               onBlurCtaTap: shouldBlurWhoLikedMeCard
                                   ? () => Get.toNamed(AppRoutes.subscription)
@@ -1570,13 +1583,13 @@ String _safeDisplayName(UserModel user) {
 IconData _statusIcon(_UsersGridCardKind kind) {
   switch (kind) {
     case _UsersGridCardKind.likedByMe:
-      return LucideIcons.heart;
+      return Icons.favorite_border_rounded;
     case _UsersGridCardKind.likedMe:
-      return LucideIcons.badgeCheck;
+      return Icons.favorite_rounded;
     case _UsersGridCardKind.passed:
       return LucideIcons.x;
     case _UsersGridCardKind.matched:
-      return LucideIcons.sparkles;
+      return LucideIcons.heartHandshake;
   }
 }
 

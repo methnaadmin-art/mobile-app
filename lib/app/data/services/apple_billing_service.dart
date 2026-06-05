@@ -145,22 +145,49 @@ class AppleBillingService extends GetxService {
     required int durationDays,
     Map<String, dynamic>? planMetadata,
   }) {
+    final candidates = resolveCandidateProductIdsForPlan(
+      planCode: planCode,
+      durationDays: durationDays,
+      planMetadata: planMetadata,
+    );
+    if (candidates.isEmpty) return null;
+    return candidates.first;
+  }
+
+  List<String> resolveCandidateProductIdsForPlan({
+    required String planCode,
+    required int durationDays,
+    Map<String, dynamic>? planMetadata,
+  }) {
     final metadata = planMetadata ?? const <String, dynamic>{};
-    final appleProductId = _readString(metadata, const [
+    final candidates = <String>[];
+
+    void addCandidate(String? value) {
+      final normalized = _emptyToNull(value ?? '');
+      if (normalized == null || candidates.contains(normalized)) return;
+      candidates.add(normalized);
+    }
+
+    for (final appleProductId in _readAllStrings(metadata, const [
       'iosProductId',
       'appleProductId',
       'ios_product_id',
       'apple_product_id',
       'appStoreProductId',
       'app_store_product_id',
-    ]);
-    if (appleProductId != null) return appleProductId;
+    ])) {
+      addCandidate(appleProductId);
+    }
 
-    return _fallbackProductIdForPlan(
-      planCode: planCode,
-      durationDays: durationDays,
-      planMetadata: metadata,
+    addCandidate(
+      _fallbackProductIdForPlan(
+        planCode: planCode,
+        durationDays: durationDays,
+        planMetadata: metadata,
+      ),
     );
+
+    return candidates;
   }
 
   ProductDetails? productForPlan({
@@ -168,13 +195,16 @@ class AppleBillingService extends GetxService {
     required int durationDays,
     Map<String, dynamic>? planMetadata,
   }) {
-    final productId = resolveProductIdForPlan(
+    final productIds = resolveCandidateProductIdsForPlan(
       planCode: planCode,
       durationDays: durationDays,
       planMetadata: planMetadata,
     );
-    if (productId == null) return null;
-    return products[productId];
+    for (final productId in productIds) {
+      final product = products[productId];
+      if (product != null) return product;
+    }
+    return null;
   }
 
   bool isStoreProductLoadedForPlan({
@@ -194,14 +224,13 @@ class AppleBillingService extends GetxService {
     if (!supportsPlatform) return;
 
     final productIds = plans
-        .map(
-          (plan) => resolveProductIdForPlan(
+        .expand(
+          (plan) => resolveCandidateProductIdsForPlan(
             planCode: (plan['code'] ?? plan['planCode'] ?? '').toString(),
             durationDays: _readDurationDays(plan),
             planMetadata: plan,
           ),
         )
-        .whereType<String>()
         .where((id) => id.trim().isNotEmpty)
         .toSet();
 
@@ -285,14 +314,18 @@ class AppleBillingService extends GetxService {
       );
     }
 
-    final productId = resolveProductIdForPlan(
+    final candidateProductIds = resolveCandidateProductIdsForPlan(
       planCode: planCode,
       durationDays: durationDays,
       planMetadata: planMetadata,
     );
+    final productId = candidateProductIds.isEmpty
+        ? null
+        : candidateProductIds.first;
     _log(
       'purchase request planCode=$planCode durationDays=$durationDays '
-      'resolvedProductId=${productId ?? 'null'} accountId=${accountId ?? 'null'}',
+      'candidateProductIds=${candidateProductIds.join(', ')} '
+      'accountId=${accountId ?? 'null'}',
     );
     if (productId == null) {
       purchaseState.value = AppleBillingPurchaseState.error;
@@ -303,19 +336,36 @@ class AppleBillingService extends GetxService {
       );
     }
 
-    await loadProducts([productId]);
-    final product = products[productId];
+    await loadProducts(candidateProductIds);
+    ProductDetails? product;
+    var selectedProductId = productId;
+    for (final candidateProductId in candidateProductIds) {
+      final candidateProduct = products[candidateProductId];
+      if (candidateProduct != null) {
+        product = candidateProduct;
+        selectedProductId = candidateProductId;
+        break;
+      }
+    }
     if (product == null) {
       purchaseState.value = AppleBillingPurchaseState.error;
-      purchaseMessage.value = 'This plan is not available in the App Store.';
+      purchaseMessage.value =
+          'This App Store subscription is not available for this build yet.';
       _log(
-        'purchase aborted because StoreKit did not return productId=$productId '
+        'purchase aborted because StoreKit did not return '
+        'candidateProductIds=${candidateProductIds.join(', ')} '
         'loadedProductIds=${products.keys.join(', ')}',
       );
       return AppleBillingPurchaseOutcome(
         type: AppleBillingPurchaseOutcomeType.productNotFound,
         message: purchaseMessage.value,
         productId: productId,
+      );
+    }
+    if (selectedProductId != productId) {
+      _log(
+        'using fallback StoreKit productId=$selectedProductId '
+        'after primary productId=$productId was unavailable',
       );
     }
 
@@ -326,7 +376,7 @@ class AppleBillingService extends GetxService {
       );
     }
 
-    _expectedPurchaseProductId = productId;
+    _expectedPurchaseProductId = selectedProductId;
     _purchaseCompleter = Completer<AppleBillingPurchaseOutcome>();
     purchaseState.value = AppleBillingPurchaseState.purchasing;
     purchaseMessage.value = '';
@@ -342,7 +392,9 @@ class AppleBillingService extends GetxService {
           applicationUserName: accountId,
         ),
       );
-      _log('buyNonConsumable started=$started productId=$productId');
+      _log(
+        'buyNonConsumable started=$started productId=$selectedProductId',
+      );
       if (!started) {
         _expectedPurchaseProductId = null;
         _purchaseCompleter = null;
@@ -351,7 +403,7 @@ class AppleBillingService extends GetxService {
         return AppleBillingPurchaseOutcome(
           type: AppleBillingPurchaseOutcomeType.error,
           message: purchaseMessage.value,
-          productId: productId,
+          productId: selectedProductId,
         );
       }
     } catch (e) {
@@ -363,7 +415,7 @@ class AppleBillingService extends GetxService {
       return AppleBillingPurchaseOutcome(
         type: AppleBillingPurchaseOutcomeType.error,
         message: purchaseMessage.value,
-        productId: productId,
+        productId: selectedProductId,
       );
     }
 
@@ -376,7 +428,7 @@ class AppleBillingService extends GetxService {
         return AppleBillingPurchaseOutcome(
           type: AppleBillingPurchaseOutcomeType.pending,
           message: purchaseMessage.value,
-          productId: productId,
+          productId: selectedProductId,
         );
       },
     );
@@ -726,6 +778,38 @@ class AppleBillingService extends GetxService {
     }
 
     return null;
+  }
+
+  static List<String> _readAllStrings(
+    Map<String, dynamic> data,
+    Iterable<String> keys,
+  ) {
+    final values = <String>[];
+
+    void addValue(String? value) {
+      final normalized = value?.trim();
+      if (normalized == null ||
+          normalized.isEmpty ||
+          normalized.toLowerCase() == 'null' ||
+          values.contains(normalized)) {
+        return;
+      }
+      values.add(normalized);
+    }
+
+    for (final key in keys) {
+      addValue(data[key]?.toString());
+    }
+
+    final metadata = data['metadata'];
+    if (metadata is Map) {
+      for (final value
+          in _readAllStrings(Map<String, dynamic>.from(metadata), keys)) {
+        addValue(value);
+      }
+    }
+
+    return values;
   }
 
   @override

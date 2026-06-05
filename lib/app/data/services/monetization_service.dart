@@ -202,6 +202,7 @@ class MonetizationService extends GetxService {
 
       _syncFeatureStateFromStatusPayload(normalizedData);
       _syncVisibilityStateFromStatusPayload(normalizedData);
+      _syncSubscriptionServiceSnapshot(normalizedData, planEntity: planEntity);
 
       final isExpiredByDate =
           expiresAt.value != null && expiresAt.value!.isBefore(DateTime.now());
@@ -237,6 +238,7 @@ class MonetizationService extends GetxService {
 
       _syncFeatureStateFromStatusPayload(data);
       _syncVisibilityStateFromStatusPayload(data);
+      _syncSubscriptionServiceSnapshot(data);
 
       final likes = _asMap(data['remainingLikes']);
       isUnlimitedLikes.value = likes['isUnlimited'] ?? false;
@@ -252,6 +254,31 @@ class MonetizationService extends GetxService {
   }
 
   // ─── Fetch all limits ───────────────────────────────────
+  void _syncSubscriptionServiceSnapshot(
+    Map<String, dynamic> data, {
+    Map<String, dynamic>? planEntity,
+  }) {
+    if (!Get.isRegistered<SubscriptionService>()) return;
+
+    final entity = planEntity ?? _asMap(data['planEntity']);
+    final planCode =
+        _readFirstString(entity, const ['code']) ??
+        _readFirstString(data, const ['plan', 'currentPlan', 'subscriptionPlan']) ??
+        currentPlan.value;
+
+    final payload = <String, dynamic>{
+      'plan': planCode,
+      'status': (data['status'] ?? status.value).toString(),
+      'expiresAt':
+          data['expiresAt'] ??
+          data['endDate'] ??
+          data['end_date'] ??
+          expiresAt.value?.toIso8601String(),
+    };
+
+    Get.find<SubscriptionService>().applyFromLoginResponse(payload);
+  }
+
   Future<Map<String, dynamic>> fetchAllLimits() async {
     try {
       final entitlementData = await fetchEntitlements();

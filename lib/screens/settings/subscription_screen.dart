@@ -50,7 +50,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         _monetization.fetchStatus(),
         _monetization.fetchActivePlans(),
         _monetization.fetchEntitlements(),
-        _subscription.fetchMySubscription(),
       ]);
       // Ensure Google Play ProductDetails are loaded so we can render real
       // localized store prices (e.g. "US$4.99", "2,99 €") instead of the
@@ -92,7 +91,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               await Future.wait([
                 _monetization.fetchActivePlans(),
                 _monetization.fetchStatus(),
-                _subscription.fetchMySubscription(),
               ]);
             },
             child: ListView(
@@ -1249,7 +1247,6 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
     await Future.wait([
       widget.monetization.fetchStatus(),
       widget.monetization.fetchActivePlans(),
-      widget.subscription.fetchMySubscription(),
     ]);
 
     if (widget.monetization.isExactPlanCurrent(widget.plan)) {
@@ -1285,7 +1282,6 @@ class _PlanDetailScreenState extends State<_PlanDetailScreen> {
         widget.monetization.fetchStatus(),
         widget.monetization.fetchActivePlans(),
         widget.monetization.fetchEntitlements(),
-        widget.subscription.fetchMySubscription(),
       ]);
 
       if (!mounted) return;

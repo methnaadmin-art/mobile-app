@@ -1,4 +1,4 @@
-﻿const Map<String, String> arDZ = {
+const Map<String, String> arDZ = {
   // ─── عام ─────────────────────────────────────────────────
   'app_name': 'مِثنى',
   'app_tagline': 'اعثر على شريك حياتك',
@@ -1612,15 +1612,15 @@
   'Indonesian': 'الإندونيسية',
   'Spanish': 'الإسبانية',
   'Afghan': 'أفغاني',
-  'African American': 'أفريقي أمريكي',
+  'African / Afro-descendant': 'أفريقي / من أصول أفريقية',
   'Arab': 'عربي',
-  'Azeri': 'أذري',
+  'Azerbaijani': 'أذربيجاني',
   'Bangladeshi': 'بنغلاديشي',
   'Caribbean': 'كاريبي',
-  'Desi': 'من شبه القارة الهندية',
   'Kurdish': 'كردي',
   'Pakistani': 'باكستاني',
   'Somali': 'صومالي',
+  'South Asian': 'جنوب آسيوي',
   'Strong believer of family bonds': 'مؤمن قوي بروابط العائلة',
   'Desires children': 'يرغب بإنجاب أطفال',
   'Shared household responsibilities': 'يتشارك مسؤوليات المنزل',
@@ -1662,15 +1662,13 @@
       'احصل على ظهور أكبر في الاكتشاف ووصول أسرع إلى مطابقات أكثر.',
   'registration_oath_label':
       'أقسم بالله أن معلوماتي صادقة وأنني لن أستخدم هذا التطبيق لعلاقات حرام.',
-  'must_agree_registration_oath':
-      'يجب الموافقة على قسم التسجيل قبل المتابعة.',
+  'must_agree_registration_oath': 'يجب الموافقة على قسم التسجيل قبل المتابعة.',
   'family_responsibility_notice':
       'باستخدام هذا التطبيق فإنك تقر بأنك مدرك لمسؤولياتك تجاه أسرتك كما أمرنا الله.',
   'reason_to_use_methna': 'سبب استخدامك لمثنى',
   'reason_to_use_methna_hint': 'اذكر نيتك باختصار.',
   'select_city_validation': 'يرجى اختيار مدينتك قبل المتابعة.',
-  'location_required_to_finish_signup':
-      'يجب تفعيل الموقع لإكمال التسجيل.',
+  'location_required_to_finish_signup': 'يجب تفعيل الموقع لإكمال التسجيل.',
   'agree_terms_prefix': 'أوافق على ',
   'terms_of_service_link': 'شروط الخدمة',
   'and_text': ' و ',

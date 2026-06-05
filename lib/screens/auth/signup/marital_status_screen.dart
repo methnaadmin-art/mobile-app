@@ -48,7 +48,7 @@ class MaritalStatusScreen extends GetView<SignupController> {
           children: [
             SignupHeroCard(
               badge: '03 / 12',
-              icon: Icons.family_restroom_rounded,
+              icon: Icons.diversity_1_rounded,
               title: 'marital_status'.tr,
               description: '',
             ),
@@ -85,14 +85,14 @@ class MaritalStatusScreen extends GetView<SignupController> {
   IconData _iconForStatus(String status) {
     switch (status) {
       case 'Married':
-        return Icons.family_restroom_rounded;
+        return Icons.favorite_rounded;
       case 'Divorced':
-        return Icons.restart_alt_rounded;
+        return Icons.heart_broken_rounded;
       case 'Widowed':
-        return Icons.local_florist_outlined;
+        return Icons.hourglass_empty_rounded;
       case 'Never Married':
       default:
-        return Icons.favorite_border_rounded;
+        return Icons.person_outline_rounded;
     }
   }
 }

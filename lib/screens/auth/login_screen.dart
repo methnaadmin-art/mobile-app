@@ -347,6 +347,7 @@ class _EntryLoginView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final safeBottom = MediaQuery.of(context).padding.bottom;
 
     return LayoutBuilder(

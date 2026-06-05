@@ -400,9 +400,7 @@ class _EntryLoginView extends StatelessWidget {
               Obx(
                 () => _SocialButton(
                   label: 'continue_with_apple'.tr,
-                  icon: _BrandIcon.apple(
-                    color: isDark ? Colors.white : const Color(0xFF111111),
-                  ),
+                  icon: _BrandIcon.apple(color: textPrimary),
                   onTap: controller.isAppleLoading.value
                       ? null
                       : controller.signInWithApple,

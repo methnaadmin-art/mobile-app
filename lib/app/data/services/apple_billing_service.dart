@@ -220,7 +220,9 @@ class AppleBillingService extends GetxService {
 
     purchaseState.value = AppleBillingPurchaseState.loadingProducts;
     try {
-      _log('queryProductDetails request productIds=${normalizedIds.join(', ')}');
+      _log(
+        'queryProductDetails request productIds=${normalizedIds.join(', ')}',
+      );
       final response = await _inAppPurchase.queryProductDetails(normalizedIds);
       _log(
         'queryProductDetails response found=${response.productDetails.length} '
@@ -249,9 +251,7 @@ class AppleBillingService extends GetxService {
       }
 
       if (response.notFoundIDs.isNotEmpty) {
-        _log(
-          'StoreKit products not found: ${response.notFoundIDs.join(', ')}',
-        );
+        _log('StoreKit products not found: ${response.notFoundIDs.join(', ')}');
       }
 
       if (purchaseState.value == AppleBillingPurchaseState.loadingProducts) {
@@ -518,9 +518,27 @@ class AppleBillingService extends GetxService {
 
   Future<bool> _verifyWithBackend(PurchaseDetails purchase) async {
     final receiptData = purchase.verificationData.serverVerificationData.trim();
+    final localVerificationData = purchase
+        .verificationData
+        .localVerificationData
+        .trim();
+    final verificationSource = purchase.verificationData.source;
     if (receiptData.isEmpty) {
-      purchaseMessage.value = 'The App Store did not return a receipt.';
-      _log('backend verify skipped because receipt data is empty');
+      if (localVerificationData.isEmpty) {
+        purchaseMessage.value = 'The App Store did not return a receipt.';
+        _log('backend verify skipped because receipt data is empty');
+        return false;
+      }
+      _log(
+        'serverVerificationData empty; falling back to localVerificationData '
+        'length=${localVerificationData.length}',
+      );
+    }
+
+    final verificationToken = receiptData.isNotEmpty
+        ? receiptData
+        : localVerificationData;
+    if (verificationToken.isEmpty) {
       return false;
     }
 
@@ -532,8 +550,8 @@ class AppleBillingService extends GetxService {
         'transactionId=${purchase.purchaseID ?? 'null'} '
         'status=${purchase.status} '
         'receiptLength=${receiptData.length} '
-        'localVerificationLength=${purchase.verificationData.localVerificationData.length} '
-        'source=${purchase.verificationData.source} '
+        'localVerificationLength=${localVerificationData.length} '
+        'source=$verificationSource '
         'restored=${purchase.status == PurchaseStatus.restored}',
       );
       final response = await _api.post(
@@ -543,10 +561,16 @@ class AppleBillingService extends GetxService {
           'provider': 'apple',
           'productId': purchase.productID,
           'transactionId': purchase.purchaseID,
-          'receiptData': receiptData,
-          'localVerificationData':
-              purchase.verificationData.localVerificationData,
-          'verificationSource': purchase.verificationData.source,
+          'purchaseToken': verificationToken,
+          'serverVerificationData': verificationToken,
+          'receiptData': verificationToken,
+          'verificationData': {
+            'serverVerificationData': verificationToken,
+            'localVerificationData': localVerificationData,
+            'source': verificationSource,
+          },
+          'localVerificationData': localVerificationData,
+          'verificationSource': verificationSource,
           'transactionDate': purchase.transactionDate,
           'restored': purchase.status == PurchaseStatus.restored,
         },

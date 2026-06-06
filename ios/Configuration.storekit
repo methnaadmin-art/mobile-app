@@ -1,0 +1,114 @@
+{
+  "identifier" : "METHNA_STOREKIT_CONFIG",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "50_likes_consumable",
+      "localizations" : [
+        {
+          "description" : "Add 50 extra likes to your account.",
+          "displayName" : "50 likes",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.methnapp.app.cosumablelikes",
+      "referenceName" : "50 likes",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "premium_subscriptions",
+      "localizations" : [
+
+      ],
+      "name" : "Premium Subscriptions",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "7.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "silver_monthly_sub",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "Silver Premium Monthly Plan",
+              "displayName" : "Silver Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.methnapp.app.premium_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Silver Monthly",
+          "subscriptionGroupID" : "premium_subscriptions",
+          "type" : "Recurring Subscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "79.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "silver_yearly_sub",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "Silver Premium Yearly Plan",
+              "displayName" : "Silver Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.methnapp.app.premium_yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Silver Yearly",
+          "subscriptionGroupID" : "premium_subscriptions",
+          "type" : "Recurring Subscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

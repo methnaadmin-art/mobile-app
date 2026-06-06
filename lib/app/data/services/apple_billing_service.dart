@@ -350,7 +350,7 @@ class AppleBillingService extends GetxService {
     if (product == null) {
       purchaseState.value = AppleBillingPurchaseState.error;
       purchaseMessage.value =
-          'This App Store subscription is not available for this build yet.';
+          'App Store did not return these subscription products: ${candidateProductIds.join(', ')}';
       _log(
         'purchase aborted because StoreKit did not return '
         'candidateProductIds=${candidateProductIds.join(', ')} '

@@ -500,6 +500,9 @@ class ConsumableService extends GetxService {
           .toSet();
       if (ids.isEmpty) {
         storeProducts.clear();
+        purchaseMessage.value = isApplePlatform
+            ? 'No App Store product IDs were returned for consumables.'
+            : 'No Google Play product IDs were returned for consumables.';
         return;
       }
 
@@ -528,6 +531,10 @@ class ConsumableService extends GetxService {
         debugPrint(
           '[ConsumableService] store products not found: ${response.notFoundIDs.join(', ')}',
         );
+        if (isApplePlatform && response.productDetails.isEmpty) {
+          purchaseMessage.value =
+              'App Store did not return these products: ${response.notFoundIDs.join(', ')}';
+        }
       }
 
       storeProducts.assignAll({

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/data/services/consumable_service.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
@@ -618,6 +618,7 @@ class _ShopScreenState extends State<ShopScreen>
     final canPurchase =
         _purchasesAvailable &&
         storeProductId.isNotEmpty &&
+        storeProduct != null &&
         _consumableService.storeAvailable.value &&
         !_consumableService.isVerifying.value;
     final priceText =

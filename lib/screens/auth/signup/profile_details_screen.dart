@@ -207,6 +207,7 @@ class ProfileDetailsScreen extends GetView<SignupController> {
                     () => _CountryPickerField(
                       label: 'country'.tr,
                       value: controller.selectedCountry.value,
+                      placeholder: 'country'.tr,
                       onTap: () {
                         showCountryPicker(
                           context: context,
@@ -242,6 +243,7 @@ class ProfileDetailsScreen extends GetView<SignupController> {
                     () => _CountryPickerField(
                       label: 'city'.tr,
                       value: controller.selectedCity.value,
+                      placeholder: 'city'.tr,
                       onTap: () => _showCityPicker(context),
                     ),
                   ),
@@ -398,10 +400,7 @@ class _ReqRow extends StatelessWidget {
         children: [
           Icon(LucideIcons.dot, size: 16, color: color),
           const SizedBox(width: 4),
-          Text(
-            text,
-            style: AppTextStyles.caption.copyWith(color: color),
-          ),
+          Text(text, style: AppTextStyles.caption.copyWith(color: color)),
         ],
       ),
     );
@@ -429,7 +428,8 @@ class _PrivacyTermsCheckbox extends StatelessWidget {
             height: 24,
             child: Checkbox(
               value: controller.agreePrivacy.value,
-              onChanged: (value) => controller.agreePrivacy.value = value ?? false,
+              onChanged: (value) =>
+                  controller.agreePrivacy.value = value ?? false,
               activeColor: AppColors.primary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -527,8 +527,7 @@ class _RegistrationOathCheckbox extends StatelessWidget {
             height: 24,
             child: Checkbox(
               value: controller.agreeOath.value,
-              onChanged: (value) =>
-                  controller.agreeOath.value = value ?? false,
+              onChanged: (value) => controller.agreeOath.value = value ?? false,
               activeColor: AppColors.primary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -669,11 +668,13 @@ class _CountryPickerField extends StatelessWidget {
   const _CountryPickerField({
     required this.label,
     required this.value,
+    required this.placeholder,
     required this.onTap,
   });
 
   final String label;
   final String value;
+  final String placeholder;
   final VoidCallback onTap;
 
   @override
@@ -702,7 +703,7 @@ class _CountryPickerField extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    value.trim().isEmpty ? 'country'.tr : value,
+                    value.trim().isEmpty ? placeholder : value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.bodyMedium.copyWith(

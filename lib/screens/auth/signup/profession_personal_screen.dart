@@ -167,49 +167,48 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Obx(
-                  () {
-                    final selectedLanguages = controller.selectedLanguages
-                        .toList(growable: false);
-                    final languageSummary = selectedLanguages.isEmpty
-                        ? null
-                        : selectedLanguages.length == 1
-                        ? selectedLanguages.first
-                        : '${selectedLanguages.length} selected';
+                Obx(() {
+                  final selectedLanguages = controller.selectedLanguages.toList(
+                    growable: false,
+                  );
+                  final languageSummary = selectedLanguages.isEmpty
+                      ? null
+                      : selectedLanguages.length == 1
+                      ? selectedLanguages.first
+                      : '${selectedLanguages.length} selected';
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SignupPickerTile(
-                          label: 'languages_label'.tr,
-                          placeholder: 'Select languages',
-                          icon: Icons.translate_rounded,
-                          value: languageSummary,
-                          translateValue: selectedLanguages.length == 1,
-                          onTap: () => _showLanguageSheet(context),
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SignupPickerTile(
+                        label: 'languages_label'.tr,
+                        placeholder: 'Select languages',
+                        icon: Icons.translate_rounded,
+                        value: languageSummary,
+                        translateValue: selectedLanguages.length == 1,
+                        onTap: () => _showLanguageSheet(context),
+                      ),
+                      if (selectedLanguages.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
+                          children: selectedLanguages
+                              .map(
+                                (language) => SignupOptionChip(
+                                  label: language,
+                                  selected: true,
+                                  translateLabel: true,
+                                  onTap: () =>
+                                      controller.toggleLanguage(language),
+                                ),
+                              )
+                              .toList(),
                         ),
-                        if (selectedLanguages.isNotEmpty) ...[
-                          const SizedBox(height: AppSpacing.md),
-                          Wrap(
-                            spacing: AppSpacing.sm,
-                            runSpacing: AppSpacing.sm,
-                            children: selectedLanguages
-                                .map(
-                                  (language) => SignupOptionChip(
-                                    label: language,
-                                    selected: true,
-                                    translateLabel: true,
-                                    onTap: () =>
-                                        controller.toggleLanguage(language),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ],
                       ],
-                    );
-                  },
-                ),
+                    ],
+                  );
+                }),
                 const SizedBox(height: AppSpacing.xl),
                 Obx(() {
                   final primaryNationality = controller.primaryNationality;
@@ -415,7 +414,8 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                 Obx(() {
                   final selectedKey = controller.selectedMarriageTimeline.value;
                   final selectedIndex = _timelineIndexFor(selectedKey);
-                  final selectedOption = _marriageTimelineOptions[selectedIndex];
+                  final selectedOption =
+                      _marriageTimelineOptions[selectedIndex];
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -459,7 +459,9 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                                   const SizedBox(height: 4),
                                   Text(
                                     _timelineCaption(selectedOption.key),
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                 ],
                               ),
@@ -475,10 +477,10 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                         divisions: _marriageTimelineOptions.length - 1,
                         label: selectedOption.key,
                         onChanged: (value) {
-                          final index = value.round().clamp(
-                            0,
-                            _marriageTimelineOptions.length - 1,
-                          ).toInt();
+                          final index = value
+                              .round()
+                              .clamp(0, _marriageTimelineOptions.length - 1)
+                              .toInt();
                           controller.setMarriageTimeline(
                             _marriageTimelineOptions[index].key,
                           );
@@ -500,15 +502,6 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                     ],
                   );
                 }),
-                const SizedBox(height: AppSpacing.xl),
-                SignupInputField(
-                  controller: controller.describeIdealSpouseController,
-                  label: 'describe_ideal_spouse'.tr,
-                  hint: 'describe_ideal_spouse_hint'.tr,
-                  icon: Icons.favorite_border_rounded,
-                  maxLines: 4,
-                  textInputAction: TextInputAction.newline,
-                ),
               ],
             ),
           ),
@@ -547,9 +540,9 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                 const SizedBox(height: AppSpacing.lg),
                 Text(
                   'languages_label'.tr,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Flexible(
@@ -558,9 +551,7 @@ class ProfessionPersonalScreen extends GetView<SignupController> {
                       children: SignupData.languagesList.map((language) {
                         final selected = draftSelection.contains(language);
                         return Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: AppSpacing.sm,
-                          ),
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                           child: SignupChoiceTile(
                             title: language.tr,
                             selected: selected,

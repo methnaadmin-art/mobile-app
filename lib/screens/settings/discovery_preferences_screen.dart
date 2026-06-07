@@ -1,6 +1,7 @@
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:methna_app/app/controllers/signup_data.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/data/services/location_service.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -48,164 +49,161 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
               : () => controller.applyFiltersAndRefresh(),
         );
       }),
-      body: Obx(
-        () {
-          final defaultCountry = _defaultCountryLabel();
+      body: Obx(() {
+        final defaultCountry = _defaultCountryLabel();
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              0,
-              AppSpacing.lg,
-              AppSpacing.xl,
-            ),
-            children: [
-              SettingsPlainListCard(
-                children: [
-                  SettingsPlainTile(
-                    title: 'location'.tr,
-                    subtitle: controller.locationGranted.value
-                        ? 'location_on_desc'.tr
-                        : 'location_off_desc'.tr,
-                    value: controller.locationGranted.value
-                        ? 'on'.tr
-                        : 'off'.tr,
-                    onTap: controller.requestLocationAndFetch,
-                  ),
-                  SettingsPlainSwitchTile(
-                    title: 'go_global'.tr,
-                    subtitle: 'go_global_desc'.tr,
-                    value: controller.goGlobalFilter.value,
-                    onChanged: (value) {
-                      controller.goGlobalFilter.value = value;
-                      controller.scheduleLiveFilterRefresh();
-                    },
-                  ),
-                  SettingsPlainTile(
-                    title: 'show_distance_in'.tr,
-                    value: controller.useKm.value ? 'km'.tr : 'miles'.tr,
-                    onTap: () => _showDistanceUnitSheet(context, controller),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _SliderCard(
-                title: 'distance_radius'.tr,
-                value:
-                    '${controller.maxDistance.value.round()} ${controller.useKm.value ? 'km' : 'mi'}',
-                slider: Slider(
-                  value: controller.maxDistance.value,
-                  min: 1,
-                  max: 400,
-                  divisions: 399,
-                  activeColor: AppColors.primary,
-                  inactiveColor: AppColors.primary.withValues(alpha: 0.14),
-                  onChanged: controller.goGlobalFilter.value
-                      ? null
-                      : (value) => controller.maxDistance.value = value,
-                  onChangeEnd: controller.goGlobalFilter.value
-                      ? null
-                      : (_) => controller.scheduleLiveFilterRefresh(),
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.xl,
+          ),
+          children: [
+            SettingsPlainListCard(
+              children: [
+                SettingsPlainTile(
+                  title: 'location'.tr,
+                  subtitle: controller.locationGranted.value
+                      ? 'location_on_desc'.tr
+                      : 'location_off_desc'.tr,
+                  value: controller.locationGranted.value ? 'on'.tr : 'off'.tr,
+                  onTap: controller.requestLocationAndFetch,
                 ),
-                helper: controller.goGlobalFilter.value
-                    ? 'distance_ignored_global'.tr
-                    : 'distance_helper'.tr,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _SliderCard(
-                title: 'age_range'.tr,
-                value: '${controller.minAge.value} - ${controller.maxAge.value}',
-                slider: RangeSlider(
-                  values: RangeValues(
-                    controller.minAge.value.toDouble(),
-                    controller.maxAge.value.toDouble(),
-                  ),
-                  min: 18,
-                  max: 90,
-                  divisions: 72,
-                  activeColor: AppColors.primary,
-                  inactiveColor: AppColors.primary.withValues(alpha: 0.14),
-                  onChanged: (values) {
-                    controller.minAge.value = values.start.round();
-                    controller.maxAge.value = values.end.round();
+                SettingsPlainSwitchTile(
+                  title: 'go_global'.tr,
+                  subtitle: 'go_global_desc'.tr,
+                  value: controller.goGlobalFilter.value,
+                  onChanged: (value) {
+                    controller.goGlobalFilter.value = value;
+                    controller.scheduleLiveFilterRefresh();
                   },
-                  onChangeEnd: (_) => controller.scheduleLiveFilterRefresh(),
                 ),
-                helper: 'age_range_helper'.tr,
+                SettingsPlainTile(
+                  title: 'show_distance_in'.tr,
+                  value: controller.useKm.value ? 'km'.tr : 'miles'.tr,
+                  onTap: () => _showDistanceUnitSheet(context, controller),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _SliderCard(
+              title: 'distance_radius'.tr,
+              value:
+                  '${controller.maxDistance.value.round()} ${controller.useKm.value ? 'km' : 'mi'}',
+              slider: Slider(
+                value: controller.maxDistance.value,
+                min: 1,
+                max: 400,
+                divisions: 399,
+                activeColor: AppColors.primary,
+                inactiveColor: AppColors.primary.withValues(alpha: 0.14),
+                onChanged: controller.goGlobalFilter.value
+                    ? null
+                    : (value) => controller.maxDistance.value = value,
+                onChangeEnd: controller.goGlobalFilter.value
+                    ? null
+                    : (_) => controller.scheduleLiveFilterRefresh(),
               ),
-              const SizedBox(height: AppSpacing.md),
-              SettingsPlainListCard(
-                children: [
-                  SettingsPlainTile(
-                    title: 'country'.tr,
-                    subtitle: controller.countryFilter.value.isEmpty
-                        ? (defaultCountry.isEmpty
-                              ? 'country'.tr
-                              : defaultCountry)
-                        : controller.countryFilter.value,
-                    value: controller.countryFilter.value.isEmpty
-                        ? (defaultCountry.isEmpty
-                              ? 'country'.tr
-                              : defaultCountry)
-                        : controller.countryFilter.value,
-                    onTap: () => _showCountryPicker(context, controller),
-                    trailing: controller.countryFilter.value.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              LucideIcons.x,
-                              size: 16,
-                              color: AppColors.textSecondaryLight,
-                            ),
-                            onPressed: () {
-                              controller.clearCountryFilter();
-                              controller.scheduleLiveFilterRefresh();
-                            },
-                          )
-                        : null,
-                  ),
-                  SettingsPlainTile(
-                    title: 'city'.tr,
-                    subtitle: controller.cityFilter.value.isEmpty
-                        ? 'city_filter_all'.tr
-                        : controller.cityFilter.value,
-                    value: controller.cityFilter.value.isEmpty
-                        ? 'all'.tr
-                        : controller.cityFilter.value,
-                    onTap: () => _showCityInput(context, controller),
-                    trailing: controller.cityFilter.value.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              LucideIcons.x,
-                              size: 16,
-                              color: AppColors.textSecondaryLight,
-                            ),
-                            onPressed: () {
-                              controller.cityFilter.value = '';
-                              controller.scheduleLiveFilterRefresh();
-                            },
-                          )
-                        : null,
-                  ),
-                ],
+              helper: controller.goGlobalFilter.value
+                  ? 'distance_ignored_global'.tr
+                  : 'distance_helper'.tr,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _SliderCard(
+              title: 'age_range'.tr,
+              value: '${controller.minAge.value} - ${controller.maxAge.value}',
+              slider: RangeSlider(
+                values: RangeValues(
+                  controller.minAge.value.toDouble(),
+                  controller.maxAge.value.toDouble(),
+                ),
+                min: 18,
+                max: 90,
+                divisions: 72,
+                activeColor: AppColors.primary,
+                inactiveColor: AppColors.primary.withValues(alpha: 0.14),
+                onChanged: (values) {
+                  controller.minAge.value = values.start.round();
+                  controller.maxAge.value = values.end.round();
+                },
+                onChangeEnd: (_) => controller.scheduleLiveFilterRefresh(),
               ),
-              const SizedBox(height: AppSpacing.md),
-              SettingsPlainListCard(
-                children: [
-                  SettingsPlainSwitchTile(
-                    title: 'verified_only'.tr,
-                    subtitle: 'verified_only_desc'.tr,
-                    value: controller.verifiedOnlyFilter.value,
-                    onChanged: (value) {
-                      controller.verifiedOnlyFilter.value = value;
-                      controller.scheduleLiveFilterRefresh();
-                    },
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
+              helper: 'age_range_helper'.tr,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SettingsPlainListCard(
+              children: [
+                SettingsPlainTile(
+                  title: 'country'.tr,
+                  subtitle: controller.countryFilter.value.isEmpty
+                      ? (defaultCountry.isEmpty ? 'all'.tr : defaultCountry)
+                      : controller.countryFilter.value,
+                  value: controller.countryFilter.value.isEmpty
+                      ? (defaultCountry.isEmpty ? 'all'.tr : defaultCountry)
+                      : controller.countryFilter.value,
+                  onTap: () => _showCountryPicker(context, controller),
+                  trailing: controller.countryFilter.value.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            LucideIcons.x,
+                            size: 16,
+                            color: AppColors.textSecondaryLight,
+                          ),
+                          onPressed: () {
+                            controller.clearCountryFilter();
+                            controller.scheduleLiveFilterRefresh();
+                          },
+                        )
+                      : null,
+                ),
+                SettingsPlainTile(
+                  title: 'city'.tr,
+                  subtitle: controller.cityFilter.value.isEmpty
+                      ? (_resolvedCountry(controller, defaultCountry).isEmpty
+                            ? 'select_country_first'.tr
+                            : 'city_filter_all'.tr)
+                      : controller.cityFilter.value,
+                  value: controller.cityFilter.value.isEmpty
+                      ? (_resolvedCountry(controller, defaultCountry).isEmpty
+                            ? 'select_country_first'.tr
+                            : 'all'.tr)
+                      : controller.cityFilter.value,
+                  onTap: () =>
+                      _showCityPicker(context, controller, defaultCountry),
+                  trailing: controller.cityFilter.value.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            LucideIcons.x,
+                            size: 16,
+                            color: AppColors.textSecondaryLight,
+                          ),
+                          onPressed: () {
+                            controller.cityFilter.value = '';
+                            controller.scheduleLiveFilterRefresh();
+                          },
+                        )
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SettingsPlainListCard(
+              children: [
+                SettingsPlainSwitchTile(
+                  title: 'verified_only'.tr,
+                  subtitle: 'verified_only_desc'.tr,
+                  value: controller.verifiedOnlyFilter.value,
+                  onChanged: (value) {
+                    controller.verifiedOnlyFilter.value = value;
+                    controller.scheduleLiveFilterRefresh();
+                  },
+                ),
+              ],
+            ),
+          ],
+        );
+      }),
     );
   }
 
@@ -250,41 +248,123 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _showCityInput(
+  Future<void> _showCityPicker(
     BuildContext context,
     HomeController controller,
+    String defaultCountry,
   ) async {
-    final controllerTec = TextEditingController(
-      text: controller.cityFilter.value,
-    );
-    final result = await showDialog<String>(
+    final resolvedCountry = _resolvedCountry(controller, defaultCountry);
+    if (resolvedCountry.isEmpty) {
+      Get.snackbar('country'.tr, 'select_country_first'.tr);
+      return;
+    }
+
+    final cities =
+        (SignupData.countryCities[resolvedCountry] ?? const <String>[])
+            .map((city) => city.trim())
+            .where((city) => city.isNotEmpty)
+            .toList(growable: false);
+    if (cities.isEmpty) {
+      Get.snackbar('city'.tr, 'select_country_first'.tr);
+      return;
+    }
+
+    final result = await showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('enter_city'.tr),
-        content: TextField(
-          controller: controllerTec,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            hintText: 'city_filter_hint'.tr,
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('cancel'.tr),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controllerTec.text.trim()),
-            child: Text('apply'.tr),
-          ),
-        ],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('city'.tr, style: AppTextStyles.titleLarge),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: MediaQuery.of(sheetContext).size.height * 0.45,
+                  child: ListView.separated(
+                    itemCount: cities.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppSpacing.xs),
+                    itemBuilder: (_, index) {
+                      final city = cities[index];
+                      final selected =
+                          city == controller.cityFilter.value.trim();
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.of(sheetContext).pop(city),
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                          child: Ink(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.md,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(AppRadii.lg),
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.primary
+                                    : AppColors.borderLight,
+                              ),
+                              color: selected
+                                  ? AppColors.primary.withValues(alpha: 0.08)
+                                  : Colors.transparent,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(city)),
+                                if (selected)
+                                  const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
-    if (result != null) {
+
+    if (result != null && result.trim().isNotEmpty) {
+      if (controller.countryFilter.value.trim().isEmpty) {
+        controller.setCountryFilter(
+          resolvedCountry,
+          countryCode: _countryCodeForName(resolvedCountry),
+          isUserAction: false,
+        );
+      }
       controller.cityFilter.value = result;
       controller.scheduleLiveFilterRefresh();
+    }
+  }
+
+  String _resolvedCountry(HomeController controller, String defaultCountry) {
+    final explicit = controller.countryFilter.value.trim();
+    if (explicit.isNotEmpty) return explicit;
+    return defaultCountry.trim();
+  }
+
+  String _countryCodeForName(String country) {
+    try {
+      return CountryService().findByName(country)?.countryCode ?? '';
+    } catch (_) {
+      return '';
     }
   }
 }

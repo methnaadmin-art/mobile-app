@@ -106,6 +106,15 @@ class FaithReligionScreen extends GetView<SignupController> {
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.xl),
+          SignupInputField(
+            controller: controller.describeIdealSpouseController,
+            label: 'describe_ideal_spouse'.tr,
+            hint: 'describe_ideal_spouse_hint'.tr,
+            icon: Icons.favorite_border_rounded,
+            maxLines: 4,
+            textInputAction: TextInputAction.newline,
+          ),
         ],
       ),
     );
@@ -151,31 +160,29 @@ class _SelectionSection extends StatelessWidget {
           Obx(
             () => Column(
               children: options
-                  .map(
-                    (option) {
-                      final selected = selectedValue.value == option;
-                      final visual = _faithVisualForOption(
-                        option,
-                        fallback: icon,
-                      );
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: option == options.last ? 0 : AppSpacing.sm,
-                        ),
-                        child: SignupChoiceTile(
-                          title: option.tr,
-                          leading: _FaithOptionIcon(
-                            icon: visual.icon,
-                            accent: visual.accent,
-                            selected: selected,
-                          ),
+                  .map((option) {
+                    final selected = selectedValue.value == option;
+                    final visual = _faithVisualForOption(
+                      option,
+                      fallback: icon,
+                    );
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: option == options.last ? 0 : AppSpacing.sm,
+                      ),
+                      child: SignupChoiceTile(
+                        title: option.tr,
+                        leading: _FaithOptionIcon(
+                          icon: visual.icon,
+                          accent: visual.accent,
                           selected: selected,
-                          onTap: () => selectedValue.value =
-                              selected ? '' : option,
                         ),
-                      );
-                    },
-                  )
+                        selected: selected,
+                        onTap: () =>
+                            selectedValue.value = selected ? '' : option,
+                      ),
+                    );
+                  })
                   .toList(growable: false),
             ),
           ),
@@ -208,30 +215,25 @@ class _SelectionWrap extends StatelessWidget {
         Obx(
           () => Column(
             children: options
-                .map(
-                  (option) {
-                    final selected = selectedValue.value == option;
-                    final visual = _faithVisualForOption(
-                      option,
-                      fallback: icon,
-                    );
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: option == options.last ? 0 : AppSpacing.sm,
-                      ),
-                      child: SignupChoiceTile(
-                        title: option.tr,
-                        leading: _FaithOptionIcon(
-                          icon: visual.icon,
-                          accent: visual.accent,
-                          selected: selected,
-                        ),
+                .map((option) {
+                  final selected = selectedValue.value == option;
+                  final visual = _faithVisualForOption(option, fallback: icon);
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: option == options.last ? 0 : AppSpacing.sm,
+                    ),
+                    child: SignupChoiceTile(
+                      title: option.tr,
+                      leading: _FaithOptionIcon(
+                        icon: visual.icon,
+                        accent: visual.accent,
                         selected: selected,
-                        onTap: () => selectedValue.value = selected ? '' : option,
                       ),
-                    );
-                  },
-                )
+                      selected: selected,
+                      onTap: () => selectedValue.value = selected ? '' : option,
+                    ),
+                  );
+                })
                 .toList(growable: false),
           ),
         ),
@@ -295,7 +297,10 @@ class _FaithVisual {
   final Color accent;
 }
 
-_FaithVisual _faithVisualForOption(String option, {required IconData fallback}) {
+_FaithVisual _faithVisualForOption(
+  String option, {
+  required IconData fallback,
+}) {
   final key = option
       .toLowerCase()
       .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
@@ -328,33 +333,75 @@ _FaithVisual _faithVisualForOption(String option, {required IconData fallback}) 
         accent: AppColors.primaryDark,
       );
     case 'very practicing':
-      return const _FaithVisual(icon: Icons.stars_rounded, accent: AppColors.secondary);
+      return const _FaithVisual(
+        icon: Icons.stars_rounded,
+        accent: AppColors.secondary,
+      );
     case 'practicing':
-      return const _FaithVisual(icon: Icons.favorite_outline_rounded, accent: AppColors.primary);
+      return const _FaithVisual(
+        icon: Icons.favorite_outline_rounded,
+        accent: AppColors.primary,
+      );
     case 'moderate':
-      return const _FaithVisual(icon: Icons.tune_rounded, accent: AppColors.primaryLight);
+      return const _FaithVisual(
+        icon: Icons.tune_rounded,
+        accent: AppColors.primaryLight,
+      );
     case 'liberal':
-      return const _FaithVisual(icon: Icons.explore_outlined, accent: AppColors.primaryDark);
+      return const _FaithVisual(
+        icon: Icons.explore_outlined,
+        accent: AppColors.primaryDark,
+      );
     case 'actively practicing':
-      return const _FaithVisual(icon: Icons.schedule_rounded, accent: AppColors.primary);
+      return const _FaithVisual(
+        icon: Icons.schedule_rounded,
+        accent: AppColors.primary,
+      );
     case 'occasionally':
-      return const _FaithVisual(icon: Icons.timelapse_rounded, accent: AppColors.primaryLight);
+      return const _FaithVisual(
+        icon: Icons.timelapse_rounded,
+        accent: AppColors.primaryLight,
+      );
     case 'not practicing':
-      return const _FaithVisual(icon: Icons.pause_circle_outline_rounded, accent: AppColors.primaryDark);
+      return const _FaithVisual(
+        icon: Icons.pause_circle_outline_rounded,
+        accent: AppColors.primaryDark,
+      );
     case 'halal':
-      return const _FaithVisual(icon: Icons.verified_rounded, accent: AppColors.secondary);
+      return const _FaithVisual(
+        icon: Icons.verified_rounded,
+        accent: AppColors.secondary,
+      );
     case 'non strict':
-      return const _FaithVisual(icon: Icons.restaurant_menu_rounded, accent: AppColors.primaryLight);
+      return const _FaithVisual(
+        icon: Icons.restaurant_menu_rounded,
+        accent: AppColors.primaryLight,
+      );
     case 'doesnt drink':
-      return const _FaithVisual(icon: Icons.no_drinks_rounded, accent: AppColors.secondary);
+      return const _FaithVisual(
+        icon: Icons.no_drinks_rounded,
+        accent: AppColors.secondary,
+      );
     case 'drinks':
-      return const _FaithVisual(icon: Icons.local_bar_rounded, accent: AppColors.primaryDark);
+      return const _FaithVisual(
+        icon: Icons.local_bar_rounded,
+        accent: AppColors.primaryDark,
+      );
     case 'covered':
-      return const _FaithVisual(icon: Icons.checkroom_rounded, accent: AppColors.primary);
+      return const _FaithVisual(
+        icon: Icons.checkroom_rounded,
+        accent: AppColors.primary,
+      );
     case 'niqab':
-      return const _FaithVisual(icon: Icons.shield_rounded, accent: AppColors.secondary);
+      return const _FaithVisual(
+        icon: Icons.shield_rounded,
+        accent: AppColors.secondary,
+      );
     case 'not covered':
-      return const _FaithVisual(icon: Icons.person_outline_rounded, accent: AppColors.primaryDark);
+      return const _FaithVisual(
+        icon: Icons.person_outline_rounded,
+        accent: AppColors.primaryDark,
+      );
   }
 
   if (key.contains('sunni')) {
@@ -376,46 +423,88 @@ _FaithVisual _faithVisualForOption(String option, {required IconData fallback}) 
     );
   }
   if (key.contains('very')) {
-    return const _FaithVisual(icon: LucideIcons.badgeCheck, accent: AppColors.secondary);
+    return const _FaithVisual(
+      icon: LucideIcons.badgeCheck,
+      accent: AppColors.secondary,
+    );
   }
   if (key.contains('practicing')) {
-    return const _FaithVisual(icon: LucideIcons.flame, accent: AppColors.primary);
+    return const _FaithVisual(
+      icon: LucideIcons.flame,
+      accent: AppColors.primary,
+    );
   }
   if (key.contains('moderate')) {
-    return const _FaithVisual(icon: LucideIcons.scale, accent: AppColors.primaryLight);
+    return const _FaithVisual(
+      icon: LucideIcons.scale,
+      accent: AppColors.primaryLight,
+    );
   }
   if (key.contains('liberal')) {
-    return const _FaithVisual(icon: LucideIcons.sun, accent: AppColors.primaryDark);
+    return const _FaithVisual(
+      icon: LucideIcons.sun,
+      accent: AppColors.primaryDark,
+    );
   }
   if (key.contains('actively')) {
-    return const _FaithVisual(icon: LucideIcons.sunrise, accent: AppColors.primary);
+    return const _FaithVisual(
+      icon: LucideIcons.sunrise,
+      accent: AppColors.primary,
+    );
   }
   if (key.contains('occasionally')) {
-    return const _FaithVisual(icon: LucideIcons.clock3, accent: AppColors.primaryLight);
+    return const _FaithVisual(
+      icon: LucideIcons.clock3,
+      accent: AppColors.primaryLight,
+    );
   }
   if (key.contains('not')) {
-    return const _FaithVisual(icon: LucideIcons.moon, accent: AppColors.primaryDark);
+    return const _FaithVisual(
+      icon: LucideIcons.moon,
+      accent: AppColors.primaryDark,
+    );
   }
   if (key.contains('halal')) {
-    return const _FaithVisual(icon: LucideIcons.utensils, accent: AppColors.secondary);
+    return const _FaithVisual(
+      icon: LucideIcons.utensils,
+      accent: AppColors.secondary,
+    );
   }
   if (key.contains('strict')) {
-    return const _FaithVisual(icon: LucideIcons.salad, accent: AppColors.primaryLight);
+    return const _FaithVisual(
+      icon: LucideIcons.salad,
+      accent: AppColors.primaryLight,
+    );
   }
   if (key.contains('drink')) {
-    return const _FaithVisual(icon: LucideIcons.cupSoda, accent: AppColors.primaryDark);
+    return const _FaithVisual(
+      icon: LucideIcons.cupSoda,
+      accent: AppColors.primaryDark,
+    );
   }
   if (key.contains('doesnt')) {
-    return const _FaithVisual(icon: LucideIcons.shield, accent: AppColors.secondary);
+    return const _FaithVisual(
+      icon: LucideIcons.shield,
+      accent: AppColors.secondary,
+    );
   }
   if (key.contains('niqab')) {
-    return const _FaithVisual(icon: LucideIcons.shirt, accent: AppColors.secondary);
+    return const _FaithVisual(
+      icon: LucideIcons.shirt,
+      accent: AppColors.secondary,
+    );
   }
   if (key.contains('covered')) {
-    return const _FaithVisual(icon: LucideIcons.shirt, accent: AppColors.primary);
+    return const _FaithVisual(
+      icon: LucideIcons.shirt,
+      accent: AppColors.primary,
+    );
   }
   if (key.contains('other') || key.contains('prefer')) {
-    return const _FaithVisual(icon: LucideIcons.circleEllipsis, accent: AppColors.primaryDark);
+    return const _FaithVisual(
+      icon: LucideIcons.circleEllipsis,
+      accent: AppColors.primaryDark,
+    );
   }
 
   return _FaithVisual(

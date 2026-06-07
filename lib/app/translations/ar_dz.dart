@@ -22,6 +22,7 @@ const Map<String, String> arDZ = {
   'back': 'رجوع',
   'next': 'التالي',
   'skip': 'تخطي',
+  'account_status': 'حالة الحساب',
   'continue_text': 'متابعة',
   'get_started': 'ابدأ الآن',
   'yes': 'نعم',

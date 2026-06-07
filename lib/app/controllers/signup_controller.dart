@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:dio/dio.dart' hide Headers;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide FormData, MultipartFile, Response;
@@ -422,6 +423,7 @@ class SignupController extends GetxController {
   void onInit() {
     super.onInit();
     _loadDraft();
+    _applyBestAvailableLocationDefaults();
 
     final List<RxInterface> autoSaveFields = [
       selectedGender,
@@ -486,6 +488,76 @@ class SignupController extends GetxController {
       (_) => _saveDraft(),
       time: const Duration(milliseconds: 2000),
     );
+  }
+
+  void _applyBestAvailableLocationDefaults() {
+    final location = Get.isRegistered<LocationService>()
+        ? Get.find<LocationService>()
+        : null;
+
+    final localeCountryCode =
+        ui.PlatformDispatcher.instance.locale.countryCode
+            ?.trim()
+            .toUpperCase() ??
+        '';
+    final resolvedCountryCode =
+        (location?.currentCountryCode.value.trim().toUpperCase() ?? '')
+            .isNotEmpty
+        ? location!.currentCountryCode.value.trim().toUpperCase()
+        : localeCountryCode;
+
+    final resolvedCountryName =
+        (location?.currentCountry.value.trim() ?? '').isNotEmpty
+        ? location!.currentCountry.value.trim()
+        : _countryNameFromIsoCode(resolvedCountryCode);
+
+    final shouldReplaceCountry =
+        selectedCountry.value.trim().isEmpty ||
+        (selectedCountry.value.trim() == 'Algeria' &&
+            selectedPhoneCountryCode.value.trim().toUpperCase() == 'DZ');
+
+    if (shouldReplaceCountry && resolvedCountryName.isNotEmpty) {
+      selectedCountry.value = resolvedCountryName;
+    }
+
+    if (resolvedCountryCode.length == 2) {
+      try {
+        final country = CountryService().findByCode(resolvedCountryCode);
+        if (country != null) {
+          final shouldReplacePhoneCountry =
+              selectedPhoneCountryCode.value.trim().isEmpty ||
+              selectedPhoneCountryCode.value.trim().toUpperCase() == 'DZ';
+          if (shouldReplacePhoneCountry) {
+            selectedPhoneDialCode.value = _normalizeDialCode(
+              '+${country.phoneCode}',
+            );
+            selectedPhoneCountryCode.value = country.countryCode;
+            selectedPhoneCountryName.value = country.name;
+          }
+        }
+      } catch (_) {}
+    }
+
+    final resolvedCity = _sanitizeSignupText(
+      location?.currentCity.value.trim() ?? '',
+    );
+    if (selectedCity.value.trim().isEmpty &&
+        resolvedCity.isNotEmpty &&
+        availableCities.contains(resolvedCity)) {
+      selectedCity.value = resolvedCity;
+      cityController.text = resolvedCity;
+    }
+  }
+
+  String _countryNameFromIsoCode(String isoCode) {
+    final normalized = isoCode.trim().toUpperCase();
+    if (normalized.length != 2) return '';
+    try {
+      final country = CountryService().findByCode(normalized);
+      return country?.name.trim() ?? '';
+    } catch (_) {
+      return '';
+    }
   }
 
   void _triggerSave() {
@@ -775,9 +847,10 @@ class SignupController extends GetxController {
     _draftSelfiePath = null;
     _mediaDraftHydrated = false;
     preferredDistanceKm.value = 80.0;
-    selectedPhoneDialCode.value = '+213';
-    selectedPhoneCountryCode.value = 'DZ';
-    selectedPhoneCountryName.value = 'Algeria';
+    selectedCountry.value = '';
+    selectedPhoneDialCode.value = '';
+    selectedPhoneCountryCode.value = '';
+    selectedPhoneCountryName.value = '';
     selectedMarriageTimeline.value = '3-6 MONTHS';
     willingToRelocate.value = null;
     selectedSkinComplexion.value = '';
@@ -794,11 +867,12 @@ class SignupController extends GetxController {
     _selfieVerificationRequested = false;
     _photosUploadFuture = null;
     _selfieUploadFuture = null;
+    _applyBestAvailableLocationDefaults();
     debugPrint('[Signup] Draft cleared');
   }
 
   void onCountryChanged(String country) {
-    selectedCountry.value = country;
+    selectedCountry.value = LocationService.canonicalizeCountry(name: country);
     final city = _sanitizeSignupText(cityController.text.trim());
     if (city.isNotEmpty && !availableCities.contains(city)) {
       cityController.clear();
@@ -836,7 +910,9 @@ class SignupController extends GetxController {
     final compact = rawDialCode.trim().replaceAll(RegExp(r'\s+'), '');
     final digitsOnly = compact.replaceAll(RegExp(r'[^0-9]'), '');
     if (digitsOnly.isEmpty) {
-      return '+213';
+      return selectedPhoneDialCode.value.trim().isNotEmpty
+          ? selectedPhoneDialCode.value.trim()
+          : '+213';
     }
     return '+$digitsOnly';
   }
@@ -1457,9 +1533,7 @@ class SignupController extends GetxController {
       isLoading.value = true;
     }
     try {
-      if (selectedCountry.value.trim().isEmpty) {
-        selectedCountry.value = 'Algeria';
-      }
+      _applyBestAvailableLocationDefaults();
       selectedCity.value = cityController.text.trim();
 
       final resolvedMarriageIntention = _marriageIntentionFromTimeline(

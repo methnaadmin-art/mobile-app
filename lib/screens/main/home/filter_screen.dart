@@ -4,6 +4,8 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:methna_app/app/controllers/home_controller.dart';
 import 'package:methna_app/app/controllers/signup_data.dart';
+import 'package:methna_app/app/data/services/auth_service.dart';
+import 'package:methna_app/app/data/services/location_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/theme/app_radii.dart';
@@ -62,6 +64,7 @@ class FilterScreen extends GetView<HomeController> {
                   title: 'country'.tr,
                   subtitle: 'country_filter_info'.tr,
                   value: _countryValueLabel(
+                    controller,
                     controller.countryFilter.value,
                     controller.countryCodeFilter.value,
                   ),
@@ -83,8 +86,8 @@ class FilterScreen extends GetView<HomeController> {
                 SettingsPlainTile(
                   title: 'city'.tr,
                   value: _cityValueLabel(
+                    controller,
                     controller.cityFilter.value,
-                    controller.countryFilter.value,
                   ),
                   onTap: () => _showCityPicker(context),
                 ),
@@ -339,41 +342,102 @@ class FilterScreen extends GetView<HomeController> {
   }
 
   Future<void> _showCityPicker(BuildContext context) async {
-    if (controller.countryFilter.value.trim().isEmpty) {
+    final effectiveCountry = _effectiveCountry(controller);
+    if (effectiveCountry.isEmpty) {
       Get.snackbar('country'.tr, 'select_country_first'.tr);
       return;
     }
 
-    final cityController = TextEditingController(
-      text: controller.cityFilter.value,
-    );
-    final selected = await showDialog<String>(
+    final cities =
+        (SignupData.countryCities[effectiveCountry] ?? const <String>[])
+            .map((city) => city.trim())
+            .where((city) => city.isNotEmpty)
+            .toList(growable: false);
+    if (cities.isEmpty) {
+      Get.snackbar('city'.tr, 'select_country_first'.tr);
+      return;
+    }
+
+    final selected = await showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('enter_city'.tr),
-        content: TextField(
-          controller: cityController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            hintText: 'city_filter_hint'.tr,
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('cancel'.tr),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, cityController.text.trim()),
-            child: Text('apply'.tr),
-          ),
-        ],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('city'.tr, style: AppTextStyles.titleLarge),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: MediaQuery.of(sheetContext).size.height * 0.45,
+                  child: ListView.separated(
+                    itemCount: cities.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppSpacing.xs),
+                    itemBuilder: (_, index) {
+                      final city = cities[index];
+                      final isSelected =
+                          city == controller.cityFilter.value.trim();
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.of(sheetContext).pop(city),
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                          child: Ink(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.md,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(AppRadii.lg),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.borderLight,
+                              ),
+                              color: isSelected
+                                  ? AppColors.primary.withValues(alpha: 0.08)
+                                  : Colors.transparent,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(city)),
+                                if (isSelected)
+                                  const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
 
-    if (selected != null) {
+    if (selected != null && selected.trim().isNotEmpty) {
+      if (controller.countryFilter.value.trim().isEmpty) {
+        controller.setCountryFilter(
+          effectiveCountry,
+          countryCode: _effectiveCountryCode(controller),
+          isUserAction: false,
+        );
+      }
       controller.cityFilter.value = selected.trim();
       _scheduleLiveApply();
     }
@@ -409,19 +473,68 @@ class FilterScreen extends GetView<HomeController> {
     controller.scheduleLiveFilterRefresh();
   }
 
-  String _countryValueLabel(String value, String countryCode) {
+  String _countryValueLabel(
+    HomeController controller,
+    String value,
+    String countryCode,
+  ) {
     final trimmed = value.trim();
-    if (trimmed.isEmpty) return 'all'.tr;
-    final normalizedCode = countryCode.trim().toUpperCase();
+    final fallbackCountry = _effectiveCountry(controller);
+    if (trimmed.isEmpty)
+      return fallbackCountry.isEmpty ? 'all'.tr : fallbackCountry;
+    final normalizedCode =
+        (countryCode.trim().isNotEmpty
+                ? countryCode
+                : _effectiveCountryCode(controller))
+            .trim()
+            .toUpperCase();
     if (normalizedCode.isEmpty) return trimmed;
     return '$trimmed ($normalizedCode)';
   }
 
-  String _cityValueLabel(String city, String country) {
-    if (country.trim().isEmpty) return 'select_country_first'.tr;
+  String _cityValueLabel(HomeController controller, String city) {
+    if (_effectiveCountry(controller).isEmpty) return 'select_country_first'.tr;
     final trimmed = city.trim();
-    if (trimmed.isEmpty) return 'all'.tr;
-    return trimmed.tr;
+    return trimmed.isEmpty ? 'all'.tr : trimmed;
+  }
+
+  String _effectiveCountry(HomeController controller) {
+    final explicit = controller.countryFilter.value.trim();
+    if (explicit.isNotEmpty) return explicit;
+
+    final auth = Get.isRegistered<AuthService>()
+        ? Get.find<AuthService>()
+        : null;
+    final location = Get.isRegistered<LocationService>()
+        ? Get.find<LocationService>()
+        : null;
+
+    final profileCountry =
+        auth?.currentUser.value?.profile?.country?.trim() ?? '';
+    if (profileCountry.isNotEmpty) return profileCountry;
+
+    final locationCountry = location?.currentCountry.value.trim() ?? '';
+    return locationCountry;
+  }
+
+  String _effectiveCountryCode(HomeController controller) {
+    final explicit = controller.countryCodeFilter.value.trim().toUpperCase();
+    if (explicit.isNotEmpty) return explicit;
+
+    final location = Get.isRegistered<LocationService>()
+        ? Get.find<LocationService>()
+        : null;
+    final locationCode =
+        location?.currentCountryCode.value.trim().toUpperCase() ?? '';
+    if (locationCode.isNotEmpty) return locationCode;
+
+    final effectiveCountry = _effectiveCountry(controller);
+    if (effectiveCountry.isEmpty) return '';
+    try {
+      return CountryService().findByName(effectiveCountry)?.countryCode ?? '';
+    } catch (_) {
+      return '';
+    }
   }
 }
 

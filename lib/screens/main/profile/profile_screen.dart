@@ -70,7 +70,10 @@ class ProfileScreen extends GetView<ProfileController> {
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(LucideIcons.layoutGrid, color: AppColors.primary),
+            leading: const Icon(
+              LucideIcons.layoutGrid,
+              color: AppColors.primary,
+            ),
             title: const Text('Manage all photos'),
             onTap: () {
               Navigator.of(context).pop();
@@ -156,11 +159,8 @@ class ProfileScreen extends GetView<ProfileController> {
               onBoost: controller.triggerProfileBoost,
               onSettings: controller.openSettings,
               onEdit: controller.openEditProfile,
-              onPhotoTap: (index) => openProfileGalleryViewer(
-                context,
-                user,
-                initialIndex: index,
-              ),
+              onPhotoTap: (index) =>
+                  openProfileGalleryViewer(context, user, initialIndex: index),
               onCameraTap: () => _showPhotoSourceSheet(context, controller),
               extraBottomPadding: 132,
             ),
@@ -231,7 +231,12 @@ class ProfileShowcaseContent extends StatelessWidget {
     final sections = [
       if (isOwnProfile)
         _section('Account', [
-          _field('Username', accountHandle, LucideIcons.atSign, prettify: false),
+          _field(
+            'Username',
+            accountHandle,
+            LucideIcons.atSign,
+            prettify: false,
+          ),
           _field(
             'First name',
             user.firstName,
@@ -332,7 +337,7 @@ class ProfileShowcaseContent extends StatelessWidget {
           LucideIcons.flag,
           prettify: false,
         ),
-        _field('Ethnicity', profile?.ethnicity, LucideIcons.users),
+        _field('ethnicity'.tr, profile?.ethnicity, LucideIcons.users),
         _field('education'.tr, profile?.education, LucideIcons.graduationCap),
         _field(
           'education_details'.tr,
@@ -385,6 +390,14 @@ class ProfileShowcaseContent extends StatelessWidget {
         _field('prayer'.tr, profile?.prayerFrequency, LucideIcons.sunrise),
         _field('hijab'.tr, profile?.hijabStatus, LucideIcons.shirt),
       ]),
+      _section('partner_preferences'.tr, [
+        _field(
+          'describe_ideal_spouse'.tr,
+          profile?.aboutPartner,
+          LucideIcons.heart,
+          prettify: false,
+        ),
+      ], useIcons: true),
       _section('family_home'.tr, [
         _field('marital_status'.tr, profile?.maritalStatus, LucideIcons.users),
         _field(
@@ -416,7 +429,7 @@ class ProfileShowcaseContent extends StatelessWidget {
         _boolField(
           'willing_to_relocate'.tr,
           profile?.willingToRelocate,
-          LucideIcons.mapPin,
+          LucideIcons.moveRight,
           trueLabel: 'yes'.tr,
           falseLabel: 'no'.tr,
         ),
@@ -424,14 +437,14 @@ class ProfileShowcaseContent extends StatelessWidget {
           _field(
             'Location permission',
             locationPermissionLabel,
-            LucideIcons.mapPin,
+            LucideIcons.locateFixed,
             prettify: false,
           ),
         if (isOwnProfile)
           _field(
             'distance_preference'.tr,
             preferredDistanceLabel,
-            LucideIcons.map,
+            LucideIcons.route,
             prettify: false,
           ),
       ]),
@@ -589,13 +602,6 @@ class ProfileShowcaseContent extends StatelessWidget {
             for (final section in sections) ...[
               const SizedBox(height: 16),
               _SectionCard(section: section),
-            ],
-            if ((profile?.aboutPartner ?? '').trim().isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _TextCard(
-                title: 'partner_preferences'.tr,
-                text: profile!.aboutPartner!.trim(),
-              ),
             ],
           ],
         ),
@@ -1152,7 +1158,8 @@ class _ProfileHeaderCard extends StatelessWidget {
     final showLocation =
         location.trim().isNotEmpty && location != 'location_hidden'.tr;
     final showNationality =
-      (nationality ?? '').trim().isNotEmpty && nationality != 'location_hidden'.tr;
+        (nationality ?? '').trim().isNotEmpty &&
+        nationality != 'location_hidden'.tr;
     final showBackground = backgroundStatus != 'not_started';
     final avatarOverlap = heroAvatarSize * 0.48;
     final heroHeight = 176 + ((heroAvatarSize - 122).clamp(0, 40) * 0.6);
@@ -1933,7 +1940,9 @@ class _ProfileGalleryCard extends StatelessWidget {
                                         LucideIcons.lock,
                                         size: 19,
                                         color: isDark
-                                            ? Colors.white.withValues(alpha: 0.9)
+                                            ? Colors.white.withValues(
+                                                alpha: 0.9,
+                                              )
                                             : const Color(0xFF6E47A7),
                                       ),
                                       const SizedBox(height: 4),
@@ -1943,7 +1952,9 @@ class _ProfileGalleryCard extends StatelessWidget {
                                           fontSize: 10,
                                           fontWeight: FontWeight.w700,
                                           color: isDark
-                                              ? Colors.white.withValues(alpha: 0.95)
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.95,
+                                                )
                                               : const Color(0xFF6E47A7),
                                         ),
                                       ),
@@ -1982,7 +1993,9 @@ class _ProfileGalleryCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: (isDark ? const Color(0xFF2A1D25) : const Color(0xFFF4F0FF)),
+                color: (isDark
+                    ? const Color(0xFF2A1D25)
+                    : const Color(0xFFF4F0FF)),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -2520,10 +2533,7 @@ class _SectionCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           for (var i = 0; i < section.fields.length; i++) ...[
-            _SectionRow(
-              field: section.fields[i],
-              useIcons: section.useIcons,
-            ),
+            _SectionRow(field: section.fields[i], useIcons: section.useIcons),
             if (i != section.fields.length - 1)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
@@ -2565,10 +2575,7 @@ class _SectionRow extends StatelessWidget {
           child: useIcons
               ? Icon(field.icon, size: 14, color: iconColor)
               : Center(
-                  child: Text(
-                    emoji,
-                    style: const TextStyle(fontSize: 13),
-                  ),
+                  child: Text(emoji, style: const TextStyle(fontSize: 13)),
                 ),
         ),
         const SizedBox(width: 10),
@@ -2683,7 +2690,8 @@ class _ProfilePhotoViewerPage extends StatefulWidget {
   final int initialIndex;
 
   @override
-  State<_ProfilePhotoViewerPage> createState() => _ProfilePhotoViewerPageState();
+  State<_ProfilePhotoViewerPage> createState() =>
+      _ProfilePhotoViewerPageState();
 }
 
 class _ProfilePhotoViewerPageState extends State<_ProfilePhotoViewerPage> {
@@ -2873,10 +2881,9 @@ _FieldData? _listField(String label, List<String>? values, IconData icon) {
 }
 
 String? _photoUploadLabel(UserModel user) {
-  final uploadedCount =
-      (user.photos ?? const <PhotoModel>[])
-          .where((photo) => photo.url.trim().isNotEmpty)
-          .length;
+  final uploadedCount = (user.photos ?? const <PhotoModel>[])
+      .where((photo) => photo.url.trim().isNotEmpty)
+      .length;
   if (uploadedCount <= 0) return null;
   return '$uploadedCount uploaded';
 }

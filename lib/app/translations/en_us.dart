@@ -22,6 +22,7 @@ const Map<String, String> enUS = {
   'back': 'Back',
   'next': 'Next',
   'skip': 'Skip',
+  'account_status': 'Account Status',
   'continue_text': 'Continue',
   'continue': 'Continue',
   'get_started': 'Get Started',
@@ -1171,6 +1172,7 @@ const Map<String, String> enUS = {
   'age_range_helper': 'Only show profiles inside your preferred age range.',
   'verified_only': 'Verified Profiles Only',
   'verified_only_desc': 'Only show members with verified profiles',
+  'select_country_first': 'Select a country first',
 
   // â”€â”€ Data & Analytics â”€â”€
   'data_usage': 'Data Usage',

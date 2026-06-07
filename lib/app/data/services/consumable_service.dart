@@ -383,16 +383,25 @@ class ConsumableService extends GetxService {
 
   List<ConsumableProduct> visibleProductsByType(String type) {
     final typedProducts = getProductsByType(type);
+    final isStorePlatform =
+        Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+
+    if (!isStorePlatform) {
+      return typedProducts;
+    }
+
     final configuredProducts = typedProducts
         .where((product) => storeProductIdFor(product).isNotEmpty)
         .toList(growable: false);
 
     if (configuredProducts.isEmpty) {
-      return typedProducts;
+      return const <ConsumableProduct>[];
     }
 
     final storeResolvedProducts = configuredProducts
-        .where((product) => storeProducts.containsKey(storeProductIdFor(product)))
+        .where(
+          (product) => storeProducts.containsKey(storeProductIdFor(product)),
+        )
         .toList(growable: false);
 
     if (storeResolvedProducts.isNotEmpty) {

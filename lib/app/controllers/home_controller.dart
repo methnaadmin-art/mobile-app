@@ -1500,7 +1500,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
         : const <String>[];
     return {
       'limit': _discoverInitialBufferSize,
-      if (resolvedGender != null) 'gender': resolvedGender,
+      'gender': ?resolvedGender,
       'minAge': minAge.value,
       'maxAge': maxAge.value,
       if (allowAdvancedFilters && goGlobalFilter.value) 'goGlobal': true,

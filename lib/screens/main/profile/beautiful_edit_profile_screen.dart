@@ -1,4 +1,4 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -33,10 +33,12 @@ class _BeautifulEditProfileScreenState
   late final TextEditingController _jobTitleCtrl;
   late final TextEditingController _companyCtrl;
   late final TextEditingController _idealSpouseCtrl;
+  late final TextEditingController _healthNotesCtrl;
 
   String? _country;
   String? _nationality;
   String? _city;
+  String? _ethnicity;
   String? _gender;
   String? _maritalStatus;
   String? _education;
@@ -353,13 +355,13 @@ class _BeautifulEditProfileScreenState
     );
     _jobTitleCtrl = TextEditingController(text: profile?.jobTitle ?? '');
     _companyCtrl = TextEditingController(text: profile?.company ?? '');
-    _idealSpouseCtrl = TextEditingController(
-      text: profile?.aboutPartner ?? '',
-    );
+    _idealSpouseCtrl = TextEditingController(text: profile?.aboutPartner ?? '');
+    _healthNotesCtrl = TextEditingController(text: profile?.healthNotes ?? '');
 
     _country = profile?.country;
     _nationality = profile?.nationality;
     _city = profile?.city;
+    _ethnicity = profile?.ethnicity;
     _gender = profile?.gender;
     _maritalStatus = profile?.maritalStatus;
     _education = profile?.education;
@@ -371,7 +373,9 @@ class _BeautifulEditProfileScreenState
     _dietary = profile?.dietary;
     _alcohol = profile?.alcohol;
     _familyPlans = profile?.familyPlans;
-    _communicationStyle = _normalizeCommunicationStyle(profile?.communicationStyle);
+    _communicationStyle = _normalizeCommunicationStyle(
+      profile?.communicationStyle,
+    );
     _vaccinationStatus = profile?.vaccinationStatus;
     _bloodType = profile?.bloodType;
     _workoutFrequency = profile?.workoutFrequency;
@@ -401,6 +405,7 @@ class _BeautifulEditProfileScreenState
     _jobTitleCtrl.dispose();
     _companyCtrl.dispose();
     _idealSpouseCtrl.dispose();
+    _healthNotesCtrl.dispose();
     super.dispose();
   }
 
@@ -410,9 +415,7 @@ class _BeautifulEditProfileScreenState
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF0F0D14)
-          : AppColors.smoothBeige,
+      backgroundColor: isDark ? const Color(0xFF0F0D14) : AppColors.smoothBeige,
       body: SafeArea(
         child: user == null
             ? const Center(
@@ -539,9 +542,7 @@ class _BeautifulEditProfileScreenState
                                   placeholder: 'Select',
                                 ),
                                 enabled: _country != null,
-                                onTap: _country == null
-                                    ? null
-                                    : _pickCity,
+                                onTap: _country == null ? null : _pickCity,
                               ),
                             ),
                           ],
@@ -560,6 +561,22 @@ class _BeautifulEditProfileScreenState
                                   country.name,
                                 ),
                               );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _SelectFieldTile(
+                          label: 'Ethnicity',
+                          value: _displayOrPlaceholder(
+                            _ethnicity,
+                            placeholder: 'Select',
+                          ),
+                          onTap: () => _showSimpleOptions(
+                            title: 'Ethnicity',
+                            options: SignupData.ethnicities,
+                            current: _ethnicity,
+                            onSelected: (value) {
+                              setState(() => _ethnicity = value);
                             },
                           ),
                         ),
@@ -658,6 +675,20 @@ class _BeautifulEditProfileScreenState
                           ),
                         ),
                         const SizedBox(height: 18),
+                        _EditFieldTile(
+                          label: 'Health Notes',
+                          large: true,
+                          child: TextField(
+                            controller: _healthNotesCtrl,
+                            maxLines: 3,
+                            style: _fieldValueStyle(),
+                            decoration: _inputDecoration(
+                              hint:
+                                  'Share anything relevant about your health or wellbeing',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
                         const _SectionRowHeader(
                           title: 'Details',
                           actionLabel: '',
@@ -738,14 +769,13 @@ class _BeautifulEditProfileScreenState
                                       );
                                   if (selected == null) return;
                                   setState(
-                                    () => _bodyBuild =
-                                        selected.value as String,
+                                    () => _bodyBuild = selected.value as String,
                                   );
                                 },
                               ),
                             ),
                             _SettingsRow(
-                              title: 'Basics',
+                              title: 'Basics & Health',
                               value: _basicsSummary(),
                               onTap: _openBasicsPage,
                             ),
@@ -1003,12 +1033,13 @@ class _BeautifulEditProfileScreenState
   String _basicsSummary() {
     var count = 0;
     if (_education != null && _education!.isNotEmpty) count++;
+    if (_ethnicity != null && _ethnicity!.isNotEmpty) count++;
     if (_familyPlans != null && _familyPlans!.isNotEmpty) count++;
     if (_vaccinationStatus != null) count++;
     if (_communicationStyle != null && _communicationStyle!.isNotEmpty) count++;
     if (_bloodType != null && _bloodType!.isNotEmpty) count++;
     if (_willingToRelocate != null) count++;
-    return '$count/6';
+    return '$count/7';
   }
 
   String _lifestyleSummary() {
@@ -1093,38 +1124,10 @@ class _BeautifulEditProfileScreenState
       );
       return;
     }
-
-    final cityController = TextEditingController(text: _city ?? '');
-    final value = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('City'),
-        content: TextField(
-          controller: cityController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            hintText: 'Enter city',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(cityController.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+    Helpers.showSnackbar(
+      message: 'No curated city list is available for this country yet.',
+      isError: true,
     );
-    cityController.dispose();
-
-    if (value != null) {
-      setState(() => _city = value.trim());
-    }
   }
 
   Future<void> _showSimpleOptions({
@@ -1238,6 +1241,14 @@ class _BeautifulEditProfileScreenState
           title: 'Basics',
           sections: [
             _PreferenceSectionConfig(
+              key: 'ethnicity',
+              title: 'Ethnicity',
+              icon: profilePreferenceSectionIcon('ethnicity'),
+              options: SignupData.ethnicities
+                  .map((value) => _ChoiceOption(label: value, value: value))
+                  .toList(),
+            ),
+            _PreferenceSectionConfig(
               key: 'education',
               title: 'Education',
               icon: profilePreferenceSectionIcon('education'),
@@ -1282,6 +1293,7 @@ class _BeautifulEditProfileScreenState
             ),
           ],
           initialValues: {
+            'ethnicity': _ethnicity,
             'education': _education,
             'familyPlans': _familyPlans,
             'vaccinationStatus': _vaccinationStatus,
@@ -1295,6 +1307,7 @@ class _BeautifulEditProfileScreenState
 
     if (selected != null) {
       setState(() {
+        _ethnicity = selected['ethnicity'] as String?;
         _education = selected['education'] as String?;
         _familyPlans = selected['familyPlans'] as String?;
         _vaccinationStatus = selected['vaccinationStatus'] as bool?;
@@ -1490,6 +1503,7 @@ class _BeautifulEditProfileScreenState
         'city': _city,
         'country': _country,
         'nationality': _nationality,
+        'ethnicity': _ethnicity,
         'height': int.tryParse(_heightCtrl.text),
         'weight': int.tryParse(_weightCtrl.text),
         'skinComplexion': _skinComplexion,
@@ -1503,6 +1517,7 @@ class _BeautifulEditProfileScreenState
         'communicationStyle': communicationStyle,
         'vaccinationStatus': _vaccinationStatus,
         'bloodType': _bloodType,
+        'healthNotes': _healthNotesCtrl.text.trim(),
         'workoutFrequency': _workoutFrequency,
         'sleepSchedule': _normalizeSleepSchedule(_sleepSchedule),
         'socialMediaUsage': _normalizeSocialMediaUsage(_socialMediaUsage),
@@ -2205,7 +2220,9 @@ class _ChipPickerPageState extends State<_ChipPickerPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.smoothBeige,
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : AppColors.smoothBeige,
       body: SafeArea(
         child: Column(
           children: [
@@ -2366,7 +2383,9 @@ class _GoalPickerPageState extends State<_GoalPickerPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.smoothBeige,
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : AppColors.smoothBeige,
       body: SafeArea(
         child: Column(
           children: [
@@ -2450,7 +2469,9 @@ class _SimpleOptionPage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.smoothBeige,
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : AppColors.smoothBeige,
       body: SafeArea(
         child: Column(
           children: [
@@ -2466,9 +2487,8 @@ class _SimpleOptionPage extends StatelessWidget {
                   return Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () => Navigator.of(
-                        context,
-                      ).pop(selected ? null : option),
+                      onTap: () =>
+                          Navigator.of(context).pop(selected ? null : option),
                       borderRadius: BorderRadius.circular(14),
                       child: Ink(
                         padding: const EdgeInsets.symmetric(
@@ -2745,7 +2765,9 @@ class _PreferenceSectionsPageState extends State<_PreferenceSectionsPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.smoothBeige,
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : AppColors.smoothBeige,
       body: SafeArea(
         child: Column(
           children: [

@@ -628,18 +628,22 @@ class SignupData {
 
   static const List<String> ethnicities = [
     'Afghan',
-    'African / Afro-descendant',
     'Arab',
+    'Amazigh / Berber',
     'Azerbaijani',
     'Bangladeshi',
-    'Caribbean',
+    'Black African',
+    'Bosnian / Balkan',
+    'Caribbean Muslim',
     'Kurdish',
     'Malay',
+    'North African',
     'Pakistani',
-    'Persian',
+    'Persian / Iranian',
     'Somali',
-    'South Asian',
+    'South Asian / Desi',
     'Turkish',
+    'West African',
     'Other',
   ];
 

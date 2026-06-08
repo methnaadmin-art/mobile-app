@@ -8,6 +8,8 @@ import 'package:methna_app/app/data/services/subscription_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/core/widgets/app_card.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
 import 'package:methna_app/core/widgets/settings_flow.dart';
 
 /// "Our Packages" subscription screen — brand identity.
@@ -73,16 +75,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     return SettingsSimplePageScaffold(
       title: 'Our Packages',
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? const [Color(0xFF1A1018), Color(0xFF0F0A10)]
-                : const [Color(0xFFFFF5F7), Color(0xFFFFFFFF)],
-          ),
-        ),
+      subtitle:
+          'Compare plans, review your current membership, and restore purchases.',
+      body: DatifyBackground(
+        compact: true,
         child: Obx(() {
           final plans = _filteredPlans();
           return RefreshIndicator(
@@ -239,22 +235,11 @@ class _PackagesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0xFF1C1A28) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF1A1626);
     final textMuted = isDark ? Colors.white70 : const Color(0xFF6A6780);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.06),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
+    return AppCard(
+      radius: 28,
       padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -312,7 +297,7 @@ class _PackagesCard extends StatelessWidget {
           if (purchasesAvailable) ...[
             const SizedBox(height: 22),
             _BrandButton(
-              label: 'Choose the Subscription',
+              label: 'Choose Package',
               icon: Icons.workspace_premium_rounded,
               onPressed: onCreateCustom,
               filled: false,
@@ -721,21 +706,16 @@ class _ActiveSubscriptionStrip extends StatelessWidget {
       subscription.currentPlan.value,
     );
     final days = subscription.daysRemaining;
-    final bg = isDark ? const Color(0xFF1C1A28) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF16102B);
     final textMuted = isDark ? Colors.white70 : const Color(0xFF6B6680);
     final endDateLabel = _formatSubscriptionDate(subscription.expiresAt.value);
     final remainingLabel = _remainingDaysLabel(days);
 
-    return Container(
+    return AppCard(
+      radius: 20,
+      variant: AppCardVariant.tinted,
+      tint: const Color(0xFF6E3DFB),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFF6E3DFB).withValues(alpha: 0.25),
-        ),
-      ),
       child: Row(
         children: [
           Container(

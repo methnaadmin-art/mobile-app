@@ -11,6 +11,7 @@ import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/app/utils/auth_navigation_resolver.dart';
 import 'package:methna_app/core/constants/app_constants.dart';
+import 'package:methna_app/core/widgets/app_card.dart';
 import 'package:methna_app/core/widgets/settings_flow.dart';
 import 'package:methna_app/core/widgets/backend_wait_overlay.dart';
 import 'package:methna_app/core/widgets/backend_wait_dots.dart';
@@ -77,6 +78,7 @@ class SettingsScreen extends GetView<SettingsController> {
 
     return SettingsSimplePageScaffold(
       title: 'settings'.tr,
+      subtitle: 'Manage your account, discovery, subscriptions, and support.',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
@@ -239,30 +241,11 @@ class _LogoutCard extends StatelessWidget {
         ? AppColors.textSecondaryDark
         : AppColors.textSecondaryLight;
 
-    return Container(
+    return AppCard(
+      radius: 28,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? const [Color(0xFF241B28), Color(0xFF17121C)]
-              : const [Color(0xFFF3F6FF), Color(0xFFF0F4FF)],
-        ),
-        border: Border.all(
-          color: isDark ? const Color(0xFF433141) : const Color(0xFFD7E0F2),
-        ),
-        boxShadow: isDark
-            ? const []
-            : [
-                BoxShadow(
-                  color: const Color(0x1C617AA6),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-      ),
+      variant: AppCardVariant.tinted,
+      tint: isDark ? const Color(0xFF8A5CF6) : const Color(0xFF89A7F7),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

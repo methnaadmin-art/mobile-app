@@ -10,6 +10,7 @@ import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
+import 'package:methna_app/core/widgets/app_card.dart';
 import 'package:methna_app/core/widgets/custom_button.dart';
 import 'package:methna_app/core/widgets/settings_flow.dart';
 
@@ -37,6 +38,8 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
 
     return SettingsSimplePageScaffold(
       title: 'discovery_preferences'.tr,
+      subtitle:
+          'Control how local your matches stay and which profiles you see.',
       footer: Obx(() {
         final isApplying = controller.isApplyingFilters.value;
 
@@ -386,19 +389,13 @@ class _SliderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return AppCard(
+      radius: AppRadii.lg,
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
         AppSpacing.md,
         AppSpacing.md,
         AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceGlassDark : Colors.white,
-        borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
-        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

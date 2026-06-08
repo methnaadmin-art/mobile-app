@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/data/services/consumable_service.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/core/widgets/app_card.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
 
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
@@ -74,21 +76,9 @@ class _ShopScreenState extends State<ShopScreen>
     final accent = _toneForType(_tabs[_tabController.index].$3);
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF090C12)
-          : const Color(0xFFF7F8FC),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              (isDark ? const Color(0xFF090C12) : const Color(0xFFF7F8FC)),
-              accent.withValues(alpha: isDark ? 0.18 : 0.12),
-              (isDark ? const Color(0xFF111523) : const Color(0xFFEEF2FF)),
-            ],
-          ),
-        ),
+      backgroundColor: Colors.transparent,
+      body: DatifyBackground(
+        compact: true,
         child: SafeArea(
           child: Column(
             children: [
@@ -144,30 +134,11 @@ class _ShopScreenState extends State<ShopScreen>
             ),
           ),
           const SizedBox(height: 6),
-          Container(
-            width: double.infinity,
+          AppCard(
+            radius: 24,
+            variant: AppCardVariant.tinted,
+            tint: accent,
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  accent.withValues(alpha: isDark ? 0.42 : 0.2),
-                  isDark ? const Color(0xFF191E2D) : Colors.white,
-                ],
-              ),
-              border: Border.all(
-                color: accent.withValues(alpha: isDark ? 0.42 : 0.28),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: accent.withValues(alpha: isDark ? 0.34 : 0.16),
-                  blurRadius: 22,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
             child: Row(
               children: [
                 Container(
@@ -227,17 +198,15 @@ class _ShopScreenState extends State<ShopScreen>
       return Container(
         width: double.infinity,
         margin: const EdgeInsets.fromLTRB(18, 8, 18, 2),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF6E3DFB).withValues(alpha: isDark ? 0.16 : 0.1),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: const Color(0xFF6E3DFB).withValues(alpha: 0.28),
+        child: AppCard(
+          radius: 14,
+          variant: AppCardVariant.tinted,
+          tint: const Color(0xFF6E3DFB),
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            'Purchases are not currently offered on this device. No checkout is exposed.',
+            style: TextStyle(fontWeight: FontWeight.w600, color: fg),
           ),
-        ),
-        child: Text(
-          'Purchases are not currently offered on this device. No checkout is exposed.',
-          style: TextStyle(fontWeight: FontWeight.w600, color: fg),
         ),
       );
     }
@@ -261,40 +230,39 @@ class _ShopScreenState extends State<ShopScreen>
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(18, 8, 18, 2),
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: (isDark ? const Color(0xFFFFB55E) : AppColors.warning)
-            .withValues(alpha: isDark ? 0.18 : 0.14),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: (isDark ? const Color(0xFFFFC47F) : AppColors.warning)
-              .withValues(alpha: 0.42),
+      child: AppCard(
+        radius: 14,
+        variant: AppCardVariant.tinted,
+        tint: isDark ? const Color(0xFFFFB55E) : AppColors.warning,
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(fontWeight: FontWeight.w600, color: warningFg),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: isLoading ? null : _refreshShop,
+              icon: Icon(Icons.refresh_rounded, size: 18, color: warningFg),
+              label: Text(
+                'Retry',
+                style: TextStyle(fontWeight: FontWeight.w700, color: warningFg),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
         ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontWeight: FontWeight.w600, color: warningFg),
-            ),
-          ),
-          const SizedBox(width: 8),
-          TextButton.icon(
-            onPressed: isLoading ? null : _refreshShop,
-            icon: Icon(Icons.refresh_rounded, size: 18, color: warningFg),
-            label: Text(
-              'Retry',
-              style: TextStyle(fontWeight: FontWeight.w700, color: warningFg),
-            ),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -304,43 +272,35 @@ class _ShopScreenState extends State<ShopScreen>
 
     return Container(
       margin: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.06)
-            : Colors.white.withValues(alpha: 0.8),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.1)
-              : const Color(0xFFDCE3FF),
+      child: AppCard(
+        radius: 18,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildBalanceItem(
+              icon: Icons.favorite_rounded,
+              label: 'Likes',
+              count: b.likes,
+              color: const Color(0xFFE95579),
+              isDark: isDark,
+            ),
+            _buildBalanceItem(
+              icon: Icons.forum_rounded,
+              label: 'Compliments',
+              count: b.compliments,
+              color: const Color(0xFF4C74FF),
+              isDark: isDark,
+            ),
+            _buildBalanceItem(
+              icon: Icons.flash_on_rounded,
+              label: 'Boosts',
+              count: b.boosts,
+              color: const Color(0xFFF0A035),
+              isDark: isDark,
+            ),
+          ],
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildBalanceItem(
-            icon: Icons.favorite_rounded,
-            label: 'Likes',
-            count: b.likes,
-            color: const Color(0xFFE95579),
-            isDark: isDark,
-          ),
-          _buildBalanceItem(
-            icon: Icons.forum_rounded,
-            label: 'Compliments',
-            count: b.compliments,
-            color: const Color(0xFF4C74FF),
-            isDark: isDark,
-          ),
-          _buildBalanceItem(
-            icon: Icons.flash_on_rounded,
-            label: 'Boosts',
-            count: b.boosts,
-            color: const Color(0xFFF0A035),
-            isDark: isDark,
-          ),
-        ],
       ),
     );
   }
@@ -625,31 +585,19 @@ class _ShopScreenState extends State<ShopScreen>
         storeProduct?.price ??
         '\$${product.price.toStringAsFixed(product.price.truncateToDouble() == product.price ? 0 : 2)}';
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            tone.withValues(alpha: isDark ? 0.34 : 0.22),
-            isDark ? const Color(0xFF181D2C) : Colors.white,
-          ],
-        ),
-        border: Border.all(
-          color: tone.withValues(alpha: highlighted ? 0.6 : 0.32),
-          width: highlighted ? 1.6 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: tone.withValues(alpha: highlighted ? 0.22 : 0.1),
-            blurRadius: highlighted ? 26 : 16,
-            offset: const Offset(0, 7),
+    return AppCard(
+      radius: 20,
+      variant: AppCardVariant.tinted,
+      tint: tone,
+      padding: const EdgeInsets.all(14),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: tone.withValues(alpha: highlighted ? 0.4 : 0.14),
+            width: highlighted ? 1.4 : 1,
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

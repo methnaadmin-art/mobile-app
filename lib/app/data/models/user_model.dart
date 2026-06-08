@@ -280,42 +280,44 @@ class UserModel {
         createdAt;
     final rawPresence = json['presence'];
     final presenceMap = rawPresence is Map
-      ? Map<String, dynamic>.from(rawPresence)
-      : null;
+        ? Map<String, dynamic>.from(rawPresence)
+        : null;
     final activityMap = json['activity'] is Map
-      ? Map<String, dynamic>.from(json['activity'] as Map)
-      : null;
-    final trustSafety =
-        json['trustSafety'] is Map ? (json['trustSafety'] as Map) : null;
-    final verification =
-        json['verification'] is Map ? (json['verification'] as Map) : null;
+        ? Map<String, dynamic>.from(json['activity'] as Map)
+        : null;
+    final trustSafety = json['trustSafety'] is Map
+        ? (json['trustSafety'] as Map)
+        : null;
+    final verification = json['verification'] is Map
+        ? (json['verification'] as Map)
+        : null;
     final lastSeenAt =
         _safeDate(json['lastLoginAt']) ??
         _safeDate(json['lastSeenAt']) ??
         _safeDate(json['lastActiveAt']) ??
-      _safeDate(json['lastActive']) ??
-      _safeDate(json['activeAt']) ??
-      _safeDate(json['active_at']) ??
-      _safeDate(json['seenAt']) ??
-      _safeDate(json['seen_at']) ??
-      _safeDate(json['onlineAt']) ??
-      _safeDate(json['online_at']) ??
-      _safeDate(json['activityAt']) ??
-      _safeDate(json['activity']) ??
-      _safeDate(json['activity_at']) ??
-      _safeDate(presenceMap?['lastLoginAt']) ??
-      _safeDate(presenceMap?['last_login_at']) ??
-      _safeDate(presenceMap?['lastSeenAt']) ??
-      _safeDate(presenceMap?['last_seen_at']) ??
-      _safeDate(presenceMap?['lastActiveAt']) ??
-      _safeDate(presenceMap?['lastActive']) ??
-      _safeDate(presenceMap?['last_active_at']) ??
-      _safeDate(presenceMap?['seenAt']) ??
-      _safeDate(presenceMap?['activeAt']) ??
-      _safeDate(activityMap?['lastSeenAt']) ??
-      _safeDate(activityMap?['lastActiveAt']) ??
-      _safeDate(activityMap?['lastActive']) ??
-      _safeDate(activityMap?['activeAt']) ??
+        _safeDate(json['lastActive']) ??
+        _safeDate(json['activeAt']) ??
+        _safeDate(json['active_at']) ??
+        _safeDate(json['seenAt']) ??
+        _safeDate(json['seen_at']) ??
+        _safeDate(json['onlineAt']) ??
+        _safeDate(json['online_at']) ??
+        _safeDate(json['activityAt']) ??
+        _safeDate(json['activity']) ??
+        _safeDate(json['activity_at']) ??
+        _safeDate(presenceMap?['lastLoginAt']) ??
+        _safeDate(presenceMap?['last_login_at']) ??
+        _safeDate(presenceMap?['lastSeenAt']) ??
+        _safeDate(presenceMap?['last_seen_at']) ??
+        _safeDate(presenceMap?['lastActiveAt']) ??
+        _safeDate(presenceMap?['lastActive']) ??
+        _safeDate(presenceMap?['last_active_at']) ??
+        _safeDate(presenceMap?['seenAt']) ??
+        _safeDate(presenceMap?['activeAt']) ??
+        _safeDate(activityMap?['lastSeenAt']) ??
+        _safeDate(activityMap?['lastActiveAt']) ??
+        _safeDate(activityMap?['lastActive']) ??
+        _safeDate(activityMap?['activeAt']) ??
         _safeDate(json['lastSeen']) ??
         _safeDate(json['last_seen']);
     final rawLifecycleStatus = _firstNonEmptyString([
@@ -334,8 +336,9 @@ class UserModel {
       trustSafety?['account_status'],
       trustSafety?['status'],
     ]);
-    final normalizedLifecycleStatus =
-        _normalizeLifecycleStatus(rawLifecycleStatus);
+    final normalizedLifecycleStatus = _normalizeLifecycleStatus(
+      rawLifecycleStatus,
+    );
     final rawPresenceStatus = _firstNonEmptyString([
       if (rawPresence is Map) rawPresence['status'],
       if (rawPresence is Map) rawPresence['state'],
@@ -349,14 +352,14 @@ class UserModel {
         _safeBool(json['isOnline']) ||
         _safeBool(json['online']) ||
         _safeBool(json['is_online']) ||
-      _safeBool(json['isLiveToday']) ||
-      _safeBool(json['liveToday']) ||
-      _safeBool(json['is_live_today']) ||
+        _safeBool(json['isLiveToday']) ||
+        _safeBool(json['liveToday']) ||
+        _safeBool(json['is_live_today']) ||
         _safeBool(json['presenceOnline']) ||
-      _safeBool(presenceMap?['isOnline']) ||
-      _safeBool(presenceMap?['online']) ||
-      _safeBool(activityMap?['isOnline']) ||
-      _safeBool(activityMap?['online']) ||
+        _safeBool(presenceMap?['isOnline']) ||
+        _safeBool(presenceMap?['online']) ||
+        _safeBool(activityMap?['isOnline']) ||
+        _safeBool(activityMap?['online']) ||
         (rawPresenceStatus?.toLowerCase() == 'online');
     final profileMap = _asMap(json['profile']);
     final visibilityMap = _asMap(json['visibility']);
@@ -498,9 +501,15 @@ class UserModel {
       assign('country', [json['country'], locationMap?['country']]);
       assign('latitude', [json['latitude'], locationMap?['latitude']]);
       assign('longitude', [json['longitude'], locationMap?['longitude']]);
-      assign('religiousLevel', [json['religiousLevel'], json['religious_level']]);
+      assign('religiousLevel', [
+        json['religiousLevel'],
+        json['religious_level'],
+      ]);
       assign('sect', [json['sect']]);
-      assign('prayerFrequency', [json['prayerFrequency'], json['prayer_frequency']]);
+      assign('prayerFrequency', [
+        json['prayerFrequency'],
+        json['prayer_frequency'],
+      ]);
       assign('marriageIntention', [
         json['marriageIntention'],
         json['marriage_intention'],
@@ -513,14 +522,27 @@ class UserModel {
       assign('ethnicity', [json['ethnicity']]);
       assign('maritalStatus', [json['maritalStatus'], json['marital_status']]);
       assign('education', [json['education']]);
-      assign('educationDetails', [json['educationDetails'], json['education_details']]);
-      assign('jobTitle', [json['jobTitle'], json['job_title'], json['profession']]);
+      assign('educationDetails', [
+        json['educationDetails'],
+        json['education_details'],
+      ]);
+      assign('jobTitle', [
+        json['jobTitle'],
+        json['job_title'],
+        json['profession'],
+      ]);
       assign('company', [json['company']]);
       assign('height', [json['height']]);
       assign('weight', [json['weight']]);
-      assign('skinComplexion', [json['skinComplexion'], json['skin_complexion']]);
+      assign('skinComplexion', [
+        json['skinComplexion'],
+        json['skin_complexion'],
+      ]);
       assign('build', [json['build']]);
-      assign('livingSituation', [json['livingSituation'], json['living_situation']]);
+      assign('livingSituation', [
+        json['livingSituation'],
+        json['living_situation'],
+      ]);
       assign('communicationStyle', [
         json['communicationStyle'],
         json['communication_style'],
@@ -577,15 +599,15 @@ class UserModel {
       trustSafety?['status'],
     ])?.trim().toLowerCase();
     final selfieStatusVerified =
-      selfieStatus == 'verified' ||
-      selfieStatus == 'approved' ||
-      selfieStatus == 'matched' ||
-      selfieStatus == 'match' ||
-      selfieStatus == 'complete' ||
-      selfieStatus == 'completed' ||
-      selfieStatus == 'success' ||
-      selfieStatus == 'selfie_verified' ||
-      selfieStatus == 'selfie-verified';
+        selfieStatus == 'verified' ||
+        selfieStatus == 'approved' ||
+        selfieStatus == 'matched' ||
+        selfieStatus == 'match' ||
+        selfieStatus == 'complete' ||
+        selfieStatus == 'completed' ||
+        selfieStatus == 'success' ||
+        selfieStatus == 'selfie_verified' ||
+        selfieStatus == 'selfie-verified';
 
     return UserModel(
       // CRITICAL: Prefer the backend's explicit `userId` field FIRST.
@@ -619,13 +641,13 @@ class UserModel {
       status: _isRestrictedLifecycleStatus(normalizedLifecycleStatus)
           ? normalizedLifecycleStatus!
           : explicitOnline
-              ? 'online'
-              : _safeString(
-                  _normalizeLifecycleStatus(rawPresenceStatus) ??
-                      normalizedLifecycleStatus ??
+          ? 'online'
+          : _safeString(
+              _normalizeLifecycleStatus(rawPresenceStatus) ??
+                  normalizedLifecycleStatus ??
                   rawPresenceStatus,
-                  'active',
-                ),
+              'active',
+            ),
       emailVerified: _safeBool(json['emailVerified']),
       agreedToTerms: _safeBool(json['agreedToTerms']),
       agreedToPrivacyPolicy: _safeBool(json['agreedToPrivacyPolicy']),
@@ -671,17 +693,45 @@ class UserModel {
         json['document_rejection_reason'],
       ]),
       isShadowBanned: _safeBool(json['isShadowBanned']),
-      statusReason: _firstNonEmptyString([json['statusReason'], json['status_reason']]),
-      moderationReasonCode: _firstNonEmptyString([json['moderationReasonCode'], json['moderation_reason_code']]),
-      moderationReasonText: _firstNonEmptyString([json['moderationReasonText'], json['moderation_reason_text']]),
-      actionRequired: _firstNonEmptyString([json['actionRequired'], json['action_required']]),
-      supportMessage: _firstNonEmptyString([json['supportMessage'], json['support_message']]),
+      statusReason: _firstNonEmptyString([
+        json['statusReason'],
+        json['status_reason'],
+      ]),
+      moderationReasonCode: _firstNonEmptyString([
+        json['moderationReasonCode'],
+        json['moderation_reason_code'],
+      ]),
+      moderationReasonText: _firstNonEmptyString([
+        json['moderationReasonText'],
+        json['moderation_reason_text'],
+      ]),
+      actionRequired: _firstNonEmptyString([
+        json['actionRequired'],
+        json['action_required'],
+      ]),
+      supportMessage: _firstNonEmptyString([
+        json['supportMessage'],
+        json['support_message'],
+      ]),
       isUserVisible: json['isUserVisible'] ?? json['is_user_visible'] ?? true,
-      moderationExpiresAt: _safeDate(_firstNonEmptyString([json['moderationExpiresAt'], json['moderation_expires_at'], json['expiresAt']])),
-      internalAdminNote: _firstNonEmptyString([json['internalAdminNote'], json['internal_admin_note']]),
-      updatedByAdminId: _firstNonEmptyString([json['updatedByAdminId'], json['updated_by_admin_id']]),
+      moderationExpiresAt: _safeDate(
+        _firstNonEmptyString([
+          json['moderationExpiresAt'],
+          json['moderation_expires_at'],
+          json['expiresAt'],
+        ]),
+      ),
+      internalAdminNote: _firstNonEmptyString([
+        json['internalAdminNote'],
+        json['internal_admin_note'],
+      ]),
+      updatedByAdminId: _firstNonEmptyString([
+        json['updatedByAdminId'],
+        json['updated_by_admin_id'],
+      ]),
       trustScore: _safeInt(json['trustScore'], 100),
-      backgroundCheckStatus: _firstNonEmptyString([
+      backgroundCheckStatus:
+          _firstNonEmptyString([
             json['backgroundCheckStatus'],
             json['background_check_status'],
             trustSafety?['backgroundCheckStatus'],
@@ -931,6 +981,7 @@ class UserModel {
     }
     return full;
   }
+
   String get publicDisplayName {
     final full = fullName.trim();
     if (full.isNotEmpty) {
@@ -942,11 +993,13 @@ class UserModel {
     }
     return '';
   }
+
   String get publicShortName {
     final full = publicDisplayName.trim();
     if (full.isEmpty) return '';
     return full.split(RegExp(r'\s+')).first.trim();
   }
+
   String? get mainPhotoUrl {
     final availablePhotos =
         photos
@@ -962,6 +1015,7 @@ class UserModel {
     final fallback = (fallbackPhotoUrl ?? '').trim();
     return fallback.isNotEmpty ? fallback : null;
   }
+
   int get age => profile?.age ?? 0;
   bool get isOnline {
     final normalized = status.toLowerCase();
@@ -988,17 +1042,22 @@ class UserModel {
   }
 
   /// Whether the user should see any moderation UI
-  bool get shouldShowModerationUI => isUserVisible && isModerationRestricted && !isModerationExpired;
+  bool get shouldShowModerationUI =>
+      isUserVisible && isModerationRestricted && !isModerationExpired;
 
   /// The primary message to show the user (prefers supportMessage > moderationReasonText > statusReason)
   String get moderationMessage {
-    if (supportMessage != null && supportMessage!.isNotEmpty) return supportMessage!;
-    if (moderationReasonText != null && moderationReasonText!.isNotEmpty) return moderationReasonText!;
+    if (supportMessage != null && supportMessage!.isNotEmpty)
+      return supportMessage!;
+    if (moderationReasonText != null && moderationReasonText!.isNotEmpty)
+      return moderationReasonText!;
     switch (status) {
       case 'limited':
-        return statusReason ?? 'Your account is limited. Some features are restricted. Contact support.';
+        return statusReason ??
+            'Your account is limited. Some features are restricted. Contact support.';
       case 'suspended':
-        return statusReason ?? 'Your account is suspended. Contact support for more information.';
+        return statusReason ??
+            'Your account is suspended. Contact support for more information.';
       case 'banned':
         return statusReason ?? 'Your account has been banned. Contact support.';
       default:
@@ -1133,9 +1192,7 @@ class UserModel {
     if ((profile?.jobTitle ?? '').trim().isNotEmpty) score += 5;
 
     final interestsCount =
-        profile?.interests
-            ?.where((value) => value.trim().isNotEmpty)
-            .length ??
+        profile?.interests?.where((value) => value.trim().isNotEmpty).length ??
         0;
     if (interestsCount >= 3) {
       score += 15;
@@ -1144,9 +1201,7 @@ class UserModel {
     }
 
     final languagesCount =
-        profile?.languages
-            ?.where((value) => value.trim().isNotEmpty)
-            .length ??
+        profile?.languages?.where((value) => value.trim().isNotEmpty).length ??
         0;
     if (languagesCount > 0) score += 5;
 
@@ -1160,7 +1215,8 @@ class UserModel {
   int get profileQualityScore {
     int score = 0;
 
-    final photoCount = photos?.where((p) => p.url.trim().isNotEmpty).length ?? 0;
+    final photoCount =
+        photos?.where((p) => p.url.trim().isNotEmpty).length ?? 0;
     if (photoCount >= 3) {
       score += 30;
     } else if (photoCount >= 2) {
@@ -1298,6 +1354,7 @@ class ProfileModel {
   final bool showDistance;
   final bool showOnlineStatus;
   final bool showLastSeen;
+  final String visibilityAudience;
 
   // Scoring
   final int profileCompletionPercentage;
@@ -1362,6 +1419,7 @@ class ProfileModel {
     this.showDistance = true,
     this.showOnlineStatus = true,
     this.showLastSeen = true,
+    this.visibilityAudience = 'everyone',
     this.profileCompletionPercentage = 0,
     this.activityScore = 0,
     this.isComplete = false,
@@ -1456,6 +1514,16 @@ class ProfileModel {
       showDistance: json['showDistance'] ?? true,
       showOnlineStatus: json['showOnlineStatus'] ?? true,
       showLastSeen: json['showLastSeen'] ?? true,
+      visibilityAudience:
+          _safeString(
+            json['visibilityAudience'] ?? json['visibility'],
+            'everyone',
+          ).trim().isEmpty
+          ? 'everyone'
+          : _safeString(
+              json['visibilityAudience'] ?? json['visibility'],
+              'everyone',
+            ),
       profileCompletionPercentage: _safeInt(
         json['profileCompletionPercentage'],
       ),
@@ -1519,11 +1587,13 @@ class ProfileModel {
       if (favoriteBooks != null) 'favoriteBooks': favoriteBooks,
       if (travelPreferences != null) 'travelPreferences': travelPreferences,
       if (aboutPartner != null) 'aboutPartner': aboutPartner,
-      if (preferredDistanceKm != null) 'preferredDistanceKm': preferredDistanceKm,
+      if (preferredDistanceKm != null)
+        'preferredDistanceKm': preferredDistanceKm,
       'showAge': showAge,
       'showDistance': showDistance,
       'showOnlineStatus': showOnlineStatus,
       'showLastSeen': showLastSeen,
+      'visibilityAudience': visibilityAudience,
       'profileCompletionPercentage': profileCompletionPercentage,
       'activityScore': activityScore,
       'isComplete': isComplete,
@@ -1575,7 +1645,8 @@ class PhotoModel {
   });
 
   factory PhotoModel.fromJson(Map<String, dynamic> json) {
-    final rawUrl = _firstNonEmptyString([
+    final rawUrl =
+        _firstNonEmptyString([
           json['url'],
           json['secureUrl'],
           json['secure_url'],
@@ -1597,7 +1668,8 @@ class PhotoModel {
         '';
 
     return PhotoModel(
-      id: _firstNonEmptyString([
+      id:
+          _firstNonEmptyString([
             json['id'],
             json['_id'],
             json['photoId'],
@@ -1638,10 +1710,14 @@ class PhotoModel {
         json['isSelfieVerification'] ?? json['selfieVerification'],
       ),
       order: _safeInt(json['order'] ?? json['index']),
-      moderationStatus:
-          _safeString(json['moderationStatus'] ?? json['status'], 'approved'),
-      moderationNote:
-          _firstNonEmptyString([json['moderationNote'], json['note']]),
+      moderationStatus: _safeString(
+        json['moderationStatus'] ?? json['status'],
+        'approved',
+      ),
+      moderationNote: _firstNonEmptyString([
+        json['moderationNote'],
+        json['note'],
+      ]),
       createdAt: _safeDate(json['createdAt'] ?? json['created_at']),
       isLocked: _safeBool(
         json['isLocked'] ??
@@ -1677,11 +1753,9 @@ class PhotoModel {
     'unlockCta': unlockCta,
   };
 
-  String get cardDeliveryUrl =>
-      (cardUrl ?? thumbnailUrl ?? url).trim();
+  String get cardDeliveryUrl => (cardUrl ?? thumbnailUrl ?? url).trim();
 
-  String get profileDeliveryUrl =>
-      (profileUrl ?? cardUrl ?? url).trim();
+  String get profileDeliveryUrl => (profileUrl ?? cardUrl ?? url).trim();
 
   String get fullscreenDeliveryUrl =>
       (fullscreenUrl ?? profileUrl ?? cardUrl ?? url).trim();

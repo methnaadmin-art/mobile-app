@@ -145,11 +145,13 @@ class SettingsController extends GetxController {
       showDistance.value = profile.showDistance;
       showLastSeen.value = profile.showLastSeen;
       showAge.value = profile.showAge;
+      visibility.value = profile.visibilityAudience;
       // Persist backend values locally
       _storage.saveBool('privacy_showOnline', showOnlineStatus.value);
       _storage.saveBool('privacy_showDistance', showDistance.value);
       _storage.saveBool('privacy_showLastSeen', showLastSeen.value);
       _storage.saveBool('privacy_showAge', showAge.value);
+      _storage.saveString('privacy_visibility', visibility.value);
     }
     debugPrint(
       '[Settings] Loaded privacy: online=${showOnlineStatus.value}, distance=${showDistance.value}, lastSeen=${showLastSeen.value}, age=${showAge.value}, vis=${visibility.value}',
@@ -834,6 +836,12 @@ Privacy contact: ${AppConstants.privacyEmail}''';
       if (data.isEmpty) return;
 
       await _api.patch(ApiConstants.updatePrivacy, data: data);
+      _patchCurrentUserPrivacy(
+        showOnline: showOnlineStatus.value,
+        showDistanceValue: showDistance.value,
+        showLastSeenValue: showLastSeen.value,
+        showAgeValue: showAge.value,
+      );
       debugPrint('[Settings] Privacy API sync success');
     } catch (e) {
       debugPrint('[Settings] Privacy API sync failed (local saved): $e');
@@ -845,10 +853,37 @@ Privacy contact: ${AppConstants.privacyEmail}''';
     _storage.saveString('privacy_visibility', val);
     try {
       await _api.patch(ApiConstants.updatePrivacy, data: {'visibility': val});
+      _patchCurrentUserPrivacy(visibilityAudience: val);
       debugPrint('[Settings] Visibility updated to: $val');
     } catch (e) {
       debugPrint('[Settings] updateVisibility error: $e');
     }
+  }
+
+  void _patchCurrentUserPrivacy({
+    bool? showOnline,
+    bool? showDistanceValue,
+    bool? showLastSeenValue,
+    bool? showAgeValue,
+    String? visibilityAudience,
+  }) {
+    final current = _auth.currentUser.value;
+    if (current == null) return;
+
+    final payload = current.toJson();
+    final profile = Map<String, dynamic>.from(
+      (payload['profile'] as Map?)?.cast<String, dynamic>() ??
+          <String, dynamic>{},
+    );
+
+    profile['showOnlineStatus'] = showOnline ?? showOnlineStatus.value;
+    profile['showDistance'] = showDistanceValue ?? showDistance.value;
+    profile['showLastSeen'] = showLastSeenValue ?? showLastSeen.value;
+    profile['showAge'] = showAgeValue ?? showAge.value;
+    profile['visibilityAudience'] = visibilityAudience ?? visibility.value;
+
+    payload['profile'] = profile;
+    _auth.currentUser.value = UserModel.fromJson(payload);
   }
 
   // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ

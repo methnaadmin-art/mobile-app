@@ -833,8 +833,11 @@ const Map<String, String> enUS = {
   'no_users_in_category_desc':
       'There are no users available in this category yet.',
   'nobody': 'Nobody',
+  'nobody_desc':
+      'Hide your profile from discovery. This is different from Invisible mode.',
   'online_users_only': 'Online Users Only',
   'only_matches': 'Only Matches',
+  'only_matches_desc': 'Only existing matches can still reach your profile.',
   'only_online_desc': 'Show only users who were active recently.',
   'otp_length': 'Enter the full verification code',
   'otp_required': 'Verification code is required',
@@ -1575,7 +1578,9 @@ const Map<String, String> enUS = {
 
   // --- Localized Main Screens ---
   'profiles': 'Profiles',
-  'person_i_liked': 'Liked By Me',
+  'person_i_liked': 'People I Liked',
+  'person_i_liked_desc':
+      'Only people you liked can find your profile. Premium feature.',
   'no_profiles_right_now': 'No profiles right now',
   'no_matches_yet': 'No matches yet',
   'no_liked_users_yet': 'No liked profiles yet',

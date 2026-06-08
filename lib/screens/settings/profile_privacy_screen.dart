@@ -374,6 +374,8 @@ class _ProfilePrivacyScreenState extends State<ProfilePrivacyScreen> {
     switch (value) {
       case 'matches':
         return 'only_matches'.tr;
+      case 'liked_people':
+        return 'person_i_liked'.tr;
       case 'nobody':
         return 'nobody'.tr;
       default:

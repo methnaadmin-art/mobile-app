@@ -518,7 +518,11 @@ class ProfileShowcaseContent extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(12, 10, 12, extraBottomPadding),
           children: [
             isOwnProfile
-                ? _OwnProfileBar(onUpgrade: onUpgrade, onSettings: onSettings)
+                ? _OwnProfileBar(
+                    onUpgrade: onUpgrade,
+                    onSettings: onSettings,
+                    onEdit: onEdit,
+                  )
                 : _PublicProfileBar(onBack: onBack, onMore: onMore),
             const SizedBox(height: 12),
             _ProfileHeaderCard(
@@ -605,8 +609,6 @@ class ProfileShowcaseContent extends StatelessWidget {
             ],
           ],
         ),
-        if (isOwnProfile && onEdit != null)
-          Positioned(right: 14, bottom: 98, child: _EditButton(onTap: onEdit!)),
       ],
     );
   }
@@ -644,10 +646,11 @@ class _ProfileLoadingState extends StatelessWidget {
 }
 
 class _OwnProfileBar extends StatelessWidget {
-  const _OwnProfileBar({this.onUpgrade, this.onSettings});
+  const _OwnProfileBar({this.onUpgrade, this.onSettings, this.onEdit});
 
   final VoidCallback? onUpgrade;
   final VoidCallback? onSettings;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -672,13 +675,29 @@ class _OwnProfileBar extends StatelessWidget {
           ),
           Align(
             alignment: Alignment.centerRight,
-            child: _RoundButton(
-              icon: LucideIcons.settings2,
-              onTap: onSettings,
-              size: 42,
-              backgroundColor: Colors.white,
-              borderColor: const Color(0xFFE8DEFB),
-              iconColor: const Color(0xFF7046F8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onEdit != null) ...[
+                  _RoundButton(
+                    icon: LucideIcons.pencil,
+                    onTap: onEdit,
+                    size: 42,
+                    backgroundColor: Colors.white,
+                    borderColor: const Color(0xFFE8DEFB),
+                    iconColor: const Color(0xFF7046F8),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                _RoundButton(
+                  icon: LucideIcons.settings2,
+                  onTap: onSettings,
+                  size: 42,
+                  backgroundColor: Colors.white,
+                  borderColor: const Color(0xFFE8DEFB),
+                  iconColor: const Color(0xFF7046F8),
+                ),
+              ],
             ),
           ),
         ],
@@ -2609,50 +2628,6 @@ class _SectionRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _EditButton extends StatelessWidget {
-  const _EditButton({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 44,
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.surfaceDark.withValues(alpha: 0.9)
-                : Colors.white.withValues(alpha: 0.92),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isDark ? AppColors.borderDark : const Color(0xFFE7DDF8),
-            ),
-            boxShadow: [
-              if (!isDark)
-                const BoxShadow(
-                  color: Color(0x22220F44),
-                  blurRadius: 14,
-                  offset: Offset(0, 8),
-                ),
-            ],
-          ),
-          child: Icon(
-            LucideIcons.pencil,
-            color: isDark ? AppColors.textPrimaryDark : const Color(0xFF5A3C8D),
-            size: 18,
-          ),
-        ),
-      ),
     );
   }
 }

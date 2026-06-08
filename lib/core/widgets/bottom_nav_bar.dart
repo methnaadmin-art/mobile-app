@@ -13,7 +13,7 @@ class AppBottomNavBar extends GetView<NavigationController> {
   const AppBottomNavBar({super.key});
 
   static const _tabs = [
-    _BottomTab(LucideIcons.flame, 'nav_home'),
+    _BottomTab(LucideIcons.house, 'nav_home'),
     _BottomTab(LucideIcons.compass, 'nav_matches'),
     _BottomTab(LucideIcons.messageCircle, 'nav_chats'),
     _BottomTab(LucideIcons.userCircle2, 'nav_profile'),
@@ -34,17 +34,17 @@ class AppBottomNavBar extends GetView<NavigationController> {
           ? Colors.white.withValues(alpha: 0.55)
           : const Color(0xFF8E8A96);
 
-        // Frosted capsule with layered highlights to match the requested style.
+      // Frosted capsule with layered highlights to match the requested style.
       final glassColor = isDark
           ? Colors.black.withValues(alpha: 0.24)
           : Colors.white.withValues(alpha: 0.62);
       final glassBorder = isDark
           ? Colors.white.withValues(alpha: 0.14)
           : Colors.white.withValues(alpha: 0.86);
-        final glassShadow = isDark
+      final glassShadow = isDark
           ? Colors.black.withValues(alpha: 0.36)
           : const Color(0x332A1D16);
-        final innerHighlight = isDark
+      final innerHighlight = isDark
           ? Colors.white.withValues(alpha: 0.08)
           : Colors.white.withValues(alpha: 0.58);
       final badgeBorderColor = isDark
@@ -70,10 +70,7 @@ class AppBottomNavBar extends GetView<NavigationController> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    innerHighlight,
-                    glassColor,
-                  ],
+                  colors: [innerHighlight, glassColor],
                 ),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(color: glassBorder, width: 0.9),
@@ -132,7 +129,9 @@ class AppBottomNavBar extends GetView<NavigationController> {
                                   children: [
                                     Center(
                                       child: AnimatedScale(
-                                        duration: const Duration(milliseconds: 200),
+                                        duration: const Duration(
+                                          milliseconds: 200,
+                                        ),
                                         scale: isActive ? 1.12 : 1.0,
                                         child: Icon(
                                           tab.icon,

@@ -1,4 +1,4 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -8,12 +8,15 @@ import 'package:methna_app/app/data/models/user_model.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
+import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/core/utils/cloudinary_url.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/utils/google_fonts_stub.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/animated_empty_state.dart';
+import 'package:methna_app/core/widgets/app_card.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
 
 class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
@@ -22,78 +25,79 @@ class ChatListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.backgroundDark
-          : Colors.white,
-      body: SafeArea(
-        bottom: false,
-        child: Obx(() {
-          final controller = Get.find<ChatController>();
+      backgroundColor: Colors.transparent,
+      body: DatifyBackground(
+        compact: true,
+        child: SafeArea(
+          bottom: false,
+          child: Obx(() {
+            final controller = Get.find<ChatController>();
 
-          if (controller.isLoading.value &&
-              controller.conversations.isEmpty &&
-              controller.onlineTodayUsers.isEmpty) {
-            return _ChatLoadingState(isDark: isDark);
-          }
+            if (controller.isLoading.value &&
+                controller.conversations.isEmpty &&
+                controller.onlineTodayUsers.isEmpty) {
+              return _ChatLoadingState(isDark: isDark);
+            }
 
-          final currentUserId = Get.find<AuthService>().userId ?? '';
-          final currentUser = Get.find<AuthService>().currentUser.value;
-          final greetingName =
-              currentUser?.publicShortName.trim().isNotEmpty == true
-              ? currentUser!.publicShortName.trim()
-              : (currentUser?.publicDisplayName.trim().isNotEmpty == true
-                    ? currentUser!.publicDisplayName.trim().split(' ').first
-                    : 'John');
-          final conversations = controller.filteredConversations;
+            final currentUserId = Get.find<AuthService>().userId ?? '';
+            final currentUser = Get.find<AuthService>().currentUser.value;
+            final greetingName =
+                currentUser?.publicShortName.trim().isNotEmpty == true
+                ? currentUser!.publicShortName.trim()
+                : (currentUser?.publicDisplayName.trim().isNotEmpty == true
+                      ? currentUser!.publicDisplayName.trim().split(' ').first
+                      : 'John');
+            final conversations = controller.filteredConversations;
 
-          return RefreshIndicator(
-            color: AppColors.primary,
-            onRefresh: () async {
-              await controller.fetchConversations();
-              await controller.fetchLiveTodayUsers();
-            },
-            child: ListView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                10,
-                AppSpacing.lg,
-                118,
-              ),
-              children: [
-                _LiveTodayPanel(
-                  isDark: isDark,
-                  greetingName: greetingName,
-                  users: controller.onlineTodayUsers,
-                  onSeeAll: () => _showActiveUsersSheet(context, controller),
-                  onOpenUser: controller.openConversationWithUser,
-                  onSearch: () => _showSearchSheet(context, controller),
-                  onSettings: () => Get.toNamed(AppRoutes.messageSettings),
+            return RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () async {
+                await controller.fetchConversations();
+                await controller.fetchLiveTodayUsers();
+              },
+              child: ListView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
-                const SizedBox(height: 16),
-                _ConversationsSurface(
-                  isDark: isDark,
-                  totalConversations: conversations.length,
-                  child: conversations.isEmpty
-                      ? const _EmptyChatsState()
-                      : Column(
-                          children: List.generate(conversations.length, (
-                            index,
-                          ) {
-                            final conversation = conversations[index];
-                            return _ConversationTile(
-                              conversation: conversation,
-                              currentUserId: currentUserId,
-                            );
-                          }),
-                        ),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  118,
                 ),
-              ],
-            ),
-          );
-        }),
+                children: [
+                  _LiveTodayPanel(
+                    isDark: isDark,
+                    greetingName: greetingName,
+                    users: controller.onlineTodayUsers,
+                    onSeeAll: () => _showActiveUsersSheet(context, controller),
+                    onOpenUser: controller.openConversationWithUser,
+                    onSearch: () => _showSearchSheet(context, controller),
+                    onSettings: () => Get.toNamed(AppRoutes.messageSettings),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  _ConversationsSurface(
+                    isDark: isDark,
+                    totalConversations: conversations.length,
+                    child: conversations.isEmpty
+                        ? const _EmptyChatsState()
+                        : Column(
+                            children: List.generate(conversations.length, (
+                              index,
+                            ) {
+                              final conversation = conversations[index];
+                              return _ConversationTile(
+                                conversation: conversation,
+                                currentUserId: currentUserId,
+                              );
+                            }),
+                          ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -264,18 +268,9 @@ class _ChatLoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 28),
+      child: AppCard(
+        radius: AppRadii.xxl,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: isDark
-                ? AppColors.borderDark
-                : AppColors.primary.withValues(alpha: 0.16),
-          ),
-        ),
         child: Text(
           'loading'.tr,
           style: AppTextStyles.labelLarge.copyWith(
@@ -313,7 +308,7 @@ class _LiveTodayPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(AppRadii.xxl),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -334,7 +329,7 @@ class _LiveTodayPanel extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -346,21 +341,21 @@ class _LiveTodayPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hi $greetingName.',
+                      'Salaam, $greetingName',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.titleLarge.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         color: isDark
                             ? AppColors.textPrimaryDark
-                            : AppColors.secondary,
+                            : AppColors.textPrimaryLight,
                       ),
                     ),
-                    const SizedBox(height: 1),
+                    const SizedBox(height: 4),
                     Text(
-                      'Here are your Connections',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      users.isEmpty
+                          ? 'Start a respectful conversation when matches appear.'
+                          : '${users.length} active connection${users.length == 1 ? '' : 's'} today',
                       style: AppTextStyles.bodySmall.copyWith(
                         fontWeight: FontWeight.w500,
                         color: isDark
@@ -380,11 +375,22 @@ class _LiveTodayPanel extends StatelessWidget {
                       foregroundColor: isDark
                           ? const Color(0xFFFAD0D8)
                           : AppColors.primary,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      minimumSize: const Size(64, 26),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(72, 32),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                        side: BorderSide(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.white.withValues(alpha: 0.72),
+                        ),
+                      ),
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : Colors.white.withValues(alpha: 0.42),
                     ),
-                    child: const Text('View List'),
+                    child: const Text('See all'),
                   ),
                   const SizedBox(height: 2),
                   Row(
@@ -443,25 +449,9 @@ class _ConversationsSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return AppCard(
+      radius: 28,
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: isDark
-              ? AppColors.borderDark
-              : AppColors.primary.withValues(alpha: 0.12),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
       child: Column(
         children: [
           _ConversationsSectionHeader(
@@ -744,29 +734,37 @@ class _ConversationTile extends StatelessWidget {
         : conversation.lastMessageContent!.trim();
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: isDark ? const Color(0xFF171C27) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: unreadCount > 0
+            ? (isDark ? const Color(0xFF171C27) : const Color(0xFFFBF8FF))
+            : (isDark ? const Color(0xFF171C27) : Colors.white),
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: () => controller.openConversation(conversation),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isDark ? const Color(0xFF273041) : Colors.transparent,
+                color: isLocked
+                    ? AppColors.error.withValues(alpha: 0.18)
+                    : unreadCount > 0
+                    ? AppColors.primary.withValues(alpha: isDark ? 0.28 : 0.14)
+                    : (isDark
+                          ? const Color(0xFF273041)
+                          : AppColors.primary.withValues(alpha: 0.06)),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.26 : 0),
-                  blurRadius: isDark ? 14 : 0,
-                  offset: isDark ? const Offset(0, 6) : Offset.zero,
+                  color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.03),
+                  blurRadius: isDark ? 14 : 18,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+              padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
               child: Row(
                 children: [
                   _AvatarBubble(user: otherUser, size: 54),
@@ -850,15 +848,16 @@ class _ConversationTile extends StatelessWidget {
                       unreadCount > 0
                           ? Container(
                               constraints: const BoxConstraints(
-                                minWidth: 20,
+                                minWidth: 22,
                                 minHeight: 20,
                               ),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
+                                vertical: 2,
                               ),
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 color: AppColors.primary,
-                                shape: BoxShape.circle,
+                                borderRadius: BorderRadius.circular(999),
                               ),
                               alignment: Alignment.center,
                               child: Text(
@@ -900,13 +899,17 @@ class _EmptyChatsState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedEmptyState(
-      lottieAsset: 'assets/animations/no_chat.json',
-      title: 'no_chats_yet'.tr,
-      subtitle: 'no_chats_desc'.tr,
-      fallbackIcon: LucideIcons.messageCircle,
-      fallbackColor: AppColors.primary,
-      width: 182,
+    return AppCard(
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 22),
+      child: AnimatedEmptyState(
+        lottieAsset: 'assets/animations/no_chat.json',
+        title: 'no_chats_yet'.tr,
+        subtitle: 'no_chats_desc'.tr,
+        fallbackIcon: LucideIcons.messageCircle,
+        fallbackColor: AppColors.primary,
+        width: 182,
+      ),
     );
   }
 }

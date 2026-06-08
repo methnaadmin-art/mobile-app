@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/controllers/chat_controller.dart';
@@ -12,7 +12,9 @@ import 'package:methna_app/app/theme/app_shadows.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/utils/helpers.dart';
+import 'package:methna_app/core/widgets/app_card.dart';
 import 'package:methna_app/core/widgets/chat_flow.dart';
+import 'package:methna_app/core/widgets/datify_shell.dart';
 import 'package:methna_app/core/widgets/ice_breaker_suggestions.dart';
 
 class ChatDetailScreen extends GetView<ChatController> {
@@ -28,141 +30,159 @@ class ChatDetailScreen extends GetView<ChatController> {
         if (didPop) controller.leaveActiveChat();
       },
       child: Scaffold(
-        backgroundColor: isDark
-            ? AppColors.backgroundDark
-            : Colors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.sm,
-                  AppSpacing.lg,
-                  AppSpacing.md,
-                ),
-                child: Obx(() {
-                  final other =
-                      controller.activeConversation.value?.otherUser;
-                  final displayName =
-                      other?.publicDisplayName.trim().isNotEmpty == true
-                      ? other!.publicDisplayName
-                      : 'chats'.tr;
+        backgroundColor: Colors.transparent,
+        body: DatifyBackground(
+          compact: true,
+          child: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                  ),
+                  child: Obx(() {
+                    final other =
+                        controller.activeConversation.value?.otherUser;
+                    final displayName =
+                        other?.publicDisplayName.trim().isNotEmpty == true
+                        ? other!.publicDisplayName
+                        : 'chats'.tr;
 
-                  final avatarUrl = other?.mainPhotoUrl ??
-                      other?.fallbackPhotoUrl ??
-                      (() {
-                        for (final photo in other?.photos ?? const []) {
-                          final url = photo.url.trim();
-                          if (photo.isLocked || url.isEmpty) continue;
-                          return url;
-                        }
-                        return null;
-                      })();
-                  final initials = Helpers.getInitials(
-                    other?.firstName,
-                    other?.lastName,
-                  );
-
-                  void openProfile() {
-                    if (other == null) return;
-                    if (Get.isRegistered<UsersController>()) {
-                      Get.find<UsersController>().openUserDetail(other);
-                      return;
-                    }
-                    Get.toNamed(
-                      AppRoutes.userDetail,
-                      arguments: {'user': other},
+                    final avatarUrl =
+                        other?.mainPhotoUrl ??
+                        other?.fallbackPhotoUrl ??
+                        (() {
+                          for (final photo in other?.photos ?? const []) {
+                            final url = photo.url.trim();
+                            if (photo.isLocked || url.isEmpty) continue;
+                            return url;
+                          }
+                          return null;
+                        })();
+                    final initials = Helpers.getInitials(
+                      other?.firstName,
+                      other?.lastName,
                     );
-                  }
 
-                  return Row(
-                    children: [
-                      _TopIconButton(
-                        icon: LucideIcons.chevronLeft,
-                        onTap: () {
-                          controller.leaveActiveChat();
-                          Get.back();
-                        },
-                      ),
-                      Expanded(
-                        child: InkWell(
-                          onTap: openProfile,
-                          borderRadius: BorderRadius.circular(20),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: Row(
-                              children: [
-                                ChatAvatar(
-                                  imageUrl: avatarUrl,
-                                  fallback: initials.isEmpty
-                                      ? displayName.characters.take(1).toString()
-                                      : initials,
-                                  size: 42,
-                                  online: other?.isOnline ?? false,
-                                  showGradientRing: true,
+                    void openProfile() {
+                      if (other == null) return;
+                      if (Get.isRegistered<UsersController>()) {
+                        Get.find<UsersController>().openUserDetail(other);
+                        return;
+                      }
+                      Get.toNamed(
+                        AppRoutes.userDetail,
+                        arguments: {'user': other},
+                      );
+                    }
+
+                    return AppCard(
+                      radius: AppRadii.xxl,
+                      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                      child: Row(
+                        children: [
+                          _TopIconButton(
+                            icon: LucideIcons.chevronLeft,
+                            onTap: () {
+                              controller.leaveActiveChat();
+                              Get.back();
+                            },
+                          ),
+                          Expanded(
+                            child: InkWell(
+                              onTap: openProfile,
+                              borderRadius: BorderRadius.circular(20),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
+                                child: Row(
+                                  children: [
+                                    ChatAvatar(
+                                      imageUrl: avatarUrl,
+                                      fallback: initials.isEmpty
+                                          ? displayName.characters
+                                                .take(1)
+                                                .toString()
+                                          : initials,
+                                      size: 42,
+                                      online: other?.isOnline ?? false,
+                                      showGradientRing: true,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Expanded(
-                                            child: Text(
-                                              displayName,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: AppTextStyles.titleLarge.copyWith(
-                                                fontWeight: FontWeight.w800,
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  displayName,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: AppTextStyles
+                                                      .titleLarge
+                                                      .copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                      ),
+                                                ),
                                               ),
+                                              if (other?.isPremium ?? false)
+                                                const Padding(
+                                                  padding: EdgeInsets.only(
+                                                    left: 6,
+                                                  ),
+                                                  child: Icon(
+                                                    LucideIcons.crown,
+                                                    size: 14,
+                                                    color: Color(0xFFA78BFA),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            controller.isTyping.value
+                                                ? 'typing'.tr
+                                                : (other?.isOnline ?? false)
+                                                ? 'online'.tr
+                                                : 'conversation'.tr,
+                                            style: AppTextStyles.labelSmall.copyWith(
+                                              color: controller.isTyping.value
+                                                  ? AppColors.primary
+                                                  : (isDark
+                                                        ? AppColors
+                                                              .textSecondaryDark
+                                                        : AppColors
+                                                              .textSecondaryLight),
                                             ),
                                           ),
-                                          if (other?.isPremium ?? false)
-                                            const Padding(
-                                              padding: EdgeInsets.only(left: 6),
-                                              child: Icon(
-                                                LucideIcons.crown,
-                                                size: 14,
-                                                color: Color(0xFFA78BFA),
-                                              ),
-                                            ),
                                         ],
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        controller.isTyping.value
-                                            ? 'typing'.tr
-                                            : (other?.isOnline ?? false)
-                                            ? 'online'.tr
-                                            : 'conversation'.tr,
-                                        style: AppTextStyles.labelSmall.copyWith(
-                                          color: controller.isTyping.value
-                                              ? AppColors.primary
-                                              : (isDark
-                                                    ? AppColors.textSecondaryDark
-                                                    : AppColors.textSecondaryLight),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
+                          _TopIconButton(
+                            icon: LucideIcons.moreHorizontal,
+                            onTap: () => Get.toNamed(AppRoutes.messageSettings),
+                          ),
+                        ],
                       ),
-                      _TopIconButton(
-                        icon: LucideIcons.moreHorizontal,
-                        onTap: () => Get.toNamed(AppRoutes.messageSettings),
-                      ),
-                    ],
-                  );
-                }),
-              ),
-              Expanded(
-                child: Obx(() {
+                    );
+                  }),
+                ),
+                Expanded(
+                  child: Obx(() {
                     if (controller.messagesLoading.value &&
                         controller.activeMessages.isEmpty) {
                       return const Center(
@@ -172,8 +192,10 @@ class ChatDetailScreen extends GetView<ChatController> {
                       );
                     }
 
-                    final isLocked = controller.activeConversation.value?.isLocked ?? false;
-                    final lockReason = controller.activeConversation.value?.lockReason;
+                    final isLocked =
+                        controller.activeConversation.value?.isLocked ?? false;
+                    final lockReason =
+                        controller.activeConversation.value?.lockReason;
 
                     if (controller.activeMessages.isEmpty && !isLocked) {
                       return _EmptyConversation(
@@ -184,8 +206,7 @@ class ChatDetailScreen extends GetView<ChatController> {
 
                     return Column(
                       children: [
-                        if (isLocked)
-                          _LockedBanner(reason: lockReason),
+                        if (isLocked) _LockedBanner(reason: lockReason),
                         Expanded(
                           child: controller.activeMessages.isEmpty
                               ? const SizedBox.shrink()
@@ -200,20 +221,32 @@ class ChatDetailScreen extends GetView<ChatController> {
                                   ),
                                   itemCount: controller.activeMessages.length,
                                   itemBuilder: (context, index) {
-                                    final message = controller.activeMessages[index];
-                                    final isMine = message.isMine(currentUserId);
+                                    final message =
+                                        controller.activeMessages[index];
+                                    final isMine = message.isMine(
+                                      currentUserId,
+                                    );
                                     final status = isMine
-                                      ? controller.getMessageStatus(message.id)
-                                      : null;
-                                    final read = isMine &&
-                                      (message.isRead ||
-                                        controller.isMessageRead(message.id) ||
-                                        status == MessageStatus.read);
+                                        ? controller.getMessageStatus(
+                                            message.id,
+                                          )
+                                        : null;
+                                    final read =
+                                        isMine &&
+                                        (message.isRead ||
+                                            controller.isMessageRead(
+                                              message.id,
+                                            ) ||
+                                            status == MessageStatus.read);
                                     final showDate =
-                                        index == controller.activeMessages.length - 1 ||
+                                        index ==
+                                            controller.activeMessages.length -
+                                                1 ||
                                         !_sameDay(
                                           message.createdAt,
-                                          controller.activeMessages[index + 1].createdAt,
+                                          controller
+                                              .activeMessages[index + 1]
+                                              .createdAt,
                                         );
 
                                     return Column(
@@ -224,7 +257,9 @@ class ChatDetailScreen extends GetView<ChatController> {
                                               vertical: AppSpacing.md,
                                             ),
                                             child: ChatDateBadge(
-                                              label: Helpers.formatDate(message.createdAt),
+                                              label: Helpers.formatDate(
+                                                message.createdAt,
+                                              ),
                                             ),
                                           ),
                                         _MessageBubble(
@@ -232,8 +267,11 @@ class ChatDetailScreen extends GetView<ChatController> {
                                           isMine: isMine,
                                           status: status,
                                           isRead: read,
-                                          onRetry: status == MessageStatus.failed
-                                              ? () => controller.retryMessage(message.id)
+                                          onRetry:
+                                              status == MessageStatus.failed
+                                              ? () => controller.retryMessage(
+                                                  message.id,
+                                                )
                                               : null,
                                         ),
                                       ],
@@ -244,21 +282,23 @@ class ChatDetailScreen extends GetView<ChatController> {
                       ],
                     );
                   }),
-              ),
-              Obx(() {
-                final isLocked = controller.activeConversation.value?.isLocked ?? false;
-                if (isLocked) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    AppSpacing.xs,
-                    AppSpacing.lg,
-                    AppSpacing.lg,
-                  ),
-                  child: _ComposerBar(controller: controller),
-                );
-              }),
-            ],
+                ),
+                Obx(() {
+                  final isLocked =
+                      controller.activeConversation.value?.isLocked ?? false;
+                  if (isLocked) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.xs,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                    ),
+                    child: _ComposerBar(controller: controller),
+                  );
+                }),
+              ],
+            ),
           ),
         ),
       ),
@@ -279,24 +319,15 @@ class _TopIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Material(
-      color: Colors.transparent,
+    return AppCard(
+      padding: EdgeInsets.zero,
+      radius: 14,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.cardDark.withValues(alpha: 0.82)
-                : Colors.white.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isDark ? AppColors.borderDark : AppColors.borderLight,
-            ),
-          ),
-          alignment: Alignment.center,
+        child: SizedBox(
+          width: 38,
+          height: 38,
           child: Icon(
             icon,
             size: 17,
@@ -325,49 +356,53 @@ class _EmptyConversation extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 70,
-              height: 70,
-              decoration: const BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                shape: BoxShape.circle,
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: AppCard(
+          radius: AppRadii.xxl,
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: const BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  LucideIcons.messageCircle,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
-              alignment: Alignment.center,
-              child: const Icon(
-                LucideIcons.messageCircle,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'say_salam_first'.tr,
-              style: AppTextStyles.headlineMedium.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'chat_warm_opener_desc'.tr,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: isDark
-                    ? AppColors.textSecondaryDark
-                    : AppColors.textSecondaryLight,
-              ),
-            ),
-            if (suggestions.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
-              IceBreakerSuggestions(
-                suggestions: suggestions,
-                onSelect: onSuggestionTap,
+              Text(
+                'say_salam_first'.tr,
+                style: AppTextStyles.headlineMedium.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'chat_warm_opener_desc'.tr,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: isDark
+                      ? AppColors.textSecondaryDark
+                      : AppColors.textSecondaryLight,
+                ),
+              ),
+              if (suggestions.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.lg),
+                IceBreakerSuggestions(
+                  suggestions: suggestions,
+                  onSelect: onSuggestionTap,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -415,6 +450,13 @@ class _MessageBubble extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: isMine ? AppColors.primaryGradient : null,
               color: isMine ? null : receivedColor,
+              border: isMine
+                  ? null
+                  : Border.all(
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.borderLight,
+                    ),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(18),
                 topRight: const Radius.circular(18),
@@ -482,15 +524,21 @@ class _DeliveryStatusChip extends StatelessWidget {
     switch (effectiveStatus) {
       case MessageStatus.pending:
         icon = LucideIcons.clock3;
-        color = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+        color = isDark
+            ? AppColors.textSecondaryDark
+            : AppColors.textSecondaryLight;
         break;
       case MessageStatus.sent:
         icon = LucideIcons.check;
-        color = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+        color = isDark
+            ? AppColors.textSecondaryDark
+            : AppColors.textSecondaryLight;
         break;
       case MessageStatus.delivered:
         icon = LucideIcons.checkCheck;
-        color = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+        color = isDark
+            ? AppColors.textSecondaryDark
+            : AppColors.textSecondaryLight;
         break;
       case MessageStatus.read:
         icon = LucideIcons.checkCheck;
@@ -531,7 +579,7 @@ class _ComposerBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
+        vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
         color: isDark
@@ -559,6 +607,7 @@ class _ComposerBar extends StatelessWidget {
                       ? AppColors.textHintDark
                       : AppColors.textHintLight,
                 ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 border: InputBorder.none,
               ),
             ),
@@ -575,8 +624,8 @@ class _ComposerBar extends StatelessWidget {
                 controller.messageTextController.clear();
               },
               child: Container(
-                width: 34,
-                height: 34,
+                width: 42,
+                height: 42,
                 decoration: const BoxDecoration(
                   gradient: AppColors.primaryGradient,
                   shape: BoxShape.circle,
@@ -584,7 +633,7 @@ class _ComposerBar extends StatelessWidget {
                 alignment: Alignment.center,
                 child: const Icon(
                   LucideIcons.send,
-                  size: 16,
+                  size: 18,
                   color: Colors.white,
                 ),
               ),
@@ -603,43 +652,36 @@ class _LockedBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
+    return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      margin: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.sm,
       ),
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.error.withValues(alpha: 0.15)
-            : AppColors.error.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(
-          color: AppColors.error.withValues(alpha: 0.3),
+      child: AppCard(
+        radius: AppRadii.lg,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            LucideIcons.lock,
-            size: 18,
-            color: AppColors.error,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              reason ?? 'This conversation is no longer available.'.tr,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.error,
-                fontWeight: FontWeight.w600,
+        variant: AppCardVariant.tinted,
+        tint: isDark
+            ? AppColors.error.withValues(alpha: 0.12)
+            : AppColors.error.withValues(alpha: 0.06),
+        child: Row(
+          children: [
+            Icon(LucideIcons.lock, size: 18, color: AppColors.error),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                reason ?? 'This conversation is no longer available.'.tr,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

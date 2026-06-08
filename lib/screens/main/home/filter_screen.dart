@@ -480,8 +480,9 @@ class FilterScreen extends GetView<HomeController> {
   ) {
     final trimmed = value.trim();
     final fallbackCountry = _effectiveCountry(controller);
-    if (trimmed.isEmpty)
+    if (trimmed.isEmpty) {
       return fallbackCountry.isEmpty ? 'all'.tr : fallbackCountry;
+    }
     final normalizedCode =
         (countryCode.trim().isNotEmpty
                 ? countryCode

@@ -491,7 +491,8 @@ class _BeautifulEditProfileScreenState
                                 value: _dateOfBirth == null
                                     ? 'Select'
                                     : Helpers.formatDate(_dateOfBirth!),
-                                onTap: _pickDate,
+                                onTap: null,
+                                enabled: false,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -1076,21 +1077,6 @@ class _BeautifulEditProfileScreenState
       }
     }
     return null;
-  }
-
-  Future<void> _pickDate() async {
-    final selected = await showDatePicker(
-      context: context,
-      initialDate:
-          _dateOfBirth ??
-          DateTime.now().subtract(const Duration(days: 365 * 25)),
-      firstDate: DateTime.now().subtract(const Duration(days: 365 * 80)),
-      lastDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
-    );
-
-    if (selected != null) {
-      setState(() => _dateOfBirth = selected);
-    }
   }
 
   Future<void> _pickCountry({required ValueChanged<Country> onSelect}) async {

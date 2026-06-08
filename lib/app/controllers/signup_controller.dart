@@ -126,13 +126,13 @@ class SignupController extends GetxController {
   final Rx<File?> selfiePhoto = Rx<File?>(null);
 
   // ─── Step 11: Location ─────────────────────────────────────
-  final RxBool locationEnabled = false.obs;
-  final RxString selectedCountry = 'Algeria'.obs;
+  final RxBool locationEnabled = true.obs;
+  final RxString selectedCountry = ''.obs;
   final RxString selectedCity = ''.obs;
   final RxDouble preferredDistanceKm = 80.0.obs;
-  final RxString selectedPhoneDialCode = '+213'.obs;
-  final RxString selectedPhoneCountryCode = 'DZ'.obs;
-  final RxString selectedPhoneCountryName = 'Algeria'.obs;
+  final RxString selectedPhoneDialCode = ''.obs;
+  final RxString selectedPhoneCountryCode = ''.obs;
+  final RxString selectedPhoneCountryName = ''.obs;
 
   List<String> get availableCities =>
       (SignupData.countryCities[selectedCountry.value] ?? const <String>[])
@@ -512,10 +512,7 @@ class SignupController extends GetxController {
         ? location!.currentCountry.value.trim()
         : _countryNameFromIsoCode(resolvedCountryCode);
 
-    final shouldReplaceCountry =
-        selectedCountry.value.trim().isEmpty ||
-        (selectedCountry.value.trim() == 'Algeria' &&
-            selectedPhoneCountryCode.value.trim().toUpperCase() == 'DZ');
+    final shouldReplaceCountry = selectedCountry.value.trim().isEmpty;
 
     if (shouldReplaceCountry && resolvedCountryName.isNotEmpty) {
       selectedCountry.value = resolvedCountryName;
@@ -525,9 +522,9 @@ class SignupController extends GetxController {
       try {
         final country = CountryService().findByCode(resolvedCountryCode);
         if (country != null) {
-          final shouldReplacePhoneCountry =
-              selectedPhoneCountryCode.value.trim().isEmpty ||
-              selectedPhoneCountryCode.value.trim().toUpperCase() == 'DZ';
+          final shouldReplacePhoneCountry = selectedPhoneCountryCode.value
+              .trim()
+              .isEmpty;
           if (shouldReplacePhoneCountry) {
             selectedPhoneDialCode.value = _normalizeDialCode(
               '+${country.phoneCode}',
@@ -856,6 +853,7 @@ class SignupController extends GetxController {
     willingToRelocate.value = null;
     selectedSkinComplexion.value = '';
     selectedBodyBuild.value = '';
+    locationEnabled.value = true;
     agreePrivacy.value = false;
     agreeOath.value = false;
     cityController.clear();

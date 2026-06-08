@@ -392,9 +392,7 @@ class AppleBillingService extends GetxService {
           applicationUserName: accountId,
         ),
       );
-      _log(
-        'buyNonConsumable started=$started productId=$selectedProductId',
-      );
+      _log('buyNonConsumable started=$started productId=$selectedProductId');
       if (!started) {
         _expectedPurchaseProductId = null;
         _purchaseCompleter = null;
@@ -466,7 +464,7 @@ class AppleBillingService extends GetxService {
       if (!isExpected && purchase.status != PurchaseStatus.restored) {
         _log(
           'purchaseUpdatedStream ignoring unexpected productId=${purchase.productID} '
-          'expected=${expected ?? 'any'}',
+          'expected=$expected',
         );
         continue;
       }
@@ -803,8 +801,10 @@ class AppleBillingService extends GetxService {
 
     final metadata = data['metadata'];
     if (metadata is Map) {
-      for (final value
-          in _readAllStrings(Map<String, dynamic>.from(metadata), keys)) {
+      for (final value in _readAllStrings(
+        Map<String, dynamic>.from(metadata),
+        keys,
+      )) {
         addValue(value);
       }
     }

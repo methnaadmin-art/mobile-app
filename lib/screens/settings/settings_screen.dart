@@ -13,7 +13,6 @@ import 'package:methna_app/app/utils/auth_navigation_resolver.dart';
 import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/widgets/app_card.dart';
 import 'package:methna_app/core/widgets/settings_flow.dart';
-import 'package:methna_app/core/widgets/backend_wait_overlay.dart';
 import 'package:methna_app/core/widgets/backend_wait_dots.dart';
 import 'package:methna_app/core/widgets/custom_button.dart';
 import 'package:methna_app/core/utils/helpers.dart';

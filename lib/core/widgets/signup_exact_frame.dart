@@ -1,9 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
-import 'package:methna_app/core/widgets/backend_wait_overlay.dart';
 import 'package:methna_app/core/widgets/backend_wait_dots.dart';
 
 const Color exactSignupBg = Color(0xFFFFFFFF);
@@ -454,7 +453,9 @@ class ExactSignupTextField extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadii.lg),
               borderSide: const BorderSide(color: const Color(0xFF4F26D9)),
             ),
-            errorStyle: AppTextStyles.error.copyWith(color: const Color(0xFF4F26D9)),
+            errorStyle: AppTextStyles.error.copyWith(
+              color: const Color(0xFF4F26D9),
+            ),
           ),
         ),
       ],

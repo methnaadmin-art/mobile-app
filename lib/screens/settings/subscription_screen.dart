@@ -1461,34 +1461,6 @@ class _StaticSwitch extends StatelessWidget {
       ),
     );
   }
-
-  String _displayPlanName(
-    Map<String, dynamic>? activePlan,
-    String fallbackPlanCode,
-  ) {
-    final rawName =
-        (activePlan?['name'] ??
-                activePlan?['displayName'] ??
-                activePlan?['title'] ??
-                activePlan?['code'] ??
-                fallbackPlanCode)
-            .toString()
-            .trim();
-    if (rawName.isEmpty) {
-      return 'Premium';
-    }
-
-    final cleaned = rawName.replaceAll('_', ' ').replaceAll('-', ' ').trim();
-    if (cleaned.isEmpty) {
-      return 'Premium';
-    }
-
-    return cleaned
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .map((part) => part[0].toUpperCase() + part.substring(1).toLowerCase())
-        .join(' ');
-  }
 }
 
 class _NoFeatures extends StatelessWidget {

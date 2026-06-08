@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 
 const Color signupMockPrimary = Color(0xFF6E3DFB);
@@ -15,8 +15,6 @@ const Color signupMockSurfaceDark = Color(0xFF252030);
 Color _mockText(bool d) => d ? signupMockTextDark : signupMockText;
 Color _mockMuted(bool d) => d ? signupMockMutedDark : signupMockMuted;
 Color _mockBorder(bool d) => d ? signupMockBorderDark : signupMockBorder;
-Color _mockBg(bool d) => d ? const Color(0xFF14101E) : const Color(0xFFFFFBF5);
-Color _mockCardBg(bool d) => d ? signupMockSurfaceDark : const Color(0xFFFFF7EF);
 
 class SignupMockScaffold extends StatelessWidget {
   const SignupMockScaffold({
@@ -75,7 +73,9 @@ class SignupMockScaffold extends StatelessWidget {
                         height: 8,
                         child: LinearProgressIndicator(
                           value: progress.clamp(0.0, 1.0),
-                          backgroundColor: isDark ? const Color(0xFF3A3445) : const Color(0xFFE9E7ED),
+                          backgroundColor: isDark
+                              ? const Color(0xFF3A3445)
+                              : const Color(0xFFE9E7ED),
                           valueColor: const AlwaysStoppedAnimation<Color>(
                             signupMockPrimary,
                           ),
@@ -169,9 +169,7 @@ class SignupMockPrimaryButton extends StatelessWidget {
                     )
                   : Text(
                       label,
-                      style: AppTextStyles.button.copyWith(
-                        color: Colors.white,
-                      ),
+                      style: AppTextStyles.button.copyWith(color: Colors.white),
                     ),
             ),
           ),
@@ -259,7 +257,8 @@ class SignupMockCardOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hasDescription = description != null && description!.trim().isNotEmpty;
+    final hasDescription =
+        description != null && description!.trim().isNotEmpty;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -347,10 +346,7 @@ class SignupMockChip extends StatelessWidget {
                   color: selected ? signupMockPrimary : _mockText(isDark),
                 ),
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 4),
-                trailing!,
-              ],
+              if (trailing != null) ...[const SizedBox(width: 4), trailing!],
             ],
           ),
         ),

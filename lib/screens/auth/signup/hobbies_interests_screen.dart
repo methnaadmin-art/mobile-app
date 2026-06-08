@@ -54,9 +54,7 @@ class _HobbiesInterestsScreenState extends State<HobbiesInterestsScreen> {
           primaryLabel: selectedCount > 0
               ? '${'continue_text'.tr} ($selectedCount/${SignupController.maxHobbiesSelection})'
               : 'continue_text'.tr,
-          onPrimary: !busy
-              ? controller.goToNextStep
-              : null,
+          onPrimary: !busy ? controller.goToNextStep : null,
           isLoading: busy,
           secondaryLabel: 'skip_for_now'.tr,
           onSecondary: busy ? null : controller.skipCurrentOptionalStep,
@@ -93,13 +91,13 @@ class _HobbiesInterestsScreenState extends State<HobbiesInterestsScreen> {
                       final selected = controller.selectedHobbies.contains(
                         interest,
                       );
-                        return SignupOptionChip(
-                          label: interest,
-                          selected: selected,
-                          icon: _interestIcon(interest),
-                          translateLabel: false,
-                          onTap: () => controller.toggleHobby(interest),
-                        );
+                      return SignupOptionChip(
+                        label: interest,
+                        selected: selected,
+                        icon: _interestIcon(interest),
+                        translateLabel: false,
+                        onTap: () => controller.toggleHobby(interest),
+                      );
                     }).toList(),
                   ),
                 ],
@@ -153,42 +151,4 @@ class _HobbiesInterestsScreenState extends State<HobbiesInterestsScreen> {
         return Icons.auto_awesome_rounded;
     }
   }
-
-  String _interestEmoji(String value) {
-    switch (value.trim().toLowerCase()) {
-      case 'travel':
-        return '✈️';
-      case 'cooking':
-        return '🍳';
-      case 'hiking':
-        return '🥾';
-      case 'yoga':
-        return '🧘';
-      case 'gaming':
-        return '🎮';
-      case 'movies':
-        return '🎬';
-      case 'photography':
-        return '📸';
-      case 'music':
-        return '🎵';
-      case 'pets':
-        return '🐾';
-      case 'art':
-      case 'painting':
-        return '🎨';
-      case 'fitness':
-      case 'sports':
-        return '🏃';
-      case 'reading':
-        return '📚';
-      case 'dancing':
-        return '💃';
-      case 'technology':
-        return '💻';
-      default:
-        return '✨';
-    }
-  }
-
 }

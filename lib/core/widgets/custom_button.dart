@@ -5,7 +5,6 @@ import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_shadows.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
-import 'package:methna_app/core/widgets/backend_wait_overlay.dart';
 import 'package:methna_app/core/widgets/backend_wait_dots.dart';
 
 enum CustomButtonVariant { primary, secondary, outline, ghost, destructive }
@@ -136,11 +135,7 @@ class CustomButton extends StatelessWidget {
     if (isLoading) {
       return SizedBox(
         width: 28,
-        child: BackendWaitDots(
-          color: color,
-          size: 6,
-          spacing: 4,
-        ),
+        child: BackendWaitDots(color: color, size: 6, spacing: 4),
       );
     }
 

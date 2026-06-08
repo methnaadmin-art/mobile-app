@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/core/widgets/animated_icons.dart';
 import 'package:methna_app/core/widgets/login_success_animation.dart';
 
 class Helpers {
@@ -129,7 +128,8 @@ class Helpers {
               messageMap['moderation_reason_text'],
             ]);
             if (nestedMessage != null && nestedMessage.isNotEmpty) {
-              if (actionText.isNotEmpty && !nestedMessage.contains(actionText)) {
+              if (actionText.isNotEmpty &&
+                  !nestedMessage.contains(actionText)) {
                 return '$nestedMessage Next step: $actionText';
               }
               return nestedMessage;
@@ -595,35 +595,6 @@ class Helpers {
       ),
       barrierDismissible: barrierDismissible,
     );
-  }
-
-  /// Build animated icon for dialog based on asset name
-  static Widget _buildDialogIcon(String assetName) {
-    final lower = assetName.toLowerCase();
-    if (lower.contains('success') ||
-        lower.contains('check') ||
-        lower.contains('done')) {
-      return const AnimatedCheckIcon(size: 120, color: AppColors.primary);
-    } else if (lower.contains('error') ||
-        lower.contains('fail') ||
-        lower.contains('warning')) {
-      return const AnimatedErrorIcon(size: 120, color: AppColors.primaryDark);
-    } else if (lower.contains('heart') ||
-        lower.contains('like') ||
-        lower.contains('match')) {
-      return const AnimatedHeartIcon(size: 120);
-    } else if (lower.contains('search') || lower.contains('discover')) {
-      return const AnimatedSearchIcon(size: 120);
-    } else if (lower.contains('location') || lower.contains('map')) {
-      return const AnimatedLocationIcon(size: 120);
-    } else if (lower.contains('chat') || lower.contains('message')) {
-      return const AnimatedChatIcon(size: 120);
-    } else if (lower.contains('bell') || lower.contains('notif')) {
-      return const AnimatedBellIcon(size: 120);
-    } else if (lower.contains('star') || lower.contains('sparkle')) {
-      return const AnimatedSparkleIcon(size: 120);
-    }
-    return const AnimatedCheckIcon(size: 120);
   }
 
   /// Truncate string

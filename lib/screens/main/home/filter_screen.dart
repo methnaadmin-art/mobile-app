@@ -903,51 +903,6 @@ class _LockedAdvancedFilters extends StatelessWidget {
   }
 }
 
-class _PremiumGate extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      radius: 22,
-      child: Column(
-        children: [
-          Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              color: AppColors.premium.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              LucideIcons.lock,
-              color: AppColors.premium,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'unlock_advanced_filters'.tr,
-            style: Get.textTheme.headlineMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'advanced_filters_premium_desc'.tr,
-            textAlign: TextAlign.center,
-            style: Get.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          CustomButton(
-            text: 'upgrade_to_premium'.tr,
-            backgroundColor: AppColors.premium,
-            gradient: null,
-            onPressed: () => Get.toNamed(AppRoutes.subscription),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _RangeCard extends StatelessWidget {
   final String title;
   final String value;

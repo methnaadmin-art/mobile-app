@@ -3,11 +3,9 @@ import 'package:get/get.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/app/theme/app_gradients.dart';
 import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_shadows.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
-import 'package:methna_app/core/widgets/app_card.dart';
 import 'package:methna_app/core/widgets/auth_flow.dart';
 import 'package:methna_app/core/widgets/custom_button.dart';
 
@@ -233,9 +231,7 @@ class SignupChoiceTile extends StatelessWidget {
                 height: 28,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: selected
-                      ? AppColors.primary
-                      : Colors.transparent,
+                  color: selected ? AppColors.primary : Colors.transparent,
                   border: Border.all(
                     color: selected
                         ? AppColors.primary
@@ -354,11 +350,11 @@ class SignupOptionChip extends StatelessWidget {
         ? AppColors.primary
         : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight);
     final resolvedIconColor = selected
-      ? AppColors.primary
-      : (iconColor ?? AppColors.primary);
+        ? AppColors.primary
+        : (iconColor ?? AppColors.primary);
     final resolvedIconBackground = selected
-      ? AppColors.primary.withValues(alpha: 0.10)
-      : (iconBackgroundColor ?? resolvedIconColor.withValues(alpha: 0.12));
+        ? AppColors.primary.withValues(alpha: 0.10)
+        : (iconBackgroundColor ?? resolvedIconColor.withValues(alpha: 0.12));
 
     return Material(
       color: Colors.transparent,
@@ -375,9 +371,7 @@ class SignupOptionChip extends StatelessWidget {
           decoration: BoxDecoration(
             color: selected
                 ? AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.08)
-                : (isDark
-                      ? AppColors.surfaceMutedDark
-                      : Colors.white),
+                : (isDark ? AppColors.surfaceMutedDark : Colors.white),
             borderRadius: BorderRadius.circular(AppRadii.lg),
             border: Border.all(
               color: selected

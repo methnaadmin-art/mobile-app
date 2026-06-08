@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
 import 'package:methna_app/app/routes/app_routes.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
-import 'package:methna_app/core/widgets/backend_wait_overlay.dart';
 import 'package:methna_app/core/widgets/backend_wait_dots.dart';
 
 class AccountStatusScreen extends StatelessWidget {
@@ -70,8 +69,7 @@ class AccountStatusScreen extends StatelessWidget {
     return _hasMeaningfulText(value) ? value : '';
   }
 
-  String get _expiresAtRaw =>
-      _cleanText(_arguments['expiresAt']);
+  String get _expiresAtRaw => _cleanText(_arguments['expiresAt']);
 
   bool get _allowBackNavigation {
     final raw = _arguments['allowBackNavigation'];
@@ -177,14 +175,16 @@ class AccountStatusScreen extends StatelessWidget {
 
   _AccountStatusContent _contentForStatus(BuildContext context) {
     final action = _resolveRequiredAction();
-    final isVerificationAction = action != null &&
+    final isVerificationAction =
+        action != null &&
         (_normalizeAction(_actionRequired).contains('IDENTITY') ||
             _normalizeAction(_actionRequired).contains('SELFIE') ||
             _normalizeAction(_actionRequired).contains('MARRIAGE') ||
             _normalizeAction(_actionRequired).contains('REUPLOAD') ||
             _normalizeAction(_actionRequired).contains('RETAKE') ||
             _normalizeAction(_actionRequired).contains('UPLOAD'));
-    final isPolicyViolation = _normalizeAction(_actionRequired) == 'POLICY_VIOLATION' ||
+    final isPolicyViolation =
+        _normalizeAction(_actionRequired) == 'POLICY_VIOLATION' ||
         _reason.toLowerCase().contains('violation') ||
         _reason.toLowerCase().contains('terms');
 
@@ -197,8 +197,7 @@ class AccountStatusScreen extends StatelessWidget {
           title: 'Your account is in good standing',
           body: 'Your account is active and all core features are available.',
           primaryLabel: _allowBackNavigation ? 'Back to Settings' : 'Logout',
-          onPrimaryPressed:
-              _allowBackNavigation ? _handleBackNavigation : null,
+          onPrimaryPressed: _allowBackNavigation ? _handleBackNavigation : null,
         );
       case 'rejected':
         return _AccountStatusContent(
@@ -209,8 +208,8 @@ class AccountStatusScreen extends StatelessWidget {
           body: _supportMessage.isNotEmpty
               ? _supportMessage
               : _reason.isNotEmpty
-                  ? _reason
-                  : 'Please upload a clearer selfie or marital-status document to continue.',
+              ? _reason
+              : 'Please upload a clearer selfie or marital-status document to continue.',
           primaryLabel: isVerificationAction
               ? (action.buttonLabel ?? 'Open Verification Center')
               : 'Open Verification Center',
@@ -226,8 +225,8 @@ class AccountStatusScreen extends StatelessWidget {
           body: _supportMessage.isNotEmpty
               ? _supportMessage
               : _reason.isNotEmpty
-                  ? _reason
-                  : 'This account can no longer use Methna. If you believe this is a mistake, please contact support.',
+              ? _reason
+              : 'This account can no longer use Methna. If you believe this is a mistake, please contact support.',
           primaryLabel: 'Contact Support',
           secondaryLabel: 'Logout',
           onPrimaryPressed: () => Get.toNamed(AppRoutes.contactSupport),
@@ -240,17 +239,17 @@ class AccountStatusScreen extends StatelessWidget {
           title: isVerificationAction
               ? 'Account suspended — verification required'
               : isPolicyViolation
-                  ? 'Account suspended — policy violation'
-                  : 'Account suspended. Contact support',
+              ? 'Account suspended — policy violation'
+              : 'Account suspended. Contact support',
           body: _supportMessage.isNotEmpty
               ? _supportMessage
               : _reason.isNotEmpty
-                  ? _reason
-                  : isVerificationAction
-                      ? 'Your account has been suspended because a verification document was not accepted. Please visit the verification center to upload the required document.'
-                      : isPolicyViolation
-                          ? 'Your account has been suspended due to a policy violation. Please review our terms of service and contact support for assistance.'
-                          : 'Your account is temporarily suspended while the team reviews activity on it. Support can help you with the next step.',
+              ? _reason
+              : isVerificationAction
+              ? 'Your account has been suspended because a verification document was not accepted. Please visit the verification center to upload the required document.'
+              : isPolicyViolation
+              ? 'Your account has been suspended due to a policy violation. Please review our terms of service and contact support for assistance.'
+              : 'Your account is temporarily suspended while the team reviews activity on it. Support can help you with the next step.',
           primaryLabel: isVerificationAction
               ? 'Open Verification Center'
               : 'Contact Support',
@@ -267,17 +266,17 @@ class AccountStatusScreen extends StatelessWidget {
           title: isVerificationAction
               ? 'Limited access — verification required'
               : isPolicyViolation
-                  ? 'Limited access — policy violation'
-                  : 'Your account has limited access',
+              ? 'Limited access — policy violation'
+              : 'Your account has limited access',
           body: _supportMessage.isNotEmpty
               ? _supportMessage
               : _reason.isNotEmpty
-                  ? _reason
-                  : isVerificationAction
-                      ? 'Some features are restricted because a verification document needs to be uploaded. Please visit the verification center.'
-                      : isPolicyViolation
-                          ? 'Some features are restricted due to a policy violation. Please review our terms of service and contact support.'
-                          : 'Some features are restricted on your account. Contact support for details or wait for the restriction to expire.',
+              ? _reason
+              : isVerificationAction
+              ? 'Some features are restricted because a verification document needs to be uploaded. Please visit the verification center.'
+              : isPolicyViolation
+              ? 'Some features are restricted due to a policy violation. Please review our terms of service and contact support.'
+              : 'Some features are restricted on your account. Contact support for details or wait for the restriction to expire.',
           primaryLabel: isVerificationAction
               ? 'Open Verification Center'
               : 'Contact Support',
@@ -295,8 +294,8 @@ class AccountStatusScreen extends StatelessWidget {
           body: _supportMessage.isNotEmpty
               ? _supportMessage
               : _reason.isNotEmpty
-                  ? _reason
-                  : 'Your account is being reviewed. Some features may be temporarily limited. You will be notified when the review is complete.',
+              ? _reason
+              : 'Your account is being reviewed. Some features may be temporarily limited. You will be notified when the review is complete.',
           primaryLabel: 'Contact Support',
           secondaryLabel: 'Logout',
           onPrimaryPressed: () => Get.toNamed(AppRoutes.contactSupport),
@@ -310,8 +309,8 @@ class AccountStatusScreen extends StatelessWidget {
           body: _supportMessage.isNotEmpty
               ? _supportMessage
               : _reason.isNotEmpty
-                  ? _reason
-                  : 'Your account has been deactivated. You can reactivate it by logging in again or contacting support.',
+              ? _reason
+              : 'Your account has been deactivated. You can reactivate it by logging in again or contacting support.',
           primaryLabel: 'Contact Support',
           secondaryLabel: 'Logout',
           onPrimaryPressed: () => Get.toNamed(AppRoutes.contactSupport),
@@ -325,8 +324,8 @@ class AccountStatusScreen extends StatelessWidget {
           body: _supportMessage.isNotEmpty
               ? _supportMessage
               : _reason.isNotEmpty
-                  ? _reason
-                  : 'This account has been closed and is no longer active. If you believe this is a mistake, please contact support.',
+              ? _reason
+              : 'This account has been closed and is no longer active. If you believe this is a mistake, please contact support.',
           primaryLabel: 'Contact Support',
           secondaryLabel: 'Logout',
           onPrimaryPressed: () => Get.toNamed(AppRoutes.contactSupport),
@@ -341,8 +340,8 @@ class AccountStatusScreen extends StatelessWidget {
           body: _supportMessage.isNotEmpty
               ? _supportMessage
               : _reason.isNotEmpty
-                  ? _reason
-                  : 'We are reviewing your verification details now. You will be able to use the app once the review is approved.',
+              ? _reason
+              : 'We are reviewing your verification details now. You will be able to use the app once the review is approved.',
           primaryLabel: 'Logout',
         );
     }
@@ -365,17 +364,21 @@ class AccountStatusScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final headingColor =
-      isDark ? const Color(0xFFFFF5F7) : const Color(0xFF181224);
-    final bodyColor =
-      isDark ? const Color(0xFFD1C9E0) : const Color(0xFF5F5A68);
-    final backIconColor =
-      isDark ? const Color(0xFFE9E2F7) : const Color(0xFF181224);
-    final secondaryButtonTextColor =
-      isDark ? const Color(0xFFF0EBFA) : const Color(0xFF181224);
+    final headingColor = isDark
+        ? const Color(0xFFFFF5F7)
+        : const Color(0xFF181224);
+    final bodyColor = isDark
+        ? const Color(0xFFD1C9E0)
+        : const Color(0xFF5F5A68);
+    final backIconColor = isDark
+        ? const Color(0xFFE9E2F7)
+        : const Color(0xFF181224);
+    final secondaryButtonTextColor = isDark
+        ? const Color(0xFFF0EBFA)
+        : const Color(0xFF181224);
     final secondaryButtonBorderColor = isDark
-      ? Colors.white.withValues(alpha: 0.18)
-      : Colors.black.withValues(alpha: 0.08);
+        ? Colors.white.withValues(alpha: 0.18)
+        : Colors.black.withValues(alpha: 0.08);
     final content = _contentForStatus(context);
     final isLoggingOut = false.obs;
     final supportMessage = _supportMessage;
@@ -383,9 +386,9 @@ class AccountStatusScreen extends StatelessWidget {
     final expiresAt = _formatExpiresAt();
     final requiredAction = _resolveRequiredAction();
     final hasSupportMessage =
-      _hasMeaningfulText(supportMessage) &&
-      _normalizedForCompare(supportMessage) !=
-        _normalizedForCompare(content.body);
+        _hasMeaningfulText(supportMessage) &&
+        _normalizedForCompare(supportMessage) !=
+            _normalizedForCompare(content.body);
 
     return PopScope(
       canPop: _allowBackNavigation,
@@ -408,7 +411,9 @@ class AccountStatusScreen extends StatelessWidget {
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -496,7 +501,8 @@ class AccountStatusScreen extends StatelessWidget {
                           const SizedBox(height: 12),
                           _StatusInfoCard(
                             title: 'Restriction expiry',
-                            message: 'This status is currently set to expire at $expiresAt.',
+                            message:
+                                'This status is currently set to expire at $expiresAt.',
                             accent: content.accent,
                             icon: Icons.schedule_rounded,
                             isDark: isDark,
@@ -521,14 +527,18 @@ class AccountStatusScreen extends StatelessWidget {
                               style: FilledButton.styleFrom(
                                 backgroundColor: content.accent,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
                               ),
                               child: Text(
                                 content.primaryLabel,
-                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ),
@@ -571,43 +581,43 @@ class AccountStatusScreen extends StatelessWidget {
                         ] else ...[
                           SizedBox(
                             width: double.infinity,
-                            child: Obx(
-                              () {
-                                final primaryAction = content.onPrimaryPressed;
-                                final isLogoutAction = primaryAction == null;
+                            child: Obx(() {
+                              final primaryAction = content.onPrimaryPressed;
+                              final isLogoutAction = primaryAction == null;
 
-                                return FilledButton(
-                                  onPressed: isLogoutAction
-                                      ? (isLoggingOut.value
-                                            ? null
-                                            : () => _logout(isLoggingOut))
-                                      : primaryAction,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: content.accent,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
+                              return FilledButton(
+                                onPressed: isLogoutAction
+                                    ? (isLoggingOut.value
+                                          ? null
+                                          : () => _logout(isLoggingOut))
+                                    : primaryAction,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: content.accent,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
                                   ),
-                                  child: isLogoutAction && isLoggingOut.value
-                                      ? SizedBox(
-                                          width: 28,
-                                          child: BackendWaitDots(
-                                            color: Colors.white,
-                                            size: 5,
-                                            spacing: 3,
-                                          ),
-                                        )
-                                      : Text(
-                                          content.primaryLabel,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                ),
+                                child: isLogoutAction && isLoggingOut.value
+                                    ? SizedBox(
+                                        width: 28,
+                                        child: BackendWaitDots(
+                                          color: Colors.white,
+                                          size: 5,
+                                          spacing: 3,
                                         ),
-                                );
-                              },
-                            ),
+                                      )
+                                    : Text(
+                                        content.primaryLabel,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                              );
+                            }),
                           ),
                         ],
                       ],
@@ -688,10 +698,12 @@ class _StatusInfoCard extends StatelessWidget {
           )
         : accent.withValues(alpha: 0.09);
     final borderColor = accent.withValues(alpha: isDark ? 0.34 : 0.2);
-    final titleColor =
-        isDark ? const Color(0xFFF0EAFB) : const Color(0xFF1D1930);
-    final messageColor =
-        isDark ? const Color(0xFFD3CBE2) : const Color(0xFF4D485D);
+    final titleColor = isDark
+        ? const Color(0xFFF0EAFB)
+        : const Color(0xFF1D1930);
+    final messageColor = isDark
+        ? const Color(0xFFD3CBE2)
+        : const Color(0xFF4D485D);
     final buttonBackground = isDark
         ? Colors.white.withValues(alpha: 0.1)
         : Colors.white.withValues(alpha: 0.8);
@@ -730,14 +742,18 @@ class _StatusInfoCard extends StatelessWidget {
               height: 1.45,
             ),
           ),
-          if ((buttonLabel ?? '').trim().isNotEmpty && onButtonPressed != null) ...[
+          if ((buttonLabel ?? '').trim().isNotEmpty &&
+              onButtonPressed != null) ...[
             const SizedBox(height: 10),
             FilledButton.tonal(
               onPressed: onButtonPressed,
               style: FilledButton.styleFrom(
                 foregroundColor: accent,
                 backgroundColor: buttonBackground,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

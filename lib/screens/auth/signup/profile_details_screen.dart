@@ -355,58 +355,6 @@ class ProfileDetailsScreen extends GetView<SignupController> {
   }
 }
 
-class _PasswordRequirementsHint extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final mutedColor = isDark
-        ? AppColors.textHintDark
-        : AppColors.textHintLight;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, left: 4, right: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'password_requirements_title'.tr,
-            style: AppTextStyles.caption.copyWith(
-              color: mutedColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          _ReqRow(text: 'password_req_length'.tr, color: mutedColor),
-          _ReqRow(text: 'password_req_uppercase'.tr, color: mutedColor),
-          _ReqRow(text: 'password_req_lowercase'.tr, color: mutedColor),
-          _ReqRow(text: 'password_req_number'.tr, color: mutedColor),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReqRow extends StatelessWidget {
-  const _ReqRow({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
-        children: [
-          Icon(LucideIcons.dot, size: 16, color: color),
-          const SizedBox(width: 4),
-          Text(text, style: AppTextStyles.caption.copyWith(color: color)),
-        ],
-      ),
-    );
-  }
-}
-
 class _PrivacyTermsCheckbox extends StatelessWidget {
   const _PrivacyTermsCheckbox({required this.controller});
 

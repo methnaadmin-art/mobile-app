@@ -116,8 +116,6 @@ class HomeScreen extends GetView<HomeController> {
                             ? const Offset(0, 28)
                             : Offset.zero,
                         allowedSwipeDirection: const AllowedSwipeDirection.only(
-                          left: true,
-                          right: true,
                           up: true,
                         ),
                         onSwipe: (previousIndex, currentIndex, direction) {
@@ -1254,7 +1252,7 @@ class _HomeProfileCard extends StatelessWidget {
                         ? Center(
                             key: const ValueKey('focused_like_action'),
                             child: _FocusedSwipeActionButton(
-                              icon: LucideIcons.heart,
+                              icon: LucideIcons.badgeCheck,
                               color: AppColors.primary,
                               emphasis: focusedVisualStrength,
                               onTap: onLikeTap,
@@ -1309,7 +1307,7 @@ class _HomeProfileCard extends StatelessWidget {
                               Expanded(
                                 child: _LabeledActionButton(
                                   label: 'home_action_compliment'.tr,
-                                  icon: LucideIcons.zap,
+                                  icon: LucideIcons.messageSquare,
                                   color: AppColors.primary,
                                   outerSize: 74,
                                   innerSize: 62,
@@ -1334,7 +1332,7 @@ class _HomeProfileCard extends StatelessWidget {
                               Expanded(
                                 child: _LabeledActionButton(
                                   label: 'home_action_like'.tr,
-                                  icon: LucideIcons.heart,
+                                  icon: LucideIcons.badgeCheck,
                                   color: const Color(0xFF2ED47A),
                                   outerSize: 74,
                                   innerSize: 62,
@@ -1819,13 +1817,13 @@ class _HomeProfileCard extends StatelessWidget {
   IconData _swipeStatusIcon(String cue) {
     switch (cue) {
       case 'like':
-        return LucideIcons.heart;
+        return LucideIcons.badgeCheck;
       case 'pass':
         return LucideIcons.x;
       case 'compliment':
         return LucideIcons.star;
       default:
-        return LucideIcons.sparkles;
+        return LucideIcons.messageSquare;
     }
   }
 
@@ -3138,7 +3136,7 @@ class _ActionRingButton extends StatelessWidget {
     final clamped = emphasis.clamp(0.0, 1.0).toDouble();
     final activeColor = highlightColor ?? color;
     final ringExpansion = innerSize * 0.34;
-    final iconBoost = icon == LucideIcons.heart ? 2.0 : 0.0;
+    final iconBoost = icon == LucideIcons.badgeCheck ? 2.0 : 0.0;
     final fillColor = Color.lerp(
       activeColor.withValues(alpha: 0.86),
       activeColor,
@@ -3385,7 +3383,7 @@ class _BoostInfoScreenState extends State<_BoostInfoScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  LucideIcons.zap,
+                  LucideIcons.messageSquare,
                   color: AppColors.boost,
                   size: 30,
                 ),
@@ -3404,7 +3402,7 @@ class _BoostInfoScreenState extends State<_BoostInfoScreen> {
               ),
               const SizedBox(height: 20),
               _BoostBenefitRow(
-                icon: LucideIcons.zap,
+                icon: LucideIcons.badgeCheck,
                 label: 'boost_benefit_1'.tr,
               ),
               const SizedBox(height: 12),

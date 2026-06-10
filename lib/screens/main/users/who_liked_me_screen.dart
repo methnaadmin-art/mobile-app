@@ -79,7 +79,7 @@ class WhoLikedMeScreen extends GetView<UsersController> {
                     ),
                     Obx(
                       () => DiscoveryInfoPill(
-                        icon: LucideIcons.heart,
+                        icon: LucideIcons.badgeCheck,
                         label: '${controller.whoLikedMeCount.value}',
                         color: AppColors.like,
                         filled: true,
@@ -169,7 +169,7 @@ class WhoLikedMeScreen extends GetView<UsersController> {
                             title: 'No likes yet',
                             subtitle:
                                 'When someone likes your profile, they will appear here.',
-                            fallbackIcon: LucideIcons.heartOff,
+                            fallbackIcon: LucideIcons.shieldCheck,
                             fallbackColor: AppColors.like,
                             primaryActionLabel: 'refresh'.tr,
                             onPrimaryAction: controller.refreshWhoLikedMe,
@@ -309,7 +309,7 @@ class _WhoLikedMeCard extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xs),
               _ActionCircle(
-                icon: LucideIcons.heart,
+                icon: LucideIcons.badgeCheck,
                 color: AppColors.like,
                 onTap: () {
                   final controller = Get.find<UsersController>();
@@ -642,12 +642,12 @@ String _typeLabel(String rawType) {
 IconData _typeIcon(String rawType) {
   switch (rawType.toLowerCase()) {
     case 'super_like':
-      return LucideIcons.heart;
+      return LucideIcons.badgeCheck;
     case 'compliment':
       return LucideIcons.sparkles;
     case 'like':
     default:
-      return LucideIcons.heart;
+      return LucideIcons.badgeCheck;
   }
 }
 

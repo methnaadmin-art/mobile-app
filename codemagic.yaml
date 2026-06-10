@@ -53,7 +53,7 @@ workflows:
         BUNDLE_ID: "com.methnapp.app"
         XCODE_WORKSPACE: "Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
-        IOS_BUILD_NUMBER: "45"
+        IOS_BUILD_NUMBER: "46"
         # Replace with the numeric Apple ID from App Store Connect after the
         # first manual upload. Used to auto-increment the build number.
         APP_STORE_APPLE_ID: 0000000000

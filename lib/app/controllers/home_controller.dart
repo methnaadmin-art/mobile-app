@@ -379,11 +379,9 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   }
 
   void _showSwipeTutorialOverlay() {
-    showSwipeTutorial.value = true;
+    // Avoid a swipe tutorial so onboarding stays focused on profile review.
+    showSwipeTutorial.value = false;
     _swipeTutorialTimer?.cancel();
-    _swipeTutorialTimer = Timer(const Duration(seconds: 4), () {
-      showSwipeTutorial.value = false;
-    });
   }
 
   void dismissSwipeTutorial() {

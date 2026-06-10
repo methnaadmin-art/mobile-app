@@ -2,11 +2,11 @@ class StringConstants {
   StringConstants._();
 
   // Onboarding
-  static const String onboardingTitle1 = 'Find Your Perfect Match';
-  static const String onboardingDesc1 = 'Discover people who share your values, faith, and vision for the future.';
-  static const String onboardingTitle2 = 'Meaningful Connections';
-  static const String onboardingDesc2 = 'Go beyond surface-level. Build genuine relationships based on what truly matters.';
-  static const String onboardingTitle3 = 'Safe & Respectful';
+  static const String onboardingTitle1 = 'Begin With Clear Intention';
+  static const String onboardingDesc1 = 'Meet Muslims who share your faith, family values, and marriage goals.';
+  static const String onboardingTitle2 = 'Values Before Appearance';
+  static const String onboardingDesc2 = 'Review faith, lifestyle, family expectations, and intention before starting a conversation.';
+  static const String onboardingTitle3 = 'Respectful By Design';
   static const String onboardingDesc3 = 'A trusted space built with privacy, verification, and respect at its core.';
 
   // Auth
@@ -64,18 +64,18 @@ class StringConstants {
   static const String selfieVerification = 'Selfie Verification';
   static const String selfieSubtitle = 'Take a selfie to verify you are the person in your photos';
   static const String enableLocation = 'Enable Location';
-  static const String locationSubtitle = 'Allow location access to discover people near you';
+  static const String locationSubtitle = 'Allow location access so Methna can show local marriage introductions.';
   static const String next = 'Next';
   static const String skip = 'Skip';
   static const String getStarted = 'Get Started';
   static const String continueText = 'Continue';
 
   // Home
-  static const String discover = 'Discover';
+  static const String discover = 'Introductions';
   static const String noMoreProfiles = 'No more profiles to show';
-  static const String itsAMatch = "It's a Match!";
+  static const String itsAMatch = 'Mutual Interest';
   static const String sendMessage = 'Send Message';
-  static const String keepSwiping = 'Keep Swiping';
+  static const String keepSwiping = 'Continue Reviewing';
 
   // Users
   static const String explore = 'Explore';
@@ -90,7 +90,7 @@ class StringConstants {
   static const String onlineNow = 'Online Now';
   static const String typeMessage = 'Type a message...';
   static const String noConversations = 'No conversations yet';
-  static const String startChatting = 'Match with someone to start chatting';
+  static const String startChatting = 'Start a respectful conversation after mutual interest';
 
   // Profile
   static const String myProfile = 'My Profile';

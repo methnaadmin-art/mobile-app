@@ -1,7 +1,7 @@
 const Map<String, String> enUS = {
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ General ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
   'app_name': 'Methna',
-  'app_tagline': 'Find your perfect match',
+  'app_tagline': 'Serious Muslim marriage introductions',
   'ok': 'OK',
   'cancel': 'Cancel',
   'save': 'Save',
@@ -31,13 +31,13 @@ const Map<String, String> enUS = {
   'or': 'or',
 
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ Onboarding ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
-  'onboarding_title_1': 'Find Your Perfect Match',
+  'onboarding_title_1': 'Begin With Clear Intention',
   'onboarding_desc_1':
-      'Discover people who share your values, faith, and vision for the future.',
-  'onboarding_title_2': 'Meaningful Connections',
+      'Meet Muslims who share your faith, family values, and marriage goals.',
+  'onboarding_title_2': 'Values Before Appearance',
   'onboarding_desc_2':
-      'Go beyond surface-level. Build genuine relationships based on what truly matters.',
-  'onboarding_title_3': 'Safe & Respectful',
+      'Review faith, lifestyle, family expectations, and intention before starting a conversation.',
+  'onboarding_title_3': 'Respectful By Design',
   'onboarding_desc_3':
       'A trusted space built with privacy, verification, and respect at its core.',
 
@@ -83,7 +83,7 @@ const Map<String, String> enUS = {
   'username_hint': 'This is how others will find you',
   'select_gender': 'Be true to yourself',
   'choose_gender_desc':
-      'Choose the gender that best represents you. Authenticity is key to meaningful connections.',
+      'Choose your gender for your marriage profile. This cannot be changed later.',
   'man': 'Male',
   'woman': 'Female',
   'never_married': 'Never Married',
@@ -111,7 +111,7 @@ const Map<String, String> enUS = {
   'female': 'Female',
   'you_are': 'You are',
   'marital_status': 'Marital Status',
-  'continue_match': 'Continue & Match',
+  'continue_match': 'Continue Setup',
   'single': 'Single',
   'widowed_status': 'Widowed',
   'marital_status_desc':
@@ -153,7 +153,8 @@ const Map<String, String> enUS = {
   'selfie_subtitle':
       'Take a selfie to verify you are the person in your photos',
   'enable_location': 'Enable Location',
-  'location_subtitle': 'Allow location access to discover people near you',
+  'location_subtitle':
+      'Allow location access so Methna can show local marriage introductions.',
   'birthday_title': "Let's celebrate you \u{1F382}",
   'birthday_desc':
       'Tell us your birthdate. Your profile does not display your birthdate, only your age.',
@@ -198,7 +199,7 @@ const Map<String, String> enUS = {
   'match_found': '@percent% Match Found',
 
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ Home / Discover ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
-  'discover': 'Discover',
+  'discover': 'Introductions',
   'no_more_profiles': 'No more profiles',
   'check_back_later': 'Check back later for new people',
   'finding_people': 'Finding people near you...',
@@ -207,9 +208,9 @@ const Map<String, String> enUS = {
   'super_action': 'Super',
   'info_action': 'Info',
   'report_action': 'Report',
-  'its_a_match': "It's a Match!",
+  'its_a_match': 'Mutual Interest',
   'send_message': 'Send Message',
-  'keep_swiping': 'Keep Swiping',
+  'keep_swiping': 'Continue Reviewing',
   'could_not_load_profiles': 'Could not load profiles',
   'check_connection_retry': 'Check your connection and try again',
   'no_new_souls': 'No new souls found',
@@ -217,7 +218,7 @@ const Map<String, String> enUS = {
   'location_required': 'Location Required',
   'location_required_desc':
       'Please enable location services so we can find people near you.',
-  'no_matches_nearby': 'No Matches Nearby',
+  'no_matches_nearby': 'No Local Introductions Nearby',
   'no_matches_desc':
       'You have seen everyone in your area.\nTry expanding your distance preferences!',
   'based_in': 'Based In',
@@ -318,9 +319,9 @@ const Map<String, String> enUS = {
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ Users / Explore ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
   'explore': 'Explore',
   'home': 'Home',
-  'matches': 'Matches',
+  'matches': 'Introductions',
   'nav_home': 'Home',
-  'nav_matches': 'Matches',
+  'nav_matches': 'Introductions',
   'nav_chats': 'Chats',
   'nav_profile': 'Profile',
   'new_users': 'New Users',
@@ -334,7 +335,7 @@ const Map<String, String> enUS = {
   'active_in_last_24h': 'Active in the last 24 hours',
   'see_all': 'See All',
   'no_conversations': 'No conversations yet',
-  'start_chatting': 'Start chatting with your matches!',
+  'start_chatting': 'Start a respectful conversation with your introductions!',
   'start_conversation': 'Start a conversation',
   'say_hello': 'Say hello!',
   'type_message': 'Send message ...',
@@ -348,9 +349,9 @@ const Map<String, String> enUS = {
   'upgrade': 'UPGRADE',
   'complete_profile': 'Complete your profile',
   'complete_profile_desc':
-      'Complete your profile to experience the best dating experience and better matches!',
+      'Complete your profile for a clearer marriage-intent experience and better introductions.',
   'interests': 'Interests',
-  'relationship_goals': 'Relationship Goals',
+  'relationship_goals': 'Marriage Goals',
   'languages': 'Languages',
   'edit_profile': 'Edit Profile',
   'my_photos': 'My Photos',
@@ -382,7 +383,7 @@ const Map<String, String> enUS = {
   'relocation_label': 'Relocation',
   'willing': 'Willing',
   'prefer_local': 'Prefer Local',
-  'relationship_label': 'Relationship',
+  'relationship_label': 'Marriage Intent',
   'intention_label': 'Intention',
   'children_label': 'Children',
   'wants_more': 'Wants More?',
@@ -459,15 +460,15 @@ const Map<String, String> enUS = {
   'notification_settings': 'Notification Settings',
   'new_match': 'New Match',
   'new_message': 'New Message',
-  'new_like': 'New Like',
+  'new_like': 'New Interest',
 
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ Notification Categories ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
   'cat_all': 'All',
   'cat_message': 'Messages',
-  'cat_like': 'Likes',
+  'cat_like': 'Interest',
   'cat_pass': 'Passes',
   'cat_compliment': 'Compliments',
-  'cat_match': 'Matches',
+  'cat_match': 'Introductions',
   'cat_visit': 'Visits',
   'cat_system': 'System',
 
@@ -555,21 +556,21 @@ const Map<String, String> enUS = {
   'delete_account_confirm':
       'This action is permanent. All your data will be lost forever.',
   'delete_account_second_confirm':
-      'This action cannot be undone. Your profile, matches, and chats will be permanently removed.',
+      'This action cannot be undone. Your profile, introductions, and chats will be permanently removed.',
   'delete_account_desc':
-      'Permanently remove your profile, matches, chats, and local data.',
+      'Permanently remove your profile, introductions, chats, and local data.',
   'remove_match': 'Remove Match',
   'remove_match_confirm':
       'This will remove the match and close the conversation for both of you.',
 
   // ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ Notification Settings Screen ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬ط£آ¢أ¢â‚¬â€Œأ¢â€ڑآ¬
   'email_notifications': 'Email Notifications',
-  'new_matches': 'New Matches',
+  'new_matches': 'New Introductions',
   'new_messages': 'New Messages',
-  'likes_super_likes': 'Likes & Matches',
+  'likes_super_likes': 'Interest & Introductions',
   'profile_visitors': 'Profile Visitors',
   'events_activities': 'Events and Activities',
-  'matches_activity': "Matches' Activity",
+  'matches_activity': "Introductions' Activity",
   'safety_alerts': 'Safety & Account Alerts',
   'promotions_news': 'Promotions & News',
   'in_app_recommendations': 'In-App Recommendations',
@@ -667,7 +668,7 @@ const Map<String, String> enUS = {
 
   // --- Home Screen ---
   'salaam': 'Salaam',
-  'discover_matches': 'Discover Matches',
+  'discover_matches': 'Discover Introductions',
   'all_caught_up': 'All Caught Up',
 
   // --- Users / Discovery Screen ---
@@ -697,18 +698,18 @@ const Map<String, String> enUS = {
       'Your 3-day free trial has ended. Upgrade to Premium to continue enjoying all features.',
   'premium_required_desc':
       'This feature requires Premium access. Upgrade now to unlock all features.',
-  'unlimited_likes': 'Unlimited Likes',
-  'rewind_swipes': 'Rewind Swipes',
+  'unlimited_likes': 'Unlimited Interest',
+  'rewind_swipes': 'Undo Decisions',
   'send_compliments': 'Send Compliments',
-  'see_who_liked_you': 'See Who Liked You',
+  'see_who_liked_you': 'See Who Is Interested',
   'boost_profile': 'Boost Profile',
   'upgrade_to_premium': 'Upgrade to Premium',
   'premium': 'PREMIUM',
   'upgrade_now': 'Upgrade Now',
-  'unlimited_likes_feature': 'Unlimited likes every day',
-  'rewind_feature': 'Undo accidental swipes',
+  'unlimited_likes_feature': 'Unlimited interest every day',
+  'rewind_feature': 'Undo accidental decisions',
   'compliments_feature': 'Send compliments to stand out',
-  'see_likes_feature': 'See who liked you',
+  'see_likes_feature': 'See who is interested in you',
   'premium_feature': 'Premium Feature',
 
   // Auto-added fallback keys
@@ -836,8 +837,9 @@ const Map<String, String> enUS = {
   'nobody_desc':
       'Hide your profile from discovery. This is different from Invisible mode.',
   'online_users_only': 'Online Users Only',
-  'only_matches': 'Only Matches',
-  'only_matches_desc': 'Only existing matches can still reach your profile.',
+  'only_matches': 'Only Introductions',
+  'only_matches_desc':
+      'Only existing mutual introductions can still reach your profile.',
   'only_online_desc': 'Show only users who were active recently.',
   'otp_length': 'Enter the full verification code',
   'otp_required': 'Verification code is required',
@@ -860,12 +862,13 @@ const Map<String, String> enUS = {
   'profile_insights': 'Profile Insights',
   'profile_verification': 'Profile Verification',
   'profile_verification_desc':
-      'Verify your profile to build more trust with matches.',
+      'Verify your profile to build more trust with introductions.',
   'read_receipts': 'Read Receipts',
-  'read_receipts_desc': 'Let matches know when you have read their messages.',
+  'read_receipts_desc':
+      'Let introductions know when you have read their messages.',
   'receive_direct_messages': 'Receive Direct Messages',
   'receive_direct_messages_desc':
-      'Allow matched users to message you directly.',
+      'Allow mutual introductions to message you directly.',
   'registration_failed': 'Registration Failed',
   'remember_me_desc': 'Keep me signed in on this device.',
   'report_request': 'Report Request',
@@ -901,8 +904,8 @@ const Map<String, String> enUS = {
   'background_check_only_desc': 'Show only users who passed background checks.',
   'skip_for_now': 'Skip For Now',
   'take_selfie': 'Take Selfie',
-  'total_likes': 'Total Likes',
-  'total_matches': 'Total Matches',
+  'total_likes': 'Total Interest',
+  'total_matches': 'Total Introductions',
   'total_views': 'Total Views',
   'try_again': 'Try Again',
   'unblock': 'Unblock',
@@ -968,7 +971,7 @@ const Map<String, String> enUS = {
   'reset_app_data_keep_account':
       'Your account and profile data on the server stay unchanged.',
   'reset_app_data_keep_server':
-      'Your chats, matches, and server history stay unchanged.',
+      'Your chats, introductions, and server history stay unchanged.',
   'reset_app_data_keep_subscription':
       'Your active subscription and billing status stay unchanged.',
   'reset_app_data_now': 'Reset App Data',
@@ -980,7 +983,7 @@ const Map<String, String> enUS = {
   'cannot_chat_self': 'You cannot chat with your own account.',
   'cannot_chat_title': 'Cannot chat',
   'cannot_chat_match_only':
-      'You can only message people you have matched with.',
+      'You can only message people after mutual interest.',
   'select_ethnicity': 'Select ethnicity',
   'number_of_children': 'Number of children',
   'username_empty': 'Username cannot be empty',
@@ -1035,10 +1038,10 @@ const Map<String, String> enUS = {
   'feature_suggestion_desc': 'Share an idea you want to see in Methna.',
   'description': 'Description',
   'report_hint': 'Please provide detailed information...',
-  'likes_notifications': 'Likes & Matches',
+  'likes_notifications': 'Interest & Introductions',
   'notification_preferences': 'Notification Preferences',
   'notification_preferences_desc':
-      'These settings control your live push notifications across matches, messages, likes, and account activity.',
+      'These settings control your live push notifications across introductions, messages, interest, and account activity.',
 
   // --- Contact Support ---
   'new_ticket': 'New Ticket',
@@ -1153,7 +1156,8 @@ const Map<String, String> enUS = {
 
   // â”€â”€ Discovery Preferences â”€â”€
   'location': 'Location',
-  'location_on_desc': 'Use your current location for nearby matches',
+  'location_on_desc':
+      'Use your current location for nearby marriage introductions',
   'location_off_desc': 'Location permission is off',
   'on': 'On',
   'off': 'Off',
@@ -1182,7 +1186,7 @@ const Map<String, String> enUS = {
   'download_data_desc': 'Request an export using your live account data.',
   'how_this_works': 'How this works',
   'insights_desc':
-      'These insights are calculated from your real profile views, likes, and matches.',
+      'These insights are calculated from your real profile views, interest, and introductions.',
 
   // â”€â”€ Blocked Users â”€â”€
   'blocked_users_empty': 'People you block will appear here.',
@@ -1209,13 +1213,13 @@ const Map<String, String> enUS = {
   'period_day_short': '/day',
   'days_remaining_label': 'days remaining',
   'unlimited': 'Unlimited',
-  'likes_left': 'likes left',
+  'likes_left': 'interest actions left',
   'sync_success': 'Subscription synced successfully.',
   'sub_auto_renew_note':
       'Subscriptions auto-renew unless cancelled at least 24 hours before the current period ends.',
   'advanced_filters': 'Advanced filters',
   'boost': 'Boost profile',
-  'who_liked_me': 'Liked Me',
+  'who_liked_me': 'Interested In Me',
   'passport_mode': 'Passport mode',
   'invisible_mode': 'Invisible mode',
 
@@ -1261,10 +1265,10 @@ const Map<String, String> enUS = {
       'When something important happens, it will appear here.',
   'notification_title_match': 'New match',
   'notification_body_match': 'You have a new match. Start the conversation.',
-  'notification_title_like': 'New like',
-  'notification_body_like': '@name liked your profile.',
-  'notification_like_private_title': 'Someone liked you',
-  'notification_like_private_body': 'Someone liked you.',
+  'notification_title_like': 'New interest',
+  'notification_body_like': '@name is interested in your profile.',
+  'notification_like_private_title': 'Someone is interested',
+  'notification_like_private_body': 'Someone is interested in you.',
   'notification_title_compliment': 'New compliment',
   'notification_body_compliment': '@name sent you a compliment.',
   'notification_title_message': 'New message',
@@ -1283,7 +1287,7 @@ const Map<String, String> enUS = {
   'complete_your_profile': 'Complete your profile',
   'profile_complete': 'Your profile is complete',
   'profile_complete_desc':
-      'Your profile is ready for better matches and stronger visibility.',
+      'Your profile is ready for better introductions and stronger visibility.',
   'identity_review_progress': 'Identity review in progress',
   'identity_verified_desc':
       'Your identity has been approved by the Methna team.',
@@ -1360,7 +1364,7 @@ const Map<String, String> enUS = {
 
   // â”€â”€ Home Screen â”€â”€
   'nearby': 'Nearby',
-  'no_swipe_to_undo': 'No swipe to undo',
+  'no_swipe_to_undo': 'No decision to undo',
   'looking_for': 'Looking For',
   'family_values': 'Family Values',
   'favorite_music': 'Favorite Music',
@@ -1371,7 +1375,7 @@ const Map<String, String> enUS = {
       'Put your profile in front of more people and increase your visibility for a limited time.',
   'boost_benefit_1': 'More profile exposure across discover',
   'boost_benefit_2': 'Priority visibility while the boost is active',
-  'boost_benefit_3': 'Better chance to get likes and matches faster',
+  'boost_benefit_3': 'Better chance to receive interest faster',
   'not_now': 'Not now',
   'activate_boost': 'Activate boost',
 
@@ -1411,9 +1415,9 @@ const Map<String, String> enUS = {
   '18_plus_only': '18+ only',
   'accurate_age_display': 'Accurate age display',
   'enter_6_digit_code': 'Enter the 6-digit code we sent to your email.',
-  'find_matches_nearby': 'Find matches nearby',
+  'find_matches_nearby': 'Find local introductions',
   'find_matches_nearby_desc':
-      'Select your preferred distance range to discover matches conveniently. We\'ll help you find love close by.',
+      'Select your preferred distance range for local marriage introductions.',
   'distance_preference': 'Distance Preference',
   'private_profile_context': 'Private profile context',
   'used_for_better_matching': 'Used for better matching',
@@ -1422,7 +1426,8 @@ const Map<String, String> enUS = {
   'religious_level_helper':
       'Choose the level of practice that feels closest to you.',
   'prayer_frequency_label': 'PRAYER FREQUENCY',
-  'prayer_frequency_helper': 'This helps matches understand your daily rhythm.',
+  'prayer_frequency_helper':
+      'This helps introductions understand your daily rhythm.',
   'lifestyle_label': 'LIFESTYLE',
   'lifestyle_helper': 'Keep lifestyle expectations clear from the start.',
   'add_photos_desc':
@@ -1430,7 +1435,7 @@ const Map<String, String> enUS = {
   '2_minimum': '2 minimum',
   '6_maximum': '6 maximum',
   'tap_to_make_primary': 'Tap to make primary',
-  'discover_like_minded': 'Discover like-minded people',
+  'discover_like_minded': 'Discover values-aligned people',
   'discover_like_minded_desc':
       'Share your interests, passions, and hobbies. We\'ll connect you with people who share your enthusiasm.',
   'search_interest': 'Search interest',
@@ -1470,18 +1475,18 @@ const Map<String, String> enUS = {
   'code': 'Code',
   'match_score': 'Match Score',
   'home_compatibility_badge': 'Compatibility @score%',
-  'swipe_status_like': 'Liked',
-  'swipe_status_pass': 'Passed',
+  'swipe_status_like': 'Interested',
+  'swipe_status_pass': 'Not suitable',
   'swipe_status_compliment': 'Compliment sent',
-  'swipe_status_subtitle': 'Action queued',
-  'home_action_pass': 'PASS',
-  'home_action_like': 'LIKE',
+  'swipe_status_subtitle': 'Decision saved',
+  'home_action_pass': 'NOT SUITABLE',
+  'home_action_like': 'INTERESTED',
   'home_action_compliment': 'SEND COMPLIMENT',
   'home_action_boost': 'BOOST',
   'home_action_relay': 'RELAY',
-  'home_swipe_hint': 'Swipe up to know more',
-  'home_swipe_down_details': 'Swipe down to open full details',
-  'home_swipe_up_details': 'Swipe up to collapse details',
+  'home_swipe_hint': 'Open profile details',
+  'home_swipe_down_details': 'Pull down to open full details',
+  'home_swipe_up_details': 'Pull up to collapse details',
 
   // â”€â”€ Categories & Search Screens â”€â”€
   'failed_load_categories': 'Failed to load categories',
@@ -1490,15 +1495,15 @@ const Map<String, String> enUS = {
       'Try a different name, city, or interest and we will keep looking.',
   'clear_search': 'Clear search',
   'search_results': 'Search results',
-  'profiles_matched': 'profiles matched your search.',
+  'profiles_matched': 'profiles fit your search.',
   'search_failed': 'Search failed. Please try again.',
   'search_eyebrow': 'SEARCH',
-  'find_someone_meaningful': 'Find someone meaningful',
+  'find_someone_meaningful': 'Find a serious introduction',
   'find_someone_meaningful_desc':
-      'Search by name, city, or interest to quickly narrow the list.',
-  'best_ways_to_search': 'Best ways to search',
+      'Search by name, city, or interest to quickly narrow respectful profiles.',
+  'best_ways_to_search': 'Search thoughtfully',
   'best_ways_to_search_desc':
-      'Use a first name, a city, or a shared interest to narrow the discovery feed quickly.',
+      'Use a first name, city, or shared value to narrow the introduction feed.',
   'finding_people_nearby': 'Finding people near you ..',
   'scan_again': 'Scan again',
   'no_one_nearby': 'No one nearby right now',
@@ -1532,8 +1537,8 @@ const Map<String, String> enUS = {
       'You can still use your Methna password after setting one from account security.',
   'google_signin_available':
       'Google sign in is available from the login screen for supported accounts.',
-  'unlimited_likes_active': 'Unlimited likes active',
-  'likes_left_today': 'likes left today',
+  'unlimited_likes_active': 'Unlimited interest active',
+  'likes_left_today': 'interest actions left today',
   'ready': 'Ready',
   'google_pay': 'Google Pay',
   'supported': 'Supported',
@@ -1547,14 +1552,14 @@ const Map<String, String> enUS = {
   'unlocked': 'Unlocked',
 
   // â”€â”€ Onboarding & Splash â”€â”€
-  'you_got_the_match': 'It\'s a Match, Masha\'Allah!',
+  'you_got_the_match': 'Mutual Interest, Masha\'Allah!',
   'match_conversation_desc':
       'You both expressed interest. Begin with salam and start a respectful conversation.',
   'authenticate_to_continue': 'Authenticate to continue',
 
   // â”€â”€ Subscription â”€â”€
-  'unlimited_daily_swipes': 'Unlimited daily swipes',
-  'daily_swipes': 'daily swipes',
+  'unlimited_daily_swipes': 'Unlimited daily decisions',
+  'daily_swipes': 'daily decisions',
   'compliment_credits_daily': 'compliment credits each day',
   'unlimited_rewinds': 'Unlimited rewinds',
   'rewinds_monthly': 'rewinds each month',
@@ -1578,26 +1583,26 @@ const Map<String, String> enUS = {
 
   // --- Localized Main Screens ---
   'profiles': 'Profiles',
-  'person_i_liked': 'People I Liked',
+  'person_i_liked': 'People I Am Interested In',
   'person_i_liked_desc':
-      'Only people you liked can find your profile. Premium feature.',
+      'Only people you expressed interest in can find your profile. Premium feature.',
   'no_profiles_right_now': 'No profiles right now',
-  'no_matches_yet': 'No matches yet',
-  'no_liked_users_yet': 'No liked profiles yet',
-  'no_who_liked_me_yet': 'No one liked you yet',
+  'no_matches_yet': 'No introductions yet',
+  'no_liked_users_yet': 'No interested profiles yet',
+  'no_who_liked_me_yet': 'No new interest yet',
   'no_passed_users_yet': 'No passed profiles yet',
-  'no_matched_users_yet': 'No matched profiles yet',
+  'no_matched_users_yet': 'No mutual introductions yet',
   'no_liked_users_subtitle':
-      'Profiles you like will appear here for quick access.',
+      'Profiles you expressed interest in will appear here for quick access.',
   'no_who_liked_me_subtitle':
-      'When someone likes your profile, you will see them here.',
+      'When someone is interested in your profile, you will see them here.',
   'no_passed_users_subtitle':
-      'Profiles you passed will appear here so you can review them later.',
+      'Profiles marked not suitable will appear here so you can review them later.',
   'no_matched_users_subtitle':
-      'Mutual likes become matches and appear in this tab.',
+      'Mutual interest becomes an introduction and appears in this tab.',
   'refresh_profiles_hint': 'Refresh to load more people on Methna.',
   'mutual_like_appear_here':
-      'When two people like each other, they appear here.',
+      'When two people express interest, they appear here.',
   'reason': 'Reason',
   'add_extra_details_optional': 'Add extra details (optional)',
   'interested': 'Interested',
@@ -1624,14 +1629,14 @@ const Map<String, String> enUS = {
   'African / Afro-descendant': 'African / Afro-descendant',
   'Azerbaijani': 'Azerbaijani',
   'South Asian': 'South Asian',
-  'meaningful_connection_opened': 'A meaningful connection just opened',
+  'meaningful_connection_opened': 'A respectful introduction just opened',
   'celebrate_connection_start':
       'Celebrate the moment and start your first conversation.',
-  'swipe_tutorial_title': 'How Swiping Works',
+  'swipe_tutorial_title': 'How Review Works',
   'swipe_tutorial_subtitle':
-      'Swipe left to pass, right to like, and up to send a compliment.',
-  'swipe_tutorial_pass': 'Pass',
-  'swipe_tutorial_like': 'Like',
+      'Move left if not suitable, right if interested, and up to send a respectful compliment.',
+  'swipe_tutorial_pass': 'Not suitable',
+  'swipe_tutorial_like': 'Interested',
   'swipe_tutorial_compliment': 'Compliment',
   'swipe_tutorial_got_it': 'Got it',
   'you': 'You',
@@ -1682,7 +1687,7 @@ const Map<String, String> enUS = {
   'failed_to_save_profile': 'Failed to save profile',
   'find_your_match': 'Find Your Match',
   'compliment_default_message': 'Salam, I would like to know you better.',
-  'finding_matches': 'Finding matches...',
+  'finding_matches': 'Finding introductions...',
   'try_adjusting_filters': 'Try adjusting your filters',
   'add': 'Add',
   'alone': 'Alone',
@@ -1740,13 +1745,13 @@ const Map<String, String> enUS = {
   'location_required_to_finish_signup':
       'Location access is required to finish signup.',
   'profile_engagement': 'Profile Engagement',
-  'likes_sent': 'Likes Sent',
-  'likes_received': 'Likes Received',
+  'likes_sent': 'Interest Sent',
+  'likes_received': 'Interest Received',
   'compliments_sent': 'Compliments Sent',
   'profile_gallery': 'Profile Gallery',
   'profile_gallery_hint': 'Your visible photos',
   'view_all_photos': 'View all photos',
   'boost_profile_title': 'Boost your visibility',
   'boost_profile_hint':
-      'Get highlighted in discovery and reach more matches faster.',
+      'Get highlighted in introductions and receive interest faster.',
 };

@@ -1047,10 +1047,12 @@ class UserModel {
 
   /// The primary message to show the user (prefers supportMessage > moderationReasonText > statusReason)
   String get moderationMessage {
-    if (supportMessage != null && supportMessage!.isNotEmpty)
+    if (supportMessage != null && supportMessage!.isNotEmpty) {
       return supportMessage!;
-    if (moderationReasonText != null && moderationReasonText!.isNotEmpty)
+    }
+    if (moderationReasonText != null && moderationReasonText!.isNotEmpty) {
       return moderationReasonText!;
+    }
     switch (status) {
       case 'limited':
         return statusReason ??

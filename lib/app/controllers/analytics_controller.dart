@@ -27,7 +27,7 @@ class AnalyticsController extends GetxController {
   void trackAction(String action, {Map<String, dynamic>? extra}) {
     _analyticsService.trackEvent('user_action', data: {
       'action': action,
-      if (extra != null) ...extra,
+      ...?extra,
     });
   }
 }

@@ -275,13 +275,13 @@ class _UsersScreenState extends State<UsersScreen> {
             _UsersTabItem(
               label: 'person_i_liked'.tr,
               count: likedByMe.length,
-              icon: Icons.favorite_border_rounded,
+              icon: LucideIcons.badgeCheck,
               tone: _usersLuxTone,
             ),
             _UsersTabItem(
               label: 'who_liked_me'.tr,
               count: likedMe.length,
-              icon: Icons.favorite_rounded,
+              icon: LucideIcons.badgeCheck,
               tone: _usersLuxTone,
             ),
             _UsersTabItem(
@@ -293,7 +293,7 @@ class _UsersScreenState extends State<UsersScreen> {
             _UsersTabItem(
               label: 'matches'.tr,
               count: matched.length,
-              icon: LucideIcons.heartHandshake,
+              icon: LucideIcons.badgeCheck,
               tone: _usersLuxTone,
             ),
           ];
@@ -386,14 +386,14 @@ class _UsersScreenState extends State<UsersScreen> {
                             if (isLikedByMeTab) {
                               quickAction = () =>
                                   controller.passUser(selectedUser.id);
-                              quickActionLabel = 'Pass';
+                              quickActionLabel = 'Not suitable';
                               quickActionIcon = LucideIcons.x;
                               quickActionTone = const Color(0xFFFF6B6B);
                             } else if (isPassedTab) {
                               quickAction = () =>
                                   controller.likeUser(selectedUser.id);
-                              quickActionLabel = 'Like';
-                              quickActionIcon = LucideIcons.heart;
+                              quickActionLabel = 'Interested';
+                              quickActionIcon = LucideIcons.badgeCheck;
                               quickActionTone = _usersLuxTone;
                             } else if (_selectedTabIndex == 3) {
                               quickAction = () async {
@@ -1542,7 +1542,7 @@ class _MatchesEmptyState extends StatelessWidget {
       lottieAsset: 'assets/animations/no_matches.json',
       title: title,
       subtitle: subtitle,
-      fallbackIcon: LucideIcons.heart,
+      fallbackIcon: LucideIcons.badgeCheck,
       fallbackColor: AppColors.primary,
       primaryActionLabel: 'refresh'.tr,
       onPrimaryAction: () => onRefresh(),
@@ -1583,13 +1583,13 @@ String _safeDisplayName(UserModel user) {
 IconData _statusIcon(_UsersGridCardKind kind) {
   switch (kind) {
     case _UsersGridCardKind.likedByMe:
-      return Icons.favorite_border_rounded;
+      return LucideIcons.badgeCheck;
     case _UsersGridCardKind.likedMe:
-      return Icons.favorite_rounded;
+      return LucideIcons.badgeCheck;
     case _UsersGridCardKind.passed:
       return LucideIcons.x;
     case _UsersGridCardKind.matched:
-      return LucideIcons.heartHandshake;
+      return LucideIcons.badgeCheck;
   }
 }
 

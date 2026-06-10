@@ -377,7 +377,7 @@ class _BottomActionBar extends StatelessWidget {
           if (showPassAction) const SizedBox(width: 10),
           Expanded(
             child: _ActionPillButton(
-              icon: LucideIcons.heart,
+              icon: LucideIcons.badgeCheck,
               label: 'home_action_like'.tr,
               iconColor: Colors.white,
               textColor: Colors.white,
@@ -398,7 +398,7 @@ class _BottomActionBar extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: _ActionPillButton(
-              icon: LucideIcons.award,
+              icon: LucideIcons.messageSquare,
               label: 'home_action_compliment'.tr,
               iconColor: const Color(0xFF2D95FF),
               backgroundColor: isDark
@@ -632,10 +632,7 @@ class _ActionPillButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolvedTextColor = textColor ?? iconColor;
-    final resolvedIconSize =
-        icon == LucideIcons.heart || icon == LucideIcons.heartHandshake
-        ? 20.0
-        : 18.0;
+    final resolvedIconSize = icon == LucideIcons.badgeCheck ? 20.0 : 18.0;
 
     return DecoratedBox(
       decoration: BoxDecoration(

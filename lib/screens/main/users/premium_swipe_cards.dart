@@ -178,7 +178,7 @@ class _PremiumSwipeCardsScreenState extends State<PremiumSwipeCardsScreen> {
             onTap: _onComplimentTap,
           ),
           _ActionButton(
-            icon: LucideIcons.heart,
+            icon: LucideIcons.badgeCheck,
             color: AppTheme.success,
             onTap: () {
               if (controller.allUsers.isNotEmpty) {

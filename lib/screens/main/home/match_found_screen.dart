@@ -502,7 +502,7 @@ class _MatchHeroCard extends StatelessWidget {
                   ),
                 if (intentLabel.isNotEmpty)
                   _MatchTextChip(
-                    icon: LucideIcons.heartHandshake,
+                    icon: LucideIcons.badgeCheck,
                     label: intentLabel,
                     color: AppColors.like,
                   ),
@@ -688,7 +688,7 @@ class _HeartBridge extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(LucideIcons.heart, color: Colors.white, size: 30),
+        child: const Icon(LucideIcons.badgeCheck, color: Colors.white, size: 30),
       ),
     );
   }

@@ -1,7 +1,7 @@
 name: methna_app
-description: "Methna - Muslim Dating & Marriage App"
+description: "Methna - Faith-based Muslim marriage introductions"
 publish_to: 'none'
-version: 1.2.12+44
+version: 1.2.13+45
 
 environment:
   sdk: ^3.10.1

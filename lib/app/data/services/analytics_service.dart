@@ -76,7 +76,7 @@ class AnalyticsService extends GetxService {
       await _api.post(ApiConstants.analyticsTrack, data: {
         'event': event,
         'timestamp': DateTime.now().toIso8601String(),
-        if (data != null) ...data,
+        ...?data,
       });
     } catch (_) {
       // Non-blocking; analytics failures should not impact UX

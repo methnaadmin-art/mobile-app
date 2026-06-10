@@ -53,7 +53,7 @@ class _BackendWaitDotsState extends State<BackendWaitDots>
                 width: widget.size,
                 height: widget.size,
                 decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.7 + 0.3 * scale),
+                  color: widget.color.withValues(alpha: 0.7 + 0.3 * scale),
                   shape: BoxShape.circle,
                 ),
                 transform: Matrix4.diagonal3Values(scale, scale, 1),

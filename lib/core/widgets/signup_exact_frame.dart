@@ -447,11 +447,11 @@ class ExactSignupTextField extends StatelessWidget {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg),
-              borderSide: const BorderSide(color: const Color(0xFF4F26D9)),
+              borderSide: const BorderSide(color: Color(0xFF4F26D9)),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg),
-              borderSide: const BorderSide(color: const Color(0xFF4F26D9)),
+              borderSide: const BorderSide(color: Color(0xFF4F26D9)),
             ),
             errorStyle: AppTextStyles.error.copyWith(
               color: const Color(0xFF4F26D9),

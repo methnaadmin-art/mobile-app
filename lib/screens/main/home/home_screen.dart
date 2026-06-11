@@ -4120,10 +4120,10 @@ class _StartupRadarBackdrop extends StatelessWidget {
 
 class _StartupRadarAvatar extends StatelessWidget {
   const _StartupRadarAvatar({
-    super.key,
+    Key? key,
     required this.user,
     required this.size,
-  });
+  }) : super(key: key);
 
   final UserModel? user;
   final double size;

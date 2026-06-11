@@ -1779,9 +1779,6 @@ class _HomeProfileCard extends StatelessWidget {
   String? _humanizeNullable(String? value) {
     final trimmed = value?.trim();
     if (trimmed == null || trimmed.isEmpty) return null;
-    // Try translation first for snake_case API values like "never_married"
-    final translated = trimmed.tr;
-    if (translated != trimmed) return translated;
     return trimmed
         .replaceAll('_', ' ')
         .replaceAll('-', ' ')
@@ -2271,11 +2268,8 @@ class _ComplimentComposerSheetState extends State<_ComplimentComposerSheet> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final imageUrl = CloudinaryUrl.medium(widget.user.mainPhotoUrl);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: bottomInset + 8),
-      child: Column(
+    return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2448,8 +2442,8 @@ class _ComplimentComposerSheetState extends State<_ComplimentComposerSheet> {
           ],
         ),
       ],
-    ),
-  );
+    );
+  }
 }
 
 class _CardSectionLabel extends StatelessWidget {
@@ -4119,10 +4113,12 @@ class _StartupRadarBackdrop extends StatelessWidget {
 }
 
 class _StartupRadarAvatar extends StatelessWidget {
-  _StartupRadarAvatar({
+  const _StartupRadarAvatar({
+    super.key,
     required this.user,
     required this.size,
   });
+
   final UserModel? user;
   final double size;
 
@@ -4180,7 +4176,7 @@ class _StartupRadarAvatar extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  _EmptyState({required this.onRefresh});
+  const _EmptyState({required this.onRefresh});
 
   final VoidCallback onRefresh;
 

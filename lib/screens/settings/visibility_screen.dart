@@ -78,7 +78,7 @@ class VisibilityScreen extends GetView<SettingsController> {
                       : 'Disable your presence completely — no one can see you active.',
                   trailing: Switch(
                     value: monetization.isInvisible.value,
-                    activeColor: AppColors.primary,
+                    activeThumbColor: AppColors.primary,
                     onChanged: (value) async {
                       if (!isPremium) {
                         Helpers.showSnackbar(

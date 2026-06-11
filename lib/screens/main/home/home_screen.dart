@@ -4119,12 +4119,10 @@ class _StartupRadarBackdrop extends StatelessWidget {
 }
 
 class _StartupRadarAvatar extends StatelessWidget {
-  const _StartupRadarAvatar({
-    Key? key,
+  _StartupRadarAvatar({
     required this.user,
     required this.size,
-  }) : super(key: key);
-
+  });
   final UserModel? user;
   final double size;
 
@@ -4182,7 +4180,7 @@ class _StartupRadarAvatar extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onRefresh});
+  _EmptyState({required this.onRefresh});
 
   final VoidCallback onRefresh;
 

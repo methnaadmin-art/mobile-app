@@ -533,10 +533,10 @@ class _HomeProfileCard extends StatelessWidget {
       MapEntry('prayer'.tr, _humanizeNullable(profile?.prayerFrequency)),
       MapEntry(
         'marriage_intention'.tr,
-        _humanizeNullable(profile?.marriageIntention),
+        _humanizeNullable(profile?.intentMode),
       ),
       MapEntry('marital_status'.tr, _humanizeNullable(profile?.maritalStatus)),
-      MapEntry('time_frame'.tr, _humanizeNullable(profile?.intentMode)),
+      MapEntry('time_frame'.tr, _humanizeNullable(profile?.marriageIntention)),
       MapEntry(
         'second_wife_preference'.tr,
         _humanizeNullable(profile?.secondWifePreference),
@@ -1779,6 +1779,9 @@ class _HomeProfileCard extends StatelessWidget {
   String? _humanizeNullable(String? value) {
     final trimmed = value?.trim();
     if (trimmed == null || trimmed.isEmpty) return null;
+    // Try translation first for snake_case API values like "never_married"
+    final translated = trimmed.tr;
+    if (translated != trimmed) return translated;
     return trimmed
         .replaceAll('_', ' ')
         .replaceAll('-', ' ')
@@ -2268,8 +2271,11 @@ class _ComplimentComposerSheetState extends State<_ComplimentComposerSheet> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final imageUrl = CloudinaryUrl.medium(widget.user.mainPhotoUrl);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Column(
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: bottomInset + 8),
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2442,8 +2448,8 @@ class _ComplimentComposerSheetState extends State<_ComplimentComposerSheet> {
           ],
         ),
       ],
-    );
-  }
+    ),
+  );
 }
 
 class _CardSectionLabel extends StatelessWidget {

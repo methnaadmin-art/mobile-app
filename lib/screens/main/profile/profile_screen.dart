@@ -337,7 +337,7 @@ class ProfileShowcaseContent extends StatelessWidget {
           LucideIcons.flag,
           prettify: false,
         ),
-        _field('ethnicity'.tr, profile?.ethnicity, LucideIcons.users),
+        _field('ethnicity'.tr, profile?.ethnicity, LucideIcons.globe),
         _field('education'.tr, profile?.education, LucideIcons.graduationCap),
         _field(
           'education_details'.tr,
@@ -381,7 +381,7 @@ class ProfileShowcaseContent extends StatelessWidget {
         ),
       ], useIcons: true),
       _section('faith_values'.tr, [
-        _field('sect'.tr, profile?.sect, LucideIcons.bookOpen),
+        _field('sect'.tr, profile?.sect, LucideIcons.shield),
         _field(
           'religious_level'.tr,
           profile?.religiousLevel,
@@ -399,7 +399,7 @@ class ProfileShowcaseContent extends StatelessWidget {
         ),
       ], useIcons: true),
       _section('family_home'.tr, [
-        _field('marital_status'.tr, profile?.maritalStatus, LucideIcons.users),
+        _field('marital_status'.tr, profile?.maritalStatus, LucideIcons.heartHandshake),
         _field(
           'Marriage timeline',
           _marriageTimelineLabel(profile),
@@ -429,7 +429,7 @@ class ProfileShowcaseContent extends StatelessWidget {
         _boolField(
           'willing_to_relocate'.tr,
           profile?.willingToRelocate,
-          LucideIcons.moveRight,
+          LucideIcons.plane,
           trueLabel: 'yes'.tr,
           falseLabel: 'no'.tr,
         ),
@@ -437,7 +437,7 @@ class ProfileShowcaseContent extends StatelessWidget {
           _field(
             'Location permission',
             locationPermissionLabel,
-            LucideIcons.locateFixed,
+            LucideIcons.mapPin,
             prettify: false,
           ),
         if (isOwnProfile)

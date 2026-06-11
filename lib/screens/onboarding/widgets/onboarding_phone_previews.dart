@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:ui';
+
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:methna_app/app/theme/app_colors.dart';
@@ -23,188 +25,189 @@ class OnboardingAuthPhonePreview extends StatelessWidget {
           colors: [Colors.white, Color(0xFFFEFEFE), Color(0xFFFFFAFB)],
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(6, 2, 6, 6),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: const [
-                _MiniIconCircle(icon: LucideIcons.languages),
-                SizedBox(width: 6),
-                _MiniIconCircle(icon: LucideIcons.moon),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: ClipOval(
-                child: Image.asset(
-                  AppConstants.appLogoAsset,
-                  width: 24,
-                  height: 24,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              AppConstants.appName,
-              style: AppTextStyles.headlineSmall.copyWith(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimaryLight,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'app_tagline'.tr,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.labelSmall.copyWith(
-                fontSize: 8.5,
-                color: AppColors.textSecondaryLight,
-              ),
-            ),
-            const SizedBox(height: 10),
-            LoginSecurityAvatar(
-              isPasswordFocused: true,
-              isPasswordVisible: false,
-              hasPasswordText: true,
-              isIdentifierFocused: false,
-              size: 70,
-              accent: AppColors.primary,
-              accentLight: AppColors.primaryLight,
-              faceColor: const Color(0xFFFFF5F7),
-              strokeColor: border,
-            ),
-            const SizedBox(height: 10),
-            _MiniFieldLabel(text: 'email'.tr),
-            const SizedBox(height: 4),
-            _MiniField(
-              hint: 'email_hint'.tr,
-              icon: LucideIcons.mail,
-              border: border,
-            ),
-            const SizedBox(height: 7),
-            _MiniFieldLabel(text: 'password'.tr),
-            const SizedBox(height: 4),
-            _MiniField(
-              hint: 'password_hint'.tr,
-              icon: LucideIcons.lock,
-              suffixIcon: LucideIcons.eyeOff,
-              border: border,
-            ),
-            const SizedBox(height: 7),
-            Row(
+      child: Stack(
+        children: [
+          // Pink blur blobs matching login screen atmosphere
+          Positioned(
+            top: -32,
+            left: -26,
+            child: _MiniBlurBlob(size: 90, color: const Color(0x1AE85D75)),
+          ),
+          Positioned(
+            top: 44,
+            right: -32,
+            child: _MiniBlurBlob(size: 100, color: const Color(0x14F07A90)),
+          ),
+          Positioned(
+            bottom: -36,
+            left: 8,
+            child: _MiniBlurBlob(size: 110, color: const Color(0x14E85D75)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(6, 2, 6, 6),
+            child: Column(
               children: [
-                Container(
-                  width: 13,
-                  height: 13,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(
-                    LucideIcons.check,
-                    size: 9,
-                    color: Colors.white,
-                  ),
+                // Top-right toggle buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: const [
+                    _MiniIconCircle(icon: LucideIcons.languages),
+                    SizedBox(width: 6),
+                    _MiniIconCircle(icon: LucideIcons.moon),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'remember_me'.tr,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.labelSmall.copyWith(
-                      fontSize: 9,
-                      color: AppColors.textPrimaryLight,
+                const SizedBox(height: 4),
+                // Brand Hero - matching _LoginBrandHero
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.16),
+                        AppColors.primary.withValues(alpha: 0.08),
+                      ],
+                    ),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.16)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.14),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(5),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: Image.asset(
+                      AppConstants.appIconAsset,
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
+                const SizedBox(height: 8),
                 Text(
-                  'forgot_password'.tr,
+                  AppConstants.appName,
+                  style: AppTextStyles.displayMedium.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimaryLight,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'app_tagline'.tr,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    fontSize: 9,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            const _MiniPrimaryButton(labelKey: 'login'),
-            const SizedBox(height: 7),
-            Container(
-              height: 34,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadii.lg),
-                border: Border.all(color: border),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  const Text(
-                    'G',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'continue_with_google'.tr,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.labelSmall.copyWith(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryLight,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                ],
-              ),
-            ),
-            const Spacer(),
-            Wrap(
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 2,
-              children: [
-                Text(
-                  'no_account'.tr,
-                  style: AppTextStyles.labelSmall.copyWith(
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.bodyMedium.copyWith(
                     fontSize: 8.5,
                     color: AppColors.textSecondaryLight,
                   ),
                 ),
-                Text(
-                  'sign_up'.tr,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    fontSize: 8.5,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
+                const SizedBox(height: 10),
+                LoginSecurityAvatar(
+                  isPasswordFocused: true,
+                  isPasswordVisible: false,
+                  hasPasswordText: true,
+                  isIdentifierFocused: false,
+                  size: 64,
+                  accent: AppColors.primary,
+                  accentLight: AppColors.primaryLight,
+                  faceColor: const Color(0xFFFFF5F7),
+                  strokeColor: border,
+                ),
+                const SizedBox(height: 10),
+                // Google Sign-in button
+                Container(
+                  height: 32,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppRadii.lg),
+                    border: Border.all(color: border),
                   ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'G',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'continue_with_google'.tr,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.labelSmall.copyWith(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimaryLight,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 7),
+                // Primary Login button
+                const _MiniPrimaryButton(labelKey: 'login'),
+                const Spacer(),
+                // Sign up link
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 2,
+                  children: [
+                    Text(
+                      'no_account'.tr,
+                      style: AppTextStyles.labelSmall.copyWith(
+                        fontSize: 8.5,
+                        color: AppColors.textSecondaryLight,
+                      ),
+                    ),
+                    Text(
+                      'sign_up'.tr,
+                      style: AppTextStyles.labelSmall.copyWith(
+                        fontSize: 8.5,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Mini blur blob matching _BackgroundBlurBlob from login screen
+class _MiniBlurBlob extends StatelessWidget {
+  const _MiniBlurBlob({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
     );
   }
@@ -566,73 +569,6 @@ class _MiniIconCircle extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: Icon(icon, size: 12, color: AppColors.textPrimaryLight),
-    );
-  }
-}
-
-class _MiniFieldLabel extends StatelessWidget {
-  const _MiniFieldLabel({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        text,
-        style: AppTextStyles.labelSmall.copyWith(
-          fontSize: 8.5,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimaryLight,
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniField extends StatelessWidget {
-  const _MiniField({
-    required this.hint,
-    required this.icon,
-    required this.border,
-    this.suffixIcon,
-  });
-
-  final String hint;
-  final IconData icon;
-  final IconData? suffixIcon;
-  final Color border;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 32,
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF5F7),
-        borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(color: border),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 11),
-      child: Row(
-        children: [
-          Icon(icon, size: 13, color: Colors.black54),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              hint,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.bodySmall.copyWith(
-                fontSize: 9.2,
-                color: AppColors.textSecondaryLight,
-              ),
-            ),
-          ),
-          if (suffixIcon != null)
-            Icon(suffixIcon, size: 13, color: Colors.black54),
-        ],
-      ),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/controllers/settings_controller.dart';
 import 'package:methna_app/app/data/services/auth_service.dart';
+import 'package:methna_app/app/data/services/monetization_service.dart';
+import 'package:methna_app/app/theme/app_colors.dart';
 import 'package:methna_app/app/theme/app_spacing.dart';
 import 'package:methna_app/core/utils/helpers.dart';
 import 'package:methna_app/core/widgets/settings_flow.dart';
@@ -13,6 +15,7 @@ class VisibilityScreen extends GetView<SettingsController> {
   Widget build(BuildContext context) {
     final auth = Get.find<AuthService>();
     final isPremium = auth.currentUser.value?.isPremium ?? false;
+    final monetization = Get.find<MonetizationService>();
 
     return SettingsSimplePageScaffold(
       title: 'privacy_visibility'.tr,
@@ -25,6 +28,7 @@ class VisibilityScreen extends GetView<SettingsController> {
             AppSpacing.xl,
           ),
           children: [
+            // Discovery visibility section
             SettingsPlainListCard(
               children: [
                 SettingsRadioTile(
@@ -57,9 +61,35 @@ class VisibilityScreen extends GetView<SettingsController> {
                 ),
                 SettingsRadioTile(
                   title: 'nobody'.tr,
-                  subtitle: 'nobody_desc'.tr,
+                  subtitle: 'Hides your profile from discovery and search results.',
                   selected: controller.visibility.value == 'nobody',
                   onTap: () => controller.updateVisibility('nobody'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            // Invisible Mode section — separate privacy/incognito mode
+            SettingsPlainListCard(
+              children: [
+                SettingsPlainTile(
+                  title: 'invisible_mode'.tr,
+                  subtitle: monetization.isInvisible.value
+                      ? 'You are currently invisible on the app.'
+                      : 'Disable your presence completely — no one can see you active.',
+                  trailing: Switch(
+                    value: monetization.isInvisible.value,
+                    activeColor: AppColors.primary,
+                    onChanged: (value) async {
+                      if (!isPremium) {
+                        Helpers.showSnackbar(
+                          message: 'upgrade_to_unlock'.tr,
+                          isError: true,
+                        );
+                        return;
+                      }
+                      await monetization.toggleInvisibleMode(value);
+                    },
+                  ),
                 ),
               ],
             ),

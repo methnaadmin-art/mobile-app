@@ -630,6 +630,7 @@ class SignupData {
     'Afghan',
     'Arab',
     'Amazigh / Berber',
+    'Asian',
     'Azerbaijani',
     'Bangladeshi',
     'Black African',
@@ -644,6 +645,7 @@ class SignupData {
     'South Asian / Desi',
     'Turkish',
     'West African',
+    'White',
     'Other',
   ];
 

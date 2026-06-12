@@ -61,7 +61,7 @@ class VisibilityScreen extends GetView<SettingsController> {
                 ),
                 SettingsRadioTile(
                   title: 'nobody'.tr,
-                  subtitle: 'Hides your profile from discovery and search results.',
+                  subtitle: 'nobody_desc'.tr,
                   selected: controller.visibility.value == 'nobody',
                   onTap: () => controller.updateVisibility('nobody'),
                 ),
@@ -74,8 +74,8 @@ class VisibilityScreen extends GetView<SettingsController> {
                 SettingsPlainTile(
                   title: 'invisible_mode'.tr,
                   subtitle: monetization.isInvisible.value
-                      ? 'You are currently invisible on the app.'
-                      : 'Disable your presence completely — no one can see you active.',
+                      ? 'invisible_mode_on_desc'.tr
+                      : 'invisible_mode_off_desc'.tr,
                   trailing: Switch(
                     value: monetization.isInvisible.value,
                     activeThumbColor: AppColors.primary,

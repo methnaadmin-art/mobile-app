@@ -382,6 +382,7 @@ const Map<String, String> arDZ = {
   'upgrade_membership_desc':
       'استمتع بجميع المزايا واستكشف المزيد من الإمكانيات.',
   'discovery_preferences': 'تفضيلات الاكتشاف',
+  'discovery_preferences_subtitle': 'اضبط المرشحات لمن تراه. موقعك الفعلي يتغير فقط مع وضع السفر.',
   'profile_privacy': 'الملف الشخصي والخصوصية',
   'notification': 'الإشعارات',
   'account_security': 'الحساب والأمان',
@@ -1283,6 +1284,8 @@ const Map<String, String> arDZ = {
   'who_liked_me': 'أعجبوا بي',
   'passport_mode': 'وضع السفر',
   'invisible_mode': 'الوضع المخفي',
+  'invisible_mode_on_desc': 'أنت حالياً غير مرئي في التطبيق.',
+  'invisible_mode_off_desc': 'قم بتعطيل وجودك بالكامل — لا يمكن لأحد رؤيتك نشطاً.',
   'choose_id_document': 'اختر مستند الهوية',
   'national_id_doc': 'بطاقة الهوية الوطنية',
   'identity_uploaded_review':

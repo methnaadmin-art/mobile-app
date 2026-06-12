@@ -389,7 +389,7 @@ class ProfileShowcaseContent extends StatelessWidget {
         ),
         _field('prayer'.tr, profile?.prayerFrequency, LucideIcons.sunrise),
         _field('hijab'.tr, profile?.hijabStatus, LucideIcons.shirt),
-      ]),
+      ], useIcons: true),
       _section('partner_preferences'.tr, [
         _field(
           'describe_ideal_spouse'.tr,
@@ -447,7 +447,7 @@ class ProfileShowcaseContent extends StatelessWidget {
             LucideIcons.route,
             prettify: false,
           ),
-      ]),
+      ], useIcons: true),
       _section('lifestyle'.tr, [
         _field(
           'living_situation'.tr,
@@ -480,7 +480,7 @@ class ProfileShowcaseContent extends StatelessWidget {
           falseLabel: 'no_pets'.tr,
         ),
         _field('pet_preference'.tr, profile?.petPreference, LucideIcons.dog),
-      ]),
+      ], useIcons: true),
       _section('health_wellness'.tr, [
         _boolField(
           'vaccination'.tr,
@@ -501,12 +501,12 @@ class ProfileShowcaseContent extends StatelessWidget {
           LucideIcons.heartPulse,
           prettify: false,
         ),
-      ]),
+      ], useIcons: true),
       _section('favorites'.tr, [
         _listField('music'.tr, profile?.favoriteMusic, LucideIcons.music4),
         _listField('movies'.tr, profile?.favoriteMovies, LucideIcons.film),
         _listField('books'.tr, profile?.favoriteBooks, LucideIcons.bookOpen),
-      ]),
+      ], useIcons: true),
     ].whereType<_SectionData>().toList();
 
     return Stack(

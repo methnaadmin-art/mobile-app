@@ -400,6 +400,7 @@ const Map<String, String> enUS = {
   'upgrade_membership_desc':
       'Enjoy all the benefits and explore more possibilities.',
   'discovery_preferences': 'Discovery Preferences',
+  'discovery_preferences_subtitle': 'Set filters for who you see. Your actual location only changes with Passport Mode.',
   'profile_privacy': 'Profile & Privacy',
   'notification': 'Notification',
   'account_security': 'Account & Security',
@@ -1222,6 +1223,8 @@ const Map<String, String> enUS = {
   'who_liked_me': 'Interested In Me',
   'passport_mode': 'Passport mode',
   'invisible_mode': 'Invisible mode',
+  'invisible_mode_on_desc': 'You are currently invisible on the app.',
+  'invisible_mode_off_desc': 'Disable your presence completely — no one can see you active.',
 
   // â”€â”€ Verification Center â”€â”€
   'choose_id_document': 'Choose identity document',

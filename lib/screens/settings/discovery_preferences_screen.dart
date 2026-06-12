@@ -38,8 +38,7 @@ class DiscoveryPreferencesScreen extends StatelessWidget {
 
     return SettingsSimplePageScaffold(
       title: 'discovery_preferences'.tr,
-      subtitle:
-          'Control how local your matches stay and which profiles you see.',
+      subtitle: 'discovery_preferences_subtitle'.tr,
       footer: Obx(() {
         final isApplying = controller.isApplyingFilters.value;
 

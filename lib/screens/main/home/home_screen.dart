@@ -1779,6 +1779,9 @@ class _HomeProfileCard extends StatelessWidget {
   String? _humanizeNullable(String? value) {
     final trimmed = value?.trim();
     if (trimmed == null || trimmed.isEmpty) return null;
+    // Try translation first for snake_case API values like "never_married"
+    final translated = trimmed.tr;
+    if (translated != trimmed) return translated;
     return trimmed
         .replaceAll('_', ' ')
         .replaceAll('-', ' ')
@@ -2269,7 +2272,11 @@ class _ComplimentComposerSheetState extends State<_ComplimentComposerSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final imageUrl = CloudinaryUrl.medium(widget.user.mainPhotoUrl);
 
-    return Column(
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: bottomInset + 8),
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2442,6 +2449,7 @@ class _ComplimentComposerSheetState extends State<_ComplimentComposerSheet> {
           ],
         ),
       ],
+    ),
     );
   }
 }

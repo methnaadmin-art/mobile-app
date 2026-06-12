@@ -235,33 +235,22 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   int _positiveSignalCount = 0;
   int _negativeSignalCount = 0;
   int _swipeButtonCueVersion = 0;
+  int _swipeCount = 0;
+  final RxBool showAdOverlay = false.obs;
 
-  /// Returns the correct user list index for a given card position,
-  /// accounting for ad cards interleaved at ad positions.
-  int userIndexForCardPosition(int cardIndex) {
-    int adCount = 0;
-    for (int i = 0; i <= cardIndex; i++) {
-      if (isAdSlot(i)) adCount++;
+  /// Call after each user swipe. Returns true if an ad should be shown.
+  bool incrementSwipeCount() {
+    _swipeCount++;
+    // Show ad after 1st swipe, then every 4 swipes
+    final shouldShow = _swipeCount == 1 || (_swipeCount - 1) % 4 == 0;
+    if (shouldShow) {
+      showAdOverlay.value = true;
     }
-    return cardIndex - adCount;
+    return shouldShow;
   }
 
-  /// Whether the card at [cardIndex] should show an ad instead of a user.
-  bool isAdSlot(int cardIndex) {
-    // Ad at position 1 (after first user interaction), then every 4 cards
-    if (cardIndex < 1) return false;
-    if (cardIndex == 1) return true;
-    // General pattern: ad slots at 1, 5, 9, 13...
-    return (cardIndex - 1) % 4 == 0;
-  }
-
-  /// Total number of ad slots up to a given card count.
-  int adSlotCount(int cardIndex) {
-    int count = 0;
-    for (int i = 0; i <= cardIndex; i++) {
-      if (isAdSlot(i)) count++;
-    }
-    return count;
+  void dismissAdOverlay() {
+    showAdOverlay.value = false;
   }
 
   void triggerSwipeButtonCue(String action) {

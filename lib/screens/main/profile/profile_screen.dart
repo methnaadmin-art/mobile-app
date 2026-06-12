@@ -385,7 +385,7 @@ class ProfileShowcaseContent extends StatelessWidget {
         _field(
           'religious_level'.tr,
           profile?.religiousLevel,
-          LucideIcons.sparkles,
+          LucideIcons.moonStar,
         ),
         _field('prayer'.tr, profile?.prayerFrequency, LucideIcons.sunrise),
         _field('hijab'.tr, profile?.hijabStatus, LucideIcons.shirt),

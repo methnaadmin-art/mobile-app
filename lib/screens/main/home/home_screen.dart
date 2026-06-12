@@ -22,6 +22,7 @@ import 'package:methna_app/core/widgets/animated_empty_state.dart';
 import 'package:methna_app/core/widgets/app_modal_sheet.dart';
 import 'package:methna_app/core/widgets/custom_button.dart';
 import 'package:methna_app/core/widgets/ad_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class _DiscoverCardPhoto {
   const _DiscoverCardPhoto({
@@ -181,28 +182,11 @@ class HomeScreen extends GetView<HomeController> {
                               verticalOffsetPercentage,
                             ) {
                               if (controller.isAdSlot(index)) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 48,
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(28),
-                                    child: AdCard(
-                                      ad: AdCardData.fromJson(
-                                        controller.featuredAd.value ?? {},
-                                      ),
-                                      onTrackClick: () async {
-                                        final adId =
-                                            (controller.featuredAd.value?['id']
-                                                    ?.toString() ?? '')
-                                                .trim();
-                                        if (adId.isNotEmpty) {
-                                          await controller.trackAdClick(adId);
-                                        }
-                                      },
-                                    ),
-                                  ),
+                                return _AdSwipeCard(
+                                  controller: controller,
+                                  onSwiperSwipe: (direction) =>
+                                      controller.swiperController
+                                          .swipe(direction),
                                 );
                               }
                               final userIndex =
@@ -1928,6 +1912,247 @@ class _HomeProfileCard extends StatelessWidget {
           duration: const Duration(milliseconds: 240),
         ) ??
         Future<void>.value();
+  }
+}
+
+class _AdSwipeCard extends StatelessWidget {
+  const _AdSwipeCard({
+    required this.controller,
+    required this.onSwiperSwipe,
+  });
+
+  final HomeController controller;
+  final void Function(CardSwiperDirection direction) onSwiperSwipe;
+
+  @override
+  Widget build(BuildContext context) {
+    final ad = controller.featuredAd.value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final adData = ad != null ? AdCardData.fromJson(ad) : null;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 48),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Background image
+            if (adData != null && adData.imageUrl != null && adData.imageUrl!.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: CloudinaryUrl.large(adData.imageUrl),
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: isDark ? const Color(0xFF1E1B2A) : const Color(0xFFF4F0FF),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: isDark ? const Color(0xFF1E1B2A) : const Color(0xFFF4F0FF),
+                ),
+              )
+            else
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.6),
+                      isDark ? const Color(0xFF1E1B2A) : const Color(0xFFF4F0FF),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Gradient overlay (same as user card)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.7),
+                    Colors.black.withValues(alpha: 0.9),
+                  ],
+                  stops: const [0.0, 0.4, 0.7, 1.0],
+                ),
+              ),
+            ),
+
+            // "Sponsored" badge
+            Positioned(
+              top: 20,
+              left: 20,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                ),
+                child: Text(
+                  'Sponsored',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+
+            // Content bottom
+            Positioned(
+              left: 20,
+              right: 20,
+              bottom: 100,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    adData?.title ?? 'Sponsored',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (adData?.description != null && adData!.description!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      adData.description!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // Approve / Reject buttons (like user card)
+            Positioned(
+              left: 32,
+              right: 32,
+              bottom: 24,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _AdActionButton(
+                      icon: LucideIcons.x,
+                      label: 'Reject',
+                      color: const Color(0xFFFF4D4F),
+                      onTap: () {
+                        final adId = (ad?['id'] ?? '').toString().trim();
+                        if (adId.isNotEmpty) controller.trackAdClick(adId);
+                        onSwiperSwipe(CardSwiperDirection.left);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 40),
+                  Expanded(
+                    child: _AdActionButton(
+                      icon: LucideIcons.arrowUpRight,
+                      label: 'Visit',
+                      color: AppColors.primary,
+                      onTap: () {
+                        final link = adData?.link?.trim() ?? '';
+                        if (link.isNotEmpty) {
+                          final adId = (ad?['id'] ?? '').toString().trim();
+                          if (adId.isNotEmpty) controller.trackAdClick(adId);
+                          final uri = Uri.tryParse(link);
+                          if (uri != null) {
+                            launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        }
+                        onSwiperSwipe(CardSwiperDirection.right);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AdActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, size: 24, color: color),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

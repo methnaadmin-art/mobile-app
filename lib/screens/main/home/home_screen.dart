@@ -84,8 +84,6 @@ class HomeScreen extends GetView<HomeController> {
             final hasCards = controller.discoverUsers.isNotEmpty;
             final showLocationGate = controller.showLocationGate.value;
             final showSwipeTutorial = controller.showSwipeTutorial.value;
-            final featuredAd = controller.featuredAd.value;
-
             return Stack(
               children: [
                 Positioned.fill(
@@ -100,25 +98,22 @@ class HomeScreen extends GetView<HomeController> {
                         );
                       }
 
-                      // Build card list with ads interleaved every 4 users
-                      final totalDeckSize = controller.discoverUsers.length +
-                          controller.adSlotCount(
-                            controller.discoverUsers.length - 1,
-                          );
-
                       final topCardId = controller.discoverUsers.isEmpty
                           ? 'empty'
                           : controller.discoverUsers.first.id;
 
-                      return CardSwiper(
+                      return Stack(
+                        children: [
+                          CardSwiper(
                         key: ValueKey<String>(
-                          'discover_${topCardId}_$totalDeckSize',
+                          'discover_${topCardId}_${controller.discoverUsers.length}',
                         ),
                         controller: controller.swiperController,
-                        cardsCount: totalDeckSize,
-                        numberOfCardsDisplayed: totalDeckSize > 1 ? 2 : 1,
+                        cardsCount: controller.discoverUsers.length,
+                        numberOfCardsDisplayed:
+                            controller.discoverUsers.length > 1 ? 2 : 1,
                         padding: EdgeInsets.zero,
-                        backCardOffset: totalDeckSize > 1
+                        backCardOffset: controller.discoverUsers.length > 1
                             ? const Offset(0, 28)
                             : Offset.zero,
                         allowedSwipeDirection: const AllowedSwipeDirection.only(
@@ -126,19 +121,12 @@ class HomeScreen extends GetView<HomeController> {
                         ),
                         onSwipe: (previousIndex, currentIndex, direction) {
                           if (previousIndex < 0 ||
-                              previousIndex >= totalDeckSize ||
-                              controller.isAdSlot(previousIndex)) {
+                              previousIndex >=
+                                  controller.discoverUsers.length) {
                             return false;
                           }
 
-                          final userIndex =
-                              controller.userIndexForCardPosition(previousIndex);
-                          if (userIndex < 0 ||
-                              userIndex >= controller.discoverUsers.length) {
-                            return false;
-                          }
-
-                          final user = controller.discoverUsers[userIndex];
+                          final user = controller.discoverUsers[previousIndex];
 
                           if (direction == CardSwiperDirection.top) {
                             HapticFeedback.heavyImpact();
@@ -167,6 +155,7 @@ class HomeScreen extends GetView<HomeController> {
                               break;
                           }
 
+                          controller.incrementSwipeCount();
                           return true;
                         },
                         onUndo: (previousIndex, currentIndex, direction) {
@@ -181,23 +170,7 @@ class HomeScreen extends GetView<HomeController> {
                               horizontalOffsetPercentage,
                               verticalOffsetPercentage,
                             ) {
-                              if (controller.isAdSlot(index)) {
-                                return _AdSwipeCard(
-                                  controller: controller,
-                                  onSwiperSwipe: (direction) =>
-                                      controller.swiperController
-                                          .swipe(direction),
-                                );
-                              }
-                              final userIndex =
-                                  controller.userIndexForCardPosition(index);
-                              if (userIndex < 0 ||
-                                  userIndex >=
-                                      controller.discoverUsers.length) {
-                                return const SizedBox.shrink();
-                              }
-                              final user =
-                                  controller.discoverUsers[userIndex];
+                              final user = controller.discoverUsers[index];
                               return _HomeProfileCard(
                                 user: user,
                                 controller: controller,
@@ -212,6 +185,15 @@ class HomeScreen extends GetView<HomeController> {
                                     verticalOffsetPercentage.toDouble(),
                               );
                             },
+                      ),
+
+                          // Full-screen ad overlay
+                          if (controller.showAdOverlay.value)
+                            _AdOverlayCard(
+                              controller: controller,
+                              featuredAd: controller.featuredAd.value,
+                            ),
+                        ],
                       );
                     },
                   ),
@@ -225,27 +207,6 @@ class HomeScreen extends GetView<HomeController> {
                     transparent: hasCards && !showLocationGate,
                   ),
                 ),
-                if (featuredAd != null &&
-                    featuredAd.isNotEmpty &&
-                    !showLocationGate &&
-                    !showSwipeTutorial)
-                  Positioned(
-                    top: 56,
-                    left: 14,
-                    right: 14,
-                    height: 118,
-                    child: AdCard(
-                      ad: AdCardData.fromJson(featuredAd),
-                      onTrackClick: () async {
-                        final adId = (featuredAd['id'] ?? '')
-                            .toString()
-                            .trim();
-                        if (adId.isNotEmpty) {
-                          await controller.trackAdClick(adId);
-                        }
-                      },
-                    ),
-                  ),
                 if (showLocationGate)
                   Positioned.fill(
                     child: _LocationGateOverlay(
@@ -1915,35 +1876,22 @@ class _HomeProfileCard extends StatelessWidget {
   }
 }
 
-class _AdSwipeCard extends StatelessWidget {
-  const _AdSwipeCard({
-    required this.controller,
-    required this.onSwiperSwipe,
-  });
-
+class _AdOverlayCard extends StatelessWidget {
   final HomeController controller;
-  final void Function(CardSwiperDirection direction) onSwiperSwipe;
+  final Map<String, dynamic>? featuredAd;
+
+  const _AdOverlayCard({
+    required this.controller,
+    required this.featuredAd,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final ad = controller.featuredAd.value;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final adData = ad != null ? AdCardData.fromJson(ad) : null;
+    final adData = featuredAd != null ? AdCardData.fromJson(featuredAd!) : null;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 48),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+    return Positioned.fill(
+      child: Material(
+        color: Colors.black,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -1952,50 +1900,51 @@ class _AdSwipeCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: CloudinaryUrl.large(adData.imageUrl),
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: isDark ? const Color(0xFF1E1B2A) : const Color(0xFFF4F0FF),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: isDark ? const Color(0xFF1E1B2A) : const Color(0xFFF4F0FF),
-                ),
-              )
-            else
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.6),
-                      isDark ? const Color(0xFF1E1B2A) : const Color(0xFFF4F0FF),
-                    ],
-                  ),
-                ),
+                placeholder: (context, url) => const SizedBox(),
+                errorWidget: (context, url, error) => const SizedBox(),
               ),
 
-            // Gradient overlay (same as user card)
+            // Gradient overlay
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.transparent,
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.7),
-                    Colors.black.withValues(alpha: 0.9),
+                    Colors.black.withValues(alpha: 0.3),
+                    Colors.black.withValues(alpha: 0.1),
+                    Colors.black.withValues(alpha: 0.6),
+                    Colors.black.withValues(alpha: 0.92),
                   ],
-                  stops: const [0.0, 0.4, 0.7, 1.0],
+                  stops: const [0.0, 0.3, 0.65, 1.0],
                 ),
               ),
             ),
 
-            // "Sponsored" badge
+            // Close (dismiss) button top-right
             Positioned(
-              top: 20,
-              left: 20,
+              top: 50,
+              right: 16,
+              child: GestureDetector(
+                onTap: () => controller.dismissAdOverlay(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(LucideIcons.x, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+
+            // "Sponsored" badge top-left
+            Positioned(
+              top: 50,
+              left: 16,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
@@ -2005,152 +1954,127 @@ class _AdSwipeCard extends StatelessWidget {
                   'Sponsored',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
                   ),
                 ),
               ),
             ),
 
-            // Content bottom
+            // Content
             Positioned(
-              left: 20,
-              right: 20,
-              bottom: 100,
+              left: 24,
+              right: 24,
+              bottom: 40,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     adData?.title ?? 'Sponsored',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 24,
+                      fontSize: 28,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (adData?.description != null && adData!.description!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     Text(
                       adData.description!,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontSize: 15,
                         fontWeight: FontWeight.w400,
+                        height: 1.4,
                       ),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ],
-              ),
-            ),
-
-            // Approve / Reject buttons (like user card)
-            Positioned(
-              left: 32,
-              right: 32,
-              bottom: 24,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _AdActionButton(
-                      icon: LucideIcons.x,
-                      label: 'Reject',
-                      color: const Color(0xFFFF4D4F),
-                      onTap: () {
-                        final adId = (ad?['id'] ?? '').toString().trim();
-                        if (adId.isNotEmpty) controller.trackAdClick(adId);
-                        onSwiperSwipe(CardSwiperDirection.left);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 40),
-                  Expanded(
-                    child: _AdActionButton(
-                      icon: LucideIcons.arrowUpRight,
-                      label: 'Visit',
-                      color: AppColors.primary,
-                      onTap: () {
-                        final link = adData?.link?.trim() ?? '';
-                        if (link.isNotEmpty) {
-                          final adId = (ad?['id'] ?? '').toString().trim();
-                          if (adId.isNotEmpty) controller.trackAdClick(adId);
-                          final uri = Uri.tryParse(link);
-                          if (uri != null) {
-                            launchUrl(uri, mode: LaunchMode.externalApplication);
-                          }
-                        }
-                        onSwiperSwipe(CardSwiperDirection.right);
-                      },
-                    ),
+                  const SizedBox(height: 28),
+                  // Two buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: GestureDetector(
+                          onTap: () => controller.dismissAdOverlay(),
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(25),
+                              color: Colors.white.withValues(alpha: 0.12),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Dismiss',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: GestureDetector(
+                          onTap: () {
+                            final link = adData?.link?.trim() ?? '';
+                            final adId = (featuredAd?['id'] ?? '').toString().trim();
+                            if (adId.isNotEmpty) {
+                              controller.trackAdClick(adId);
+                            }
+                            if (link.isNotEmpty) {
+                              final uri = Uri.tryParse(link);
+                              if (uri != null) {
+                                launchUrl(uri, mode: LaunchMode.externalApplication);
+                              }
+                            }
+                            controller.dismissAdOverlay();
+                          },
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(25),
+                              gradient: LinearGradient(
+                                colors: [AppColors.primary, AppColors.primaryLight],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withValues(alpha: 0.35),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                adData?.buttonText ?? 'Visit',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _AdActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _AdActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Icon(icon, size: 24, color: color),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

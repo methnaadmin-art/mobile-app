@@ -8,7 +8,6 @@ import 'package:methna_app/app/theme/app_radii.dart';
 import 'package:methna_app/app/theme/app_text_styles.dart';
 import 'package:methna_app/core/constants/app_constants.dart';
 import 'package:methna_app/core/widgets/chat_flow.dart';
-import 'package:methna_app/core/widgets/login_security_avatar.dart';
 
 class OnboardingAuthPhonePreview extends StatelessWidget {
   const OnboardingAuthPhonePreview({super.key});
@@ -109,19 +108,7 @@ class OnboardingAuthPhonePreview extends StatelessWidget {
                     color: AppColors.textSecondaryLight,
                   ),
                 ),
-                const SizedBox(height: 10),
-                LoginSecurityAvatar(
-                  isPasswordFocused: true,
-                  isPasswordVisible: false,
-                  hasPasswordText: true,
-                  isIdentifierFocused: false,
-                  size: 64,
-                  accent: AppColors.primary,
-                  accentLight: AppColors.primaryLight,
-                  faceColor: const Color(0xFFFFF5F7),
-                  strokeColor: border,
-                ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 // Google Sign-in button
                 Container(
                   height: 32,

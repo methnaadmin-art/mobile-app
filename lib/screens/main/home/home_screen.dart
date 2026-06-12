@@ -99,20 +99,25 @@ class HomeScreen extends GetView<HomeController> {
                         );
                       }
 
+                      // Build card list with ads interleaved every 4 users
+                      final totalDeckSize = controller.discoverUsers.length +
+                          controller.adSlotCount(
+                            controller.discoverUsers.length - 1,
+                          );
+
                       final topCardId = controller.discoverUsers.isEmpty
                           ? 'empty'
                           : controller.discoverUsers.first.id;
 
                       return CardSwiper(
                         key: ValueKey<String>(
-                          'discover_${topCardId}_${controller.discoverUsers.length}',
+                          'discover_${topCardId}_$totalDeckSize',
                         ),
                         controller: controller.swiperController,
-                        cardsCount: controller.discoverUsers.length,
-                        numberOfCardsDisplayed:
-                            controller.discoverUsers.length > 1 ? 2 : 1,
+                        cardsCount: totalDeckSize,
+                        numberOfCardsDisplayed: totalDeckSize > 1 ? 2 : 1,
                         padding: EdgeInsets.zero,
-                        backCardOffset: controller.discoverUsers.length > 1
+                        backCardOffset: totalDeckSize > 1
                             ? const Offset(0, 28)
                             : Offset.zero,
                         allowedSwipeDirection: const AllowedSwipeDirection.only(
@@ -120,12 +125,19 @@ class HomeScreen extends GetView<HomeController> {
                         ),
                         onSwipe: (previousIndex, currentIndex, direction) {
                           if (previousIndex < 0 ||
-                              previousIndex >=
-                                  controller.discoverUsers.length) {
+                              previousIndex >= totalDeckSize ||
+                              controller.isAdSlot(previousIndex)) {
                             return false;
                           }
 
-                          final user = controller.discoverUsers[previousIndex];
+                          final userIndex =
+                              controller.userIndexForCardPosition(previousIndex);
+                          if (userIndex < 0 ||
+                              userIndex >= controller.discoverUsers.length) {
+                            return false;
+                          }
+
+                          final user = controller.discoverUsers[userIndex];
 
                           if (direction == CardSwiperDirection.top) {
                             HapticFeedback.heavyImpact();
@@ -168,7 +180,40 @@ class HomeScreen extends GetView<HomeController> {
                               horizontalOffsetPercentage,
                               verticalOffsetPercentage,
                             ) {
-                              final user = controller.discoverUsers[index];
+                              if (controller.isAdSlot(index)) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 48,
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(28),
+                                    child: AdCard(
+                                      ad: AdCardData.fromJson(
+                                        controller.featuredAd.value ?? {},
+                                      ),
+                                      onTrackClick: () async {
+                                        final adId =
+                                            (controller.featuredAd.value?['id']
+                                                    ?.toString() ?? '')
+                                                .trim();
+                                        if (adId.isNotEmpty) {
+                                          await controller.trackAdClick(adId);
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }
+                              final userIndex =
+                                  controller.userIndexForCardPosition(index);
+                              if (userIndex < 0 ||
+                                  userIndex >=
+                                      controller.discoverUsers.length) {
+                                return const SizedBox.shrink();
+                              }
+                              final user =
+                                  controller.discoverUsers[userIndex];
                               return _HomeProfileCard(
                                 user: user,
                                 controller: controller,
@@ -1019,7 +1064,7 @@ class _HomeProfileCard extends StatelessWidget {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.center,
                                         children: [
-                                          Expanded(
+                                          Flexible(
                                             child: RichText(
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,

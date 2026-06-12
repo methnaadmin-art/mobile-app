@@ -326,9 +326,17 @@ class FilterScreen extends GetView<HomeController> {
   Future<void> _showCountryPicker(BuildContext context) async {
     showCountryPicker(
       context: context,
-      showPhoneCode: true,
+      showPhoneCode: false,
       countryListTheme: CountryListThemeData(
         borderRadius: BorderRadius.circular(AppRadii.lg),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        inputDecoration: InputDecoration(
+          hintText: 'search_country'.tr,
+          prefixIcon: const Icon(LucideIcons.search),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppRadii.lg),
+          ),
+        ),
       ),
       onSelect: (Country country) {
         controller.setCountryFilter(

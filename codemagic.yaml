@@ -160,7 +160,7 @@ workflows:
   android-release:
     name: Android Release (Play Store AAB)
     max_build_duration: 90
-    instance_type: linux_x2
+    instance_type: linux
 
     environment:
       groups:

@@ -153,7 +153,7 @@ class PermissionService extends GetxService with WidgetsBindingObserver {
       return false;
     }
 
-    // 4. Show rationale before requesting (for better UX)
+    // 4. Show rationale before requesting.
     if (status.isDenied) {
       final proceed = await _showRationaleDialog(title, reason, icon);
       if (!proceed) return false;
@@ -215,34 +215,18 @@ class PermissionService extends GetxService with WidgetsBindingObserver {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Get.back(result: false),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.grey,
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Not Now', style: TextStyle(fontWeight: FontWeight.w600)),
-                    ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Get.back(result: true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Get.back(result: true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Allow', style: TextStyle(fontWeight: FontWeight.w700)),
-                    ),
-                  ),
-                ],
+                  child: const Text('Continue', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
               ),
             ],
           ),

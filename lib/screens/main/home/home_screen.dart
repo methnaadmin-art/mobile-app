@@ -211,7 +211,6 @@ class HomeScreen extends GetView<HomeController> {
                   Positioned.fill(
                     child: _LocationGateOverlay(
                       onEnable: controller.enableLocationFromGate,
-                      onLater: controller.dismissLocationGate,
                     ),
                   ),
                 if (showSwipeTutorial)
@@ -3646,10 +3645,9 @@ class _BoostInfoScreenState extends State<_BoostInfoScreen> {
 }
 
 class _LocationGateOverlay extends StatelessWidget {
-  const _LocationGateOverlay({required this.onEnable, required this.onLater});
+  const _LocationGateOverlay({required this.onEnable});
 
   final Future<void> Function() onEnable;
-  final VoidCallback onLater;
 
   @override
   Widget build(BuildContext context) {
@@ -3682,7 +3680,7 @@ class _LocationGateOverlay extends StatelessWidget {
               ),
               const SizedBox(height: 26),
               Text(
-                'enable_location'.tr,
+                'location'.tr,
                 style: GoogleFonts.poppins(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
@@ -3706,24 +3704,8 @@ class _LocationGateOverlay extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: CustomButton(
-                  text: 'enable_location'.tr,
+                  text: 'continue'.tr,
                   onPressed: () => onEnable(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: TextButton(
-                  onPressed: onLater,
-                  child: Text(
-                    'not_now'.tr,
-                    style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.86)
-                          : const Color(0xFF6A6377),
-                    ),
-                  ),
                 ),
               ),
             ],

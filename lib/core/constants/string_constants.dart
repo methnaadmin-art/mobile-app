@@ -64,7 +64,7 @@ class StringConstants {
   static const String selfieVerification = 'Selfie Verification';
   static const String selfieSubtitle = 'Take a selfie to verify you are the person in your photos';
   static const String enableLocation = 'Enable Location';
-  static const String locationSubtitle = 'Allow location access so Methna can show local marriage introductions.';
+  static const String locationSubtitle = 'Methna uses your location to show local marriage introductions.';
   static const String next = 'Next';
   static const String skip = 'Skip';
   static const String getStarted = 'Get Started';

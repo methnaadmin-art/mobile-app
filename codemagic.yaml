@@ -53,10 +53,10 @@ workflows:
         BUNDLE_ID: "com.methnapp.app"
         XCODE_WORKSPACE: "Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
-        IOS_BUILD_NUMBER: "56"
+        IOS_BUILD_NUMBER: "58"
         # Replace with the numeric Apple ID from App Store Connect after the
         # first manual upload. Used to auto-increment the build number.
-        APP_STORE_APPLE_ID: 6774157582
+        APP_STORE_APPLE_ID: 0000000000
       flutter: *flutter_version
       xcode: *xcode_version
       cocoapods: *cocoapods_version
@@ -73,10 +73,20 @@ workflows:
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-          MIN_IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-56}"
+          MIN_IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-36}"
           if [ "$APP_STORE_APPLE_ID" != "0000000000" ]; then
-            LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" || echo 0)
-            echo "Latest App Store build number: $LATEST_BUILD_NUMBER"
+            # get-latest-app-store-build-number only sees builds attached to
+            # an App Store version. A build still processing in TestFlight
+            # (like the one that caused this collision) won't show up there
+            # yet, so also check TestFlight and take the higher of the two.
+            LATEST_APP_STORE_BUILD=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" || echo 0)
+            LATEST_TESTFLIGHT_BUILD=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+            echo "Latest App Store build number: $LATEST_APP_STORE_BUILD"
+            echo "Latest TestFlight build number: $LATEST_TESTFLIGHT_BUILD"
+            LATEST_BUILD_NUMBER=$LATEST_APP_STORE_BUILD
+            if [ "$LATEST_TESTFLIGHT_BUILD" -gt "$LATEST_BUILD_NUMBER" ]; then
+              LATEST_BUILD_NUMBER=$LATEST_TESTFLIGHT_BUILD
+            fi
             NEW_BUILD_NUMBER=$(($LATEST_BUILD_NUMBER + 1))
           else
             NEW_BUILD_NUMBER=$MIN_IOS_BUILD_NUMBER
@@ -160,7 +170,7 @@ workflows:
   android-release:
     name: Android Release (Play Store AAB)
     max_build_duration: 90
-    instance_type: linux
+    instance_type: linux_x2
 
     environment:
       groups:

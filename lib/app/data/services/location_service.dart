@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -119,56 +121,89 @@ class LocationService extends GetxService {
     }
   }
 
-  /// Request location WITH full user feedback — shows dialogs on every
-  /// possible failure case. Returns the Position or null.
-  Future<Position?> requestLocationWithFeedback() async {
+  /// Request location with a single native OS permission prompt at most.
+  /// Never shows a blocking dialog and never re-prompts on its own — the
+  /// caller must always be able to proceed with `locationEnabled = false`
+  /// when this returns null. Location is optional everywhere in the app
+  /// (Apple 5.1.5); this is the only entry point that should run during
+  /// signup or any automatic/startup flow.
+  Future<Position?> requestLocationSilently() async {
+    if (isFetching.value) return currentPosition.value;
     isFetching.value = true;
     try {
-      // Step 1: Check if device GPS is enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        isFetching.value = false;
-        final shouldOpen = await _showDialog(
-          title: 'Location Services Disabled',
-          message: 'Please enable GPS/Location Services in your device settings to continue.',
-          confirmText: 'Open Settings',
-        );
-        if (shouldOpen == true) {
-          await Geolocator.openLocationSettings();
-        }
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return null;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        // Single native OS prompt. iOS never re-prompts after this, so a
+        // second "denied" result here is equivalent to deniedForever.
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         return null;
       }
 
-      // Step 2: Check/request permission
-      LocationPermission permission = await Geolocator.checkPermission();
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('GPS timeout'),
+      );
+      currentPosition.value = position;
+      await _reverseGeocode(position);
+      return position;
+    } catch (e) {
+      debugPrint('[LocationService] requestLocationSilently error: $e');
+      return null;
+    } finally {
+      isFetching.value = false;
+    }
+  }
 
+  /// Request location from a screen the user explicitly and voluntarily
+  /// tapped for a location-specific feature (e.g. the Home "enable
+  /// location" banner, Settings > Location, Passport). Only in that
+  /// context may we surface a non-blocking notice that optionally offers
+  /// to open Settings — the notice is a dismissible snackbar, never a
+  /// modal dialog, and it never prevents the caller from continuing.
+  Future<Position?> requestLocationWithFeedback() async {
+    if (isFetching.value) return currentPosition.value;
+    isFetching.value = true;
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showOptionalSettingsNotice(
+          message:
+              'Location Services are off. You can turn them on in Settings to see nearby matches.',
+          onOpenSettings: Geolocator.openLocationSettings,
+        );
+        return null;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
 
       if (permission == LocationPermission.denied) {
-        isFetching.value = false;
-        Helpers.showSnackbar(
-          message: 'Location permission denied. Please allow access to continue.',
-          isError: true,
+        _showOptionalSettingsNotice(
+          message: 'Location permission was not granted.',
+          onOpenSettings: Geolocator.openAppSettings,
         );
         return null;
       }
 
       if (permission == LocationPermission.deniedForever) {
-        isFetching.value = false;
-        final shouldOpen = await _showDialog(
-          title: 'Permission Permanently Denied',
-          message: 'Location access was permanently denied. Please enable it in your app settings.',
-          confirmText: 'Open App Settings',
+        _showOptionalSettingsNotice(
+          message:
+              'Location access is off. You can enable it anytime in Settings to see nearby matches.',
+          onOpenSettings: Geolocator.openAppSettings,
         );
-        if (shouldOpen == true) {
-          await Geolocator.openAppSettings();
-        }
         return null;
       }
 
-      // Step 3: Fetch GPS position
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       ).timeout(
@@ -183,7 +218,7 @@ class LocationService extends GetxService {
       return position;
     } catch (e) {
       Helpers.showSnackbar(
-        message: 'Failed to get location. Please try again.',
+        message: 'Could not get your location right now.',
         isError: true,
       );
       return null;
@@ -192,25 +227,27 @@ class LocationService extends GetxService {
     }
   }
 
-  Future<bool?> _showDialog({
-    required String title,
+  /// Non-blocking, auto-dismissing notice with an optional "Settings"
+  /// action. Never modal, never awaited, never repeated automatically.
+  void _showOptionalSettingsNotice({
     required String message,
-    required String confirmText,
+    required Future<bool> Function() onOpenSettings,
   }) {
-    return Get.dialog<bool>(
-      AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Get.back(result: true),
-            child: Text(confirmText),
-          ),
-        ],
+    if (Get.context == null) return;
+    Get.snackbar(
+      'location'.tr,
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      margin: const EdgeInsets.all(16),
+      borderRadius: 12,
+      duration: const Duration(seconds: 4),
+      isDismissible: true,
+      mainButton: TextButton(
+        onPressed: () {
+          Get.closeCurrentSnackbar();
+          unawaited(onOpenSettings());
+        },
+        child: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }

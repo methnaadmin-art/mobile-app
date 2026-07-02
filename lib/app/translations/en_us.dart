@@ -154,7 +154,8 @@ const Map<String, String> enUS = {
       'Take a selfie to verify you are the person in your photos',
   'enable_location': 'Enable Location',
   'location_subtitle':
-      'Methna uses your location to show local marriage introductions.',
+      'Allow location access so Methna can show local marriage introductions.',
+  'location_banner_message': 'Enable location to see nearby matches.',
   'birthday_title': "Let's celebrate you \u{1F382}",
   'birthday_desc':
       'Tell us your birthdate. Your profile does not display your birthdate, only your age.',
@@ -183,7 +184,7 @@ const Map<String, String> enUS = {
   'selfie_upload_failed': 'Selfie upload failed. You can retry from settings.',
   'welcome_to_methna': 'Welcome to Methna!',
   'permission_denied': 'Permission Denied',
-  'permission_photos_desc': 'Photo access is needed to upload images',
+  'permission_photos_desc': 'Please allow photo access to upload images',
   'access_image_failed': 'Could not access the selected image',
   'pick_image_failed': 'Failed to pick image: @error',
   // Selfie Cam Status
@@ -1747,6 +1748,8 @@ const Map<String, String> enUS = {
   'select_city_validation': 'Please select your city before continuing.',
   'location_required_to_finish_signup':
       'Location access is required to finish signup.',
+  'location_optional_notice':
+      'You can enable location later to see nearby matches.',
   'profile_engagement': 'Profile Engagement',
   'likes_sent': 'Interest Sent',
   'likes_received': 'Interest Received',

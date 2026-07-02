@@ -85,6 +85,8 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   static const String _discoverHasMoreStorageKey = 'discover_has_more_v1';
   static const String _countryFilterUserSetKey = 'filter_country_user_set';
   static const String _distanceFilterUserSetKey = 'filter_distance_user_set';
+  static const String _locationBannerDismissedKey =
+      'location_banner_dismissed';
   static const List<String> _timeFrameValues = <String>[
     '',
     'within_months',
@@ -222,6 +224,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   String? _lastViewerVerificationUserId;
   bool? _lastViewerSelfieVerified;
   String? _lastPassportDiscoverySignature;
+  bool _locationBannerDismissed = false;
 
   // Behavior-based recommendation signals (client-side learning)
   static const String _behaviorSignalsStorageKey =
@@ -303,6 +306,8 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     super.onInit();
     debugPrint('[Home] onInit');
     WidgetsBinding.instance.addObserver(this);
+    _locationBannerDismissed =
+        _storage.getBool(_locationBannerDismissedKey) ?? false;
     _seenUserIds.addAll(_storage.getSeenDiscoverUserIds());
     _restorePersistedDiscoverDeckMeta();
     _loadCachedUsersInstantly();
@@ -529,6 +534,12 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     await _bootstrapHomeData();
   }
 
+  // Location is optional everywhere (Apple 5.1.5): the discover feed, and
+  // every other core screen, must load and stay usable whether or not
+  // `ready` is true. A missing/denied permission only ever surfaces as the
+  // small dismissible `showLocationGate` banner below — it never blocks
+  // startup, never blocks fetching, and is never forced back onto screen
+  // once the user has dismissed it.
   Future<void> _handleStartupEntryFlow() async {
     final pendingSwipeTutorial = _consumePendingSwipeTutorialFlag();
     if (pendingSwipeTutorial) {
@@ -544,18 +555,9 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     final ready = await _location.isLocationReady();
     locationGranted.value = ready;
     await _storage.saveBool('location_permission_granted', ready);
-
-    if (!ready) {
-      showLocationGate.value = true;
-      showStartupRadar.value = false;
-      if (discoverUsers.isEmpty && !isLoading.value) {
-        unawaited(fetchDiscoverUsers());
-      }
-      return;
-    }
+    showLocationGate.value = !ready && !_locationBannerDismissed;
 
     if (_startupRadarShownThisLaunch) {
-      showLocationGate.value = false;
       showStartupRadar.value = false;
       if (discoverUsers.isEmpty && !isLoading.value) {
         unawaited(fetchDiscoverUsers());
@@ -570,7 +572,6 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _startStartupRadarFlow() async {
     _startupRadarShownThisLaunch = true;
-    showLocationGate.value = false;
     showStartupRadar.value = false;
     _startupRadarDismissScheduled = false;
     _startupRadarStartedAt = null;
@@ -586,17 +587,20 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  // Explicit, voluntary tap on the banner's "Enable" button — the one
+  // context where LocationService may surface its own non-blocking
+  // "open Settings" snackbar. Denial here never re-shows a gate; the
+  // dismissible banner simply remains as-is.
   Future<void> enableLocationFromGate() async {
-    showLocationGate.value = false;
     final position = await _location.requestLocationWithFeedback();
     if (position == null) {
       locationGranted.value = false;
       await _storage.saveBool('location_permission_granted', false);
-      showLocationGate.value = true;
       return;
     }
 
     locationGranted.value = true;
+    showLocationGate.value = false;
     await _storage.saveBool('location_permission_granted', true);
     if (_startupRadarShownThisLaunch) {
       if (discoverUsers.isEmpty && !isLoading.value) {
@@ -609,27 +613,18 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
   void dismissLocationGate() {
     showLocationGate.value = false;
+    _locationBannerDismissed = true;
+    unawaited(_storage.saveBool(_locationBannerDismissedKey, true));
   }
 
+  // Runs on every app resume. Silent read-only check (no OS prompt, no
+  // dialog) — only ever updates state, never forces a tab switch and
+  // never re-shows the banner once the user dismissed it.
   Future<void> _recheckLocationAvailabilityOnResume() async {
     final ready = await _location.isLocationReady();
     locationGranted.value = ready;
     await _storage.saveBool('location_permission_granted', ready);
-
-    if (!ready) {
-      showStartupRadar.value = false;
-      if (Get.currentRoute == AppRoutes.main &&
-          Get.isRegistered<NavigationController>()) {
-        final navigation = Get.find<NavigationController>();
-        if (navigation.currentIndex.value != 0) {
-          navigation.goToHome();
-        }
-      }
-      showLocationGate.value = true;
-      return;
-    }
-
-    showLocationGate.value = false;
+    showLocationGate.value = !ready && !_locationBannerDismissed;
 
     if (discoverUsers.isEmpty && !isLoading.value) {
       await fetchDiscoverUsers(forceRefresh: true);

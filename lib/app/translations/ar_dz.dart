@@ -138,6 +138,7 @@ const Map<String, String> arDZ = {
   'selfie_subtitle': 'التقط صورة سيلفي للتحقق من أنك صاحب الصور',
   'enable_location': 'تفعيل الموقع',
   'location_subtitle': 'اسمح بالوصول إلى موقعك لاكتشاف أشخاص بالقرب منك',
+  'location_banner_message': 'فعّل الموقع لرؤية المطابقات القريبة منك.',
   'birthday_title': 'لنحتفل بك 🎂',
   'birthday_desc':
       'أخبرنا بتاريخ ميلادك. لن يظهر تاريخ ميلادك في ملفك الشخصي، فقط عمرك.',
@@ -1673,6 +1674,7 @@ const Map<String, String> arDZ = {
   'reason_to_use_methna_hint': 'اذكر نيتك باختصار.',
   'select_city_validation': 'يرجى اختيار مدينتك قبل المتابعة.',
   'location_required_to_finish_signup': 'يجب تفعيل الموقع لإكمال التسجيل.',
+  'location_optional_notice': 'يمكنك تفعيل الموقع لاحقًا لرؤية المطابقات القريبة منك.',
   'agree_terms_prefix': 'أوافق على ',
   'terms_of_service_link': 'شروط الخدمة',
   'and_text': ' و ',

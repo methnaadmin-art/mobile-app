@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:methna_app/app/controllers/signup_controller.dart';
@@ -28,6 +26,9 @@ class _EnableLocationScreenState extends State<EnableLocationScreen> {
     controller.syncStep(AppRoutes.signupLocation);
   }
 
+  // Location is optional (Apple 5.1.5): whatever happens below — granted,
+  // denied, "Don't Allow", Location Services off, timeout — signup always
+  // proceeds into the app. Only `locationEnabled` differs.
   Future<void> _handleEnableLocation() async {
     if (_isProcessing) return;
 
@@ -36,24 +37,14 @@ class _EnableLocationScreenState extends State<EnableLocationScreen> {
 
     try {
       controller.preferredDistanceKm.value = _distanceKm;
-      final position = await locationService.requestLocationWithFeedback();
+      final position = await locationService.requestLocationSilently();
+      controller.locationEnabled.value = position != null;
       if (position == null) {
-        controller.locationEnabled.value = false;
         Helpers.showSnackbar(
-          message: 'location_required_to_finish_signup'.tr,
-          isError: true,
+          message: 'location_optional_notice'.tr,
         );
-        return;
       }
-
-      controller.locationEnabled.value = true;
-      unawaited(controller.completeSignup(fastEnterHome: true));
-    } catch (_) {
-      controller.locationEnabled.value = false;
-      Helpers.showSnackbar(
-        message: 'location_required_to_finish_signup'.tr,
-        isError: true,
-      );
+      await controller.completeSignup(fastEnterHome: true);
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);

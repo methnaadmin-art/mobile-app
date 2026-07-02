@@ -204,13 +204,17 @@ class HomeScreen extends GetView<HomeController> {
                   right: 14,
                   child: _HomeTopBar(
                     notificationService: notificationService,
-                    transparent: hasCards && !showLocationGate,
+                    transparent: hasCards,
                   ),
                 ),
                 if (showLocationGate)
-                  Positioned.fill(
-                    child: _LocationGateOverlay(
+                  Positioned(
+                    top: 64,
+                    left: 14,
+                    right: 14,
+                    child: _LocationGateBanner(
                       onEnable: controller.enableLocationFromGate,
+                      onDismiss: controller.dismissLocationGate,
                     ),
                   ),
                 if (showSwipeTutorial)
@@ -3644,72 +3648,88 @@ class _BoostInfoScreenState extends State<_BoostInfoScreen> {
   }
 }
 
-class _LocationGateOverlay extends StatelessWidget {
-  const _LocationGateOverlay({required this.onEnable});
+// Small, dismissible, non-blocking banner — never covers the discover
+// deck, never reappears after the user dismisses it (Apple 5.1.5: the app
+// must stay fully usable with Location Services off).
+class _LocationGateBanner extends StatelessWidget {
+  const _LocationGateBanner({required this.onEnable, required this.onDismiss});
 
   final Future<void> Function() onEnable;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-    // Keep CTA controls fully above the floating bottom nav.
-    final navClearance = bottomInset > 0 ? bottomInset + 104.0 : 96.0;
 
-    return ColoredBox(
-      color: isDark ? const Color(0xFF111218) : AppColors.smoothBeige,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(22, 72, 22, navClearance),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  LucideIcons.mapPin,
-                  color: AppColors.primary,
-                  size: 32,
-                ),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E2A) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 26),
-              Text(
-                'location'.tr,
-                style: GoogleFonts.poppins(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : const Color(0xFF232129),
-                  letterSpacing: -0.6,
-                ),
+              child: const Icon(
+                LucideIcons.mapPin,
+                color: AppColors.primary,
+                size: 17,
               ),
-              const SizedBox(height: 10),
-              Text(
-                'location_subtitle'.tr,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'location_banner_message'.tr,
                 style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  height: 1.55,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
                   color: isDark
-                      ? Colors.white.withValues(alpha: 0.76)
-                      : const Color(0xFF706A7A),
+                      ? Colors.white.withValues(alpha: 0.86)
+                      : const Color(0xFF3A3444),
                 ),
               ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                child: CustomButton(
-                  text: 'continue'.tr,
-                  onPressed: () => onEnable(),
+            ),
+            const SizedBox(width: 4),
+            TextButton(
+              onPressed: () => onEnable(),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 32),
+              ),
+              child: Text(
+                'enable_location'.tr,
+                style: GoogleFonts.poppins(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
                 ),
               ),
-            ],
-          ),
+            ),
+            IconButton(
+              onPressed: onDismiss,
+              icon: const Icon(LucideIcons.x, size: 16),
+              color: isDark ? Colors.white54 : Colors.black45,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              splashRadius: 16,
+            ),
+          ],
         ),
       ),
     );

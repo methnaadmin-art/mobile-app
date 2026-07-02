@@ -81,8 +81,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           isHome &&
           Get.isRegistered<HomeController>() &&
           (Get.find<HomeController>().showStartupRadar.value ||
-           Get.find<HomeController>().isInitializing.value ||
-           Get.find<HomeController>().showLocationGate.value);
+           Get.find<HomeController>().isInitializing.value);
       final isDark = Theme.of(context).brightness == Brightness.dark;
       final overlayStyle = isDark
           ? SystemUiOverlayStyle.light

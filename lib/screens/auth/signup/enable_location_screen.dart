@@ -61,6 +61,21 @@ class _EnableLocationScreenState extends State<EnableLocationScreen> {
     }
   }
 
+  Future<void> _handleSkipLocation() async {
+    if (_isProcessing) return;
+
+    setState(() => _isProcessing = true);
+    try {
+      controller.preferredDistanceKm.value = _distanceKm;
+      controller.locationEnabled.value = false;
+      await controller.completeSignup(fastEnterHome: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final locationService = Get.find<LocationService>();
@@ -138,6 +153,17 @@ class _EnableLocationScreenState extends State<EnableLocationScreen> {
                 label: 'continue'.tr,
                 onTap: busy ? null : _handleEnableLocation,
                 isLoading: busy,
+              ),
+              TextButton(
+                onPressed: busy ? null : _handleSkipLocation,
+                child: Text(
+                  'skip_for_now'.tr,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? signupMockMutedDark : signupMockMuted,
+                  ),
+                ),
               ),
             ],
           ),

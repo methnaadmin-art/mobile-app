@@ -53,7 +53,7 @@ workflows:
         BUNDLE_ID: "com.methnapp.app"
         XCODE_WORKSPACE: "Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
-        IOS_BUILD_NUMBER: "58"
+        IOS_BUILD_NUMBER: "59"
         # Replace with the numeric Apple ID from App Store Connect after the
         # first manual upload. Used to auto-increment the build number.
         APP_STORE_APPLE_ID: 0000000000
@@ -74,28 +74,50 @@ workflows:
           set -e
           cd "$CM_BUILD_DIR"
           MIN_IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-36}"
+
+          # Git commit count: a monotonic floor that needs no external API
+          # and can never go backwards or return stale/zero data. This is
+          # the actual fix for two builds in a row (57, then 58) colliding
+          # with "previously uploaded version" — both times the number we
+          # ended up with was exactly the static floor, which means the
+          # app-store-connect lookups below were silently failing (falling
+          # through to `|| echo 0`) rather than merely lagging.
+          # Ensure full history: a shallow clone would make the commit
+          # count below return a constant (the clone depth) instead of a
+          # value that grows with every push.
+          git fetch --unshallow >/dev/null 2>&1 || true
+          GIT_BUILD_NUMBER=$(git rev-list --count HEAD)
+          echo "Git commit count: $GIT_BUILD_NUMBER"
+
+          LATEST_BUILD_NUMBER=0
           if [ "$APP_STORE_APPLE_ID" != "0000000000" ]; then
             # get-latest-app-store-build-number only sees builds attached to
-            # an App Store version. A build still processing in TestFlight
-            # (like the one that caused this collision) won't show up there
-            # yet, so also check TestFlight and take the higher of the two.
-            LATEST_APP_STORE_BUILD=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" || echo 0)
-            LATEST_TESTFLIGHT_BUILD=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
-            echo "Latest App Store build number: $LATEST_APP_STORE_BUILD"
-            echo "Latest TestFlight build number: $LATEST_TESTFLIGHT_BUILD"
-            LATEST_BUILD_NUMBER=$LATEST_APP_STORE_BUILD
-            if [ "$LATEST_TESTFLIGHT_BUILD" -gt "$LATEST_BUILD_NUMBER" ]; then
-              LATEST_BUILD_NUMBER=$LATEST_TESTFLIGHT_BUILD
+            # an App Store version; a build still processing in TestFlight
+            # won't show up there yet, so also check TestFlight and take the
+            # higher of the two. Output is sanitized to digits only since a
+            # failed call may print an error string instead of a number.
+            LATEST_APP_STORE_RAW=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" 2>&1 || echo 0)
+            LATEST_TESTFLIGHT_RAW=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>&1 || echo 0)
+            echo "get-latest-app-store-build-number output: $LATEST_APP_STORE_RAW"
+            echo "get-latest-testflight-build-number output: $LATEST_TESTFLIGHT_RAW"
+            LATEST_APP_STORE_BUILD=$(echo "$LATEST_APP_STORE_RAW" | grep -oE '[0-9]+' | tail -1)
+            LATEST_TESTFLIGHT_BUILD=$(echo "$LATEST_TESTFLIGHT_RAW" | grep -oE '[0-9]+' | tail -1)
+            LATEST_BUILD_NUMBER=${LATEST_APP_STORE_BUILD:-0}
+            if [ "${LATEST_TESTFLIGHT_BUILD:-0}" -gt "$LATEST_BUILD_NUMBER" ]; then
+              LATEST_BUILD_NUMBER=${LATEST_TESTFLIGHT_BUILD:-0}
             fi
-            NEW_BUILD_NUMBER=$(($LATEST_BUILD_NUMBER + 1))
+            echo "Latest App Store Connect build number (parsed): $LATEST_BUILD_NUMBER"
           else
-            NEW_BUILD_NUMBER=$MIN_IOS_BUILD_NUMBER
-            echo "APP_STORE_APPLE_ID not set; using IOS_BUILD_NUMBER=$NEW_BUILD_NUMBER"
+            echo "APP_STORE_APPLE_ID not set; skipping App Store Connect lookup"
           fi
-          if [ "$NEW_BUILD_NUMBER" -lt "$MIN_IOS_BUILD_NUMBER" ]; then
-            NEW_BUILD_NUMBER=$MIN_IOS_BUILD_NUMBER
-            echo "Raised build number to minimum iOS build number: $NEW_BUILD_NUMBER"
-          fi
+
+          NEW_BUILD_NUMBER=$(($LATEST_BUILD_NUMBER + 1))
+
+          for candidate in "$GIT_BUILD_NUMBER" "$MIN_IOS_BUILD_NUMBER"; do
+            if [ "$candidate" -gt "$NEW_BUILD_NUMBER" ]; then
+              NEW_BUILD_NUMBER=$candidate
+            fi
+          done
           echo "Using build number: $NEW_BUILD_NUMBER"
           echo "FLUTTER_BUILD_NUMBER=$NEW_BUILD_NUMBER" >> $CM_ENV
 

@@ -39,6 +39,14 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
   bool _isCentered = false;
   bool _isCorrectDistance = false;
 
+  // Safety net: on-device auto-detection can fail to line up (lighting,
+  // camera-orientation edge cases on some devices/OS versions) and leave
+  // the capture button permanently disabled. After a grace period, offer a
+  // manual override so the screen can never get stuck — the backend still
+  // performs the real selfie verification after upload.
+  bool _showManualCaptureOption = false;
+  Timer? _manualCaptureTimer;
+
   bool get _canCapture => _faceDetected && _isCentered && _isCorrectDistance;
 
   @override
@@ -47,6 +55,10 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
     controller.syncStep(AppRoutes.signupSelfie);
     _initializeCamera();
     _initializeFaceDetector();
+    _manualCaptureTimer = Timer(const Duration(seconds: 8), () {
+      if (!mounted || _canCapture) return;
+      setState(() => _showManualCaptureOption = true);
+    });
   }
 
   void _initializeFaceDetector() {
@@ -174,8 +186,10 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
     );
   }
 
-  Future<void> _captureSelfie() async {
-    if (!_faceDetected || !_isCentered || !_isCorrectDistance) return;
+  Future<void> _captureSelfie({bool force = false}) async {
+    if (!force && (!_faceDetected || !_isCentered || !_isCorrectDistance)) {
+      return;
+    }
     if (_isCapturingSelfie) return;
 
     try {
@@ -239,6 +253,7 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
 
   @override
   void dispose() {
+    _manualCaptureTimer?.cancel();
     if (_cameraController?.value.isStreamingImages ?? false) {
       _cameraController?.stopImageStream();
     }
@@ -438,6 +453,23 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
                           ),
                         ),
                       ),
+                      if (_showManualCaptureOption && !_canCapture) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Center(
+                          child: TextButton(
+                            onPressed: _isCapturingSelfie
+                                ? null
+                                : () => _captureSelfie(force: true),
+                            child: Text(
+                              'capture_selfie_anyway'.tr,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: AppSpacing.sm),
                       Center(
                         child: Text(

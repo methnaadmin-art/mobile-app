@@ -886,6 +886,7 @@ const Map<String, String> arDZ = {
       'لن يتم تجديد الاشتراك. ينتهي الوصول عند انتهاء الصلاحية.',
   'capture_failed': 'تعذر التقاط الصورة. يرجى المحاولة مرة أخرى.',
   'capture_selfie': 'التقط سيلفي',
+  'capture_selfie_anyway': 'تواجه مشكلة؟ التقط الصورة على أي حال',
   'categories': 'الفئات',
   'chat_settings': 'إعدادات المحادثة',
   'check_internet_try_again': 'تحقق من اتصال الإنترنت ثم حاول مرة أخرى.',

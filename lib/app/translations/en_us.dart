@@ -744,6 +744,7 @@ const Map<String, String> enUS = {
       'Subscription will not renew. Access ends at expiry.',
   'capture_failed': 'Unable to capture the photo. Please try again.',
   'capture_selfie': 'Capture Selfie',
+  'capture_selfie_anyway': 'Having trouble? Take the photo anyway',
   'categories': 'Categories',
   'chat_settings': 'Chat Settings',
   'check_internet_try_again': 'Check your internet connection and try again.',

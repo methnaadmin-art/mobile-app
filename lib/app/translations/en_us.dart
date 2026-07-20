@@ -152,7 +152,7 @@ const Map<String, String> enUS = {
   'selfie_verification': 'Selfie Verification',
   'selfie_subtitle':
       'Take a selfie to verify you are the person in your photos',
-  'enable_location': 'Enable Location',
+  'enable_location': 'Continue',
   'location_subtitle':
       'Allow location access so Methna can show local marriage introductions.',
   'location_banner_message': 'Enable location to see nearby matches.',

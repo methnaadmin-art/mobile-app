@@ -136,7 +136,7 @@ const Map<String, String> arDZ = {
   'main_photo': 'الصورة الرئيسية',
   'selfie_verification': 'التحقق بصورة شخصية',
   'selfie_subtitle': 'التقط صورة سيلفي للتحقق من أنك صاحب الصور',
-  'enable_location': 'تفعيل الموقع',
+  'enable_location': 'متابعة',
   'location_subtitle': 'اسمح بالوصول إلى موقعك لاكتشاف أشخاص بالقرب منك',
   'location_banner_message': 'فعّل الموقع لرؤية المطابقات القريبة منك.',
   'birthday_title': 'لنحتفل بك 🎂',

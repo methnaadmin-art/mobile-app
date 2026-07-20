@@ -244,10 +244,16 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   /// Call after each user swipe. Returns true if an ad should be shown.
   bool incrementSwipeCount() {
     _swipeCount++;
-    // Show ad after 1st swipe, then every 4 swipes
-    final shouldShow = _swipeCount == 1 || (_swipeCount - 1) % 4 == 0;
+    // Show ad after 1st swipe, then every 4 swipes. Only if a real ad has
+    // already loaded — otherwise this opens a blank, content-less overlay
+    // (no image/title, only the generic "Sponsored" fallback) that the user
+    // can't tell apart from a stuck screen.
+    final dueForAd = _swipeCount == 1 || (_swipeCount - 1) % 4 == 0;
+    final shouldShow = dueForAd && featuredAd.value != null;
     if (shouldShow) {
       showAdOverlay.value = true;
+    } else if (dueForAd && featuredAd.value == null) {
+      unawaited(fetchFeaturedAd());
     }
     return shouldShow;
   }

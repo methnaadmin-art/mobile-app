@@ -1929,10 +1929,12 @@ class _AdOverlayCard extends StatelessWidget {
               top: 50,
               right: 16,
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => controller.dismissAdOverlay(),
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
@@ -1964,11 +1966,13 @@ class _AdOverlayCard extends StatelessWidget {
               ),
             ),
 
-            // Content
+            // Content — cleared above the floating bottom nav bar (which
+            // paints on top of the body via Scaffold.extendBody) so the
+            // Dismiss/Visit buttons aren't hidden underneath it.
             Positioned(
               left: 24,
               right: 24,
-              bottom: 40,
+              bottom: 40 + 66 + MediaQuery.of(context).padding.bottom,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
